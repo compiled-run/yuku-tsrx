@@ -45,6 +45,10 @@ fn consume(comptime Host: type, parser: anytype, comptime token: Host.Token, mes
 fn parseIf(comptime Host: type, parser: anytype) Host.ErrorType!?Host.NodeIndex {
     const start = Host.currentSpan(parser).start;
     if (!try Host.advance(parser)) return null;
+    return parseIfFromCurrent(Host, parser, start);
+}
+
+fn parseIfFromCurrent(comptime Host: type, parser: anytype, start: u32) Host.ErrorType!?Host.NodeIndex {
     if (!try consume(Host, parser, .@"if", "Expected 'if' after '@'", "TSRX if directives are written '@if (...) { ... }'")) return null;
     if (!try consume(Host, parser, .left_paren, "Expected '(' after '@if'", null)) return null;
     const condition = try parseValue(Host, parser) orelse return null;
@@ -55,7 +59,9 @@ fn parseIf(comptime Host: type, parser: anytype) Host.ErrorType!?Host.NodeIndex 
     if (directive(Host, parser, "else")) {
         if (!try Host.advance(parser)) return null;
         if (!try consume(Host, parser, .@"else", "Expected 'else' after '@'", "TSRX else clauses are written '@else { ... }'")) return null;
-        alternate = if (directive(Host, parser, "if"))
+        alternate = if (Host.currentToken(parser) == .@"if")
+            try parseIfFromCurrent(Host, parser, Host.currentSpan(parser).start) orelse return null
+        else if (directive(Host, parser, "if"))
             try parseIf(Host, parser) orelse return null
         else
             try templateBlock(Host, parser, false) orelse return null;

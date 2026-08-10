@@ -156,6 +156,102 @@ test "JSX-child for preserves index and key overlay" {
     try std.testing.expectEqualStrings("item.id", source[tree.span(key).start..tree.span(key).end]);
 }
 
+test "Markless compatibility accepts static dynamic member tags" {
+    const source = "const view = <{item.tag}></{item.tag}>;";
+    var tree = try parser.parse(std.testing.allocator, source, .{ .lang = .tsx });
+    defer tree.deinit();
+    try std.testing.expect(!tree.hasErrors());
+
+    const member = findNode(&tree, .member_expression) orelse return error.MissingDynamicMemberTag;
+    const data = tree.data(member).member_expression;
+    try std.testing.expectEqual(.identifier_reference, std.meta.activeTag(tree.data(data.object)));
+    try std.testing.expectEqual(.identifier_name, std.meta.activeTag(tree.data(data.property)));
+    try std.testing.expectEqualStrings("item", source[tree.span(data.object).start..tree.span(data.object).end]);
+    try std.testing.expectEqualStrings("tag", source[tree.span(data.property).start..tree.span(data.property).end]);
+    try std.testing.expectEqualStrings("item.tag", source[tree.span(member).start..tree.span(member).end]);
+    try expectRoundTrip(&tree);
+}
+
+test "Markless compatibility parses comparison conditions" {
+    const source = "const view = @if (count > 0) { <p /> };";
+    var tree = try parser.parse(std.testing.allocator, source, .{ .lang = .tsx });
+    defer tree.deinit();
+    try std.testing.expect(!tree.hasErrors());
+
+    const directive = findNode(&tree, .dialect_node) orelse return error.MissingComparisonIf;
+    const record = tree.dialect_store.records.items[tree.data(directive).dialect_node.record_index].jsx_if_expression;
+    const condition: parser.ast.NodeIndex = @enumFromInt(record.@"test".raw);
+    const comparison = tree.data(condition).binary_expression;
+    try std.testing.expectEqual(.greater_than, comparison.operator);
+    try std.testing.expectEqualStrings("count > 0", source[tree.span(condition).start..tree.span(condition).end]);
+    try std.testing.expectEqualStrings("@if (count > 0) { <p /> }", source[tree.span(directive).start..tree.span(directive).end]);
+    try expectRoundTrip(&tree);
+}
+
+test "Markless compatibility parses compatible else-if spellings" {
+    for ([_]struct { source: []const u8, nested_marker: []const u8 }{
+        .{ .source = "const view = @if (a) { <a /> } @else if (b) { <b /> } @else { <c /> };", .nested_marker = "if (b)" },
+        .{ .source = "const view = @if (a) { <a /> } @else @if (b) { <b /> } @else { <c /> };", .nested_marker = "@if (b)" },
+    }) |case| {
+        var tree = try parser.parse(std.testing.allocator, case.source, .{ .lang = .tsx });
+        defer tree.deinit();
+        try std.testing.expect(!tree.hasErrors());
+
+        const outer_start = std.mem.indexOf(u8, case.source, "@if").?;
+        const nested_start = std.mem.indexOfPos(u8, case.source, outer_start + 3, case.nested_marker).?;
+        const end = std.mem.lastIndexOfScalar(u8, case.source, '}').? + 1;
+        const outer = findNodeWithSpan(&tree, .dialect_node, @intCast(outer_start), @intCast(end)) orelse
+            return error.MissingOuterElseIf;
+        const nested = findNodeWithSpan(&tree, .dialect_node, @intCast(nested_start), @intCast(end)) orelse
+            return error.MissingNestedElseIf;
+        const outer_record = tree.dialect_store.records.items[tree.data(outer).dialect_node.record_index].jsx_if_expression;
+        const nested_record = tree.dialect_store.records.items[tree.data(nested).dialect_node.record_index].jsx_if_expression;
+        try std.testing.expectEqual(@intFromEnum(nested), outer_record.alternate.raw);
+        const final_alternate: parser.ast.NodeIndex = @enumFromInt(nested_record.alternate.raw);
+        try std.testing.expectEqual(.block_statement, std.meta.activeTag(tree.data(final_alternate)));
+        try std.testing.expectEqual(@as(u32, @intCast(end)), tree.span(final_alternate).end);
+        const nested_condition: parser.ast.NodeIndex = @enumFromInt(nested_record.@"test".raw);
+        try std.testing.expectEqual(.identifier_reference, std.meta.activeTag(tree.data(nested_condition)));
+        try std.testing.expectEqualStrings("b", case.source[tree.span(nested_condition).start..tree.span(nested_condition).end]);
+        try expectRoundTrip(&tree);
+    }
+}
+
+test "Markless compatibility copies nested for overlay references" {
+    const source = "export function App() @{ @for (const item of items; index slot; key item.id) { <p /> } }";
+    var tree = try parser.parse(std.testing.allocator, source, .{ .lang = .tsx });
+    defer tree.deinit();
+    try std.testing.expect(!tree.hasErrors());
+
+    var transformed: ?parser.ast.NodeIndex = null;
+    for (tree.dialect_store.records.items) |record| switch (record) {
+        .jsx_for_expression => |jsx_for| transformed = @enumFromInt(jsx_for.statement.raw),
+        else => {},
+    };
+    const transformed_node = transformed orelse return error.MissingNestedTransformedFor;
+    const transformed_overlay = tree.dialectOverlay(@intFromEnum(transformed_node)) orelse
+        return error.MissingNestedCopiedForOverlay;
+    const copied = tree.dialect_store.records.items[transformed_overlay].for_of;
+
+    var source_record: ?parser.dialect_schema.ForOfOverlay = null;
+    for (tree.dialect_store.records.items) |record| switch (record) {
+        .for_of => |for_of| if (for_of.host_node.raw != @intFromEnum(transformed_node)) {
+            source_record = for_of;
+        },
+        else => {},
+    };
+    const original = source_record orelse return error.MissingNestedParserForOverlay;
+    try std.testing.expectEqual(original.index.raw, copied.index.raw);
+    try std.testing.expectEqual(original.key.raw, copied.key.raw);
+    const index: parser.ast.NodeIndex = @enumFromInt(copied.index.raw);
+    const key: parser.ast.NodeIndex = @enumFromInt(copied.key.raw);
+    try std.testing.expectEqual(.identifier_reference, std.meta.activeTag(tree.data(index)));
+    try std.testing.expectEqual(.member_expression, std.meta.activeTag(tree.data(key)));
+    try std.testing.expectEqualStrings("slot", source[tree.span(index).start..tree.span(index).end]);
+    try std.testing.expectEqualStrings("item.id", source[tree.span(key).start..tree.span(key).end]);
+    try expectRoundTrip(&tree);
+}
+
 test "production binding prefix deterministically rejects non-pattern targets" {
     for ([_][]const u8{
         "function invalid(&name: string) {}",
@@ -189,6 +285,18 @@ fn expectRoundTrip(tree: *const parser.ast.Tree) !void {
 fn findNode(tree: *const parser.ast.Tree, tag: std.meta.Tag(parser.ast.NodeData)) ?parser.ast.NodeIndex {
     for (tree.nodes.items(.data), 0..) |data, index| {
         if (std.meta.activeTag(data) == tag) return @enumFromInt(index);
+    }
+    return null;
+}
+
+fn findNodeWithSpan(
+    tree: *const parser.ast.Tree,
+    tag: std.meta.Tag(parser.ast.NodeData),
+    start: u32,
+    end: u32,
+) ?parser.ast.NodeIndex {
+    for (tree.nodes.items(.data), tree.nodes.items(.span), 0..) |data, span, index| {
+        if (std.meta.activeTag(data) == tag and span.start == start and span.end == end) return @enumFromInt(index);
     }
     return null;
 }

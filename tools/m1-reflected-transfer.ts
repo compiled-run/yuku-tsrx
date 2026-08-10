@@ -8,7 +8,7 @@ import { pathToFileURL } from "node:url";
 import { gitChildEnvironment } from "./m1-git-environment.ts";
 
 const expectedRef = "eb2adcb4c17da16e7ade1a0517192d81d469e67f";
-const expectedSeamHead = "825405ad2850aade6fe219fbd320f091b6877117";
+const expectedSeamHead = "01dc3fc2fd3be461302cec6d3b343bdc0e6ee35c";
 const expectedControlHead = "bf03e146d97ae2f0c2d4c4ec90456e1e544d2760";
 const expectedSeamBranch = "seam/dialect";
 const nonTsPins = [
