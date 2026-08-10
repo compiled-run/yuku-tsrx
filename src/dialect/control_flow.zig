@@ -116,6 +116,20 @@ fn parseSimpleJsxFor(comptime Host: type, parser: anytype, start: u32) Host.Erro
     } }, .{ .start = declaration_start, .end = binding_span.end });
     if (!try consume(Host, parser, .of, "Expected 'of' in TSRX for header", null)) return null;
     const right = try parseValue(Host, parser) orelse return null;
+    var index = Host.NodeIndex.null;
+    var key = Host.NodeIndex.null;
+    if (Host.currentToken(parser) == .semicolon) {
+        if (!try Host.advance(parser)) return null;
+        if (contextual(Host, parser, "index")) {
+            if (!try Host.advance(parser)) return null;
+            index = try parseValue(Host, parser) orelse return null;
+            if (Host.currentToken(parser) == .semicolon and !try Host.advance(parser)) return null;
+        }
+        if (contextual(Host, parser, "key")) {
+            if (!try Host.advance(parser)) return null;
+            key = try parseValue(Host, parser) orelse return null;
+        }
+    }
     if (!try consume(Host, parser, .right_paren, "Expected ')' after for-of expression", null)) return null;
     const body = try templateBlock(Host, parser, false) orelse return null;
     const statement_node = try Host.addNode(parser, Host.NodeData{ .for_of_statement = .{
@@ -126,8 +140,8 @@ fn parseSimpleJsxFor(comptime Host: type, parser: anytype, start: u32) Host.Erro
     } }, .{ .start = for_start, .end = Host.nodeSpan(parser, body).end });
     const overlay = try Host.addRecord(parser, schema.Record{ .for_of = .{
         .host_node = abi.OverlayHost.init(@intFromEnum(statement_node)),
-        .index = abi.OptionalNodeRef.init(@intFromEnum(Host.NodeIndex.null)),
-        .key = abi.OptionalNodeRef.init(@intFromEnum(Host.NodeIndex.null)),
+        .index = abi.OptionalNodeRef.init(@intFromEnum(index)),
+        .key = abi.OptionalNodeRef.init(@intFromEnum(key)),
     } });
     try Host.addOverlay(parser, statement_node, overlay);
     return wrapFor(Host, parser, start, statement_node);

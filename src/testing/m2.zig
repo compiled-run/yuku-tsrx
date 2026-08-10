@@ -132,6 +132,30 @@ test "production for transformation retains parser overlay node refs and spans" 
     try std.testing.expectEqualStrings("item.id", source[tree.span(key).start..tree.span(key).end]);
 }
 
+test "JSX-child for preserves index and key overlay" {
+    const source = "const list = <ul>@for (const item of items; index slot; key item.id) { <li /> }</ul>;";
+    var tree = try parser.parse(std.testing.allocator, source, .{ .lang = .tsx });
+    defer tree.deinit();
+    try std.testing.expect(!tree.hasErrors());
+
+    var statement: ?parser.ast.NodeIndex = null;
+    for (tree.dialect_store.records.items) |record| switch (record) {
+        .jsx_for_expression => |jsx_for| statement = @enumFromInt(jsx_for.statement.raw),
+        else => {},
+    };
+    const for_of = statement orelse return error.MissingJsxChildFor;
+    try std.testing.expectEqual(.for_of_statement, std.meta.activeTag(tree.data(for_of)));
+    const overlay = tree.dialectOverlay(@intFromEnum(for_of)) orelse
+        return error.MissingJsxChildForOverlay;
+    const record = tree.dialect_store.records.items[overlay].for_of;
+    const index: parser.ast.NodeIndex = @enumFromInt(record.index.raw);
+    const key: parser.ast.NodeIndex = @enumFromInt(record.key.raw);
+    try std.testing.expectEqual(.identifier_reference, std.meta.activeTag(tree.data(index)));
+    try std.testing.expectEqual(.member_expression, std.meta.activeTag(tree.data(key)));
+    try std.testing.expectEqualStrings("slot", source[tree.span(index).start..tree.span(index).end]);
+    try std.testing.expectEqualStrings("item.id", source[tree.span(key).start..tree.span(key).end]);
+}
+
 test "production binding prefix deterministically rejects non-pattern targets" {
     for ([_][]const u8{
         "function invalid(&name: string) {}",

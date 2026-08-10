@@ -3,6 +3,7 @@ import { spawnSync, type SpawnSyncReturns } from "node:child_process";
 import { link, lstat, mkdir, open, readFile, readdir, stat, unlink } from "node:fs/promises";
 import { basename, dirname, isAbsolute, relative, resolve, sep } from "node:path";
 import { pathToFileURL } from "node:url";
+import { gitChildEnvironment } from "./m1-git-environment.ts";
 
 export type ReceiptKind = "matrix" | "matched-fuzz";
 export type InternalPhase = "pre-trace" | "final";
@@ -265,7 +266,10 @@ const computeIdentityFiles = async (paths: readonly string[]): Promise<IdentityF
 	Promise.all(paths.map(async (path) => ({ path, sha256: sha256(await readFile(path)) })));
 
 const git = (args: string[]): string => {
-	const result = spawnSync("git", ["-C", control, ...args], { encoding: "utf8" });
+	const result = spawnSync("git", ["-C", control, ...args], {
+		encoding: "utf8",
+		env: gitChildEnvironment(),
+	});
 	if (result.status !== 0) fail(`control Yuku identity command failed: git ${args.join(" ")}`);
 	return result.stdout.trim();
 };

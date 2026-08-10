@@ -1,30 +1,45 @@
 import { spawnSync } from "node:child_process";
+import { mkdtemp, rm } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join, resolve } from "node:path";
 import { expect, test } from "vitest";
 
-const run = (args: string[]) =>
-	spawnSync("node", ["tools/m1-reflected-transfer.ts", ...args], { encoding: "utf8" });
+const project = resolve(import.meta.dirname, "..");
+const script = resolve(project, "tools/m1-reflected-transfer.ts");
+const run = (args: string[], cwd = project) =>
+	spawnSync(process.execPath, [script, ...args], { cwd, encoding: "utf8" });
 
 const validArgs = [
 	"--control-yuku",
-	"../yuku",
+	resolve(project, "../yuku"),
 	"--seam-yuku",
-	"../yuku-dialect",
+	resolve(project, "../yuku-dialect"),
 	"--compare-ref",
 	"eb2adcb4c17da16e7ade1a0517192d81d469e67f",
 ];
 
-test("retains and consumes reflected dialect transfer metadata", () => {
-	const build = spawnSync(
-		"zig",
-		["build", "m1-reflected-transfer-fixtures", "gen-m1-dialect-decoder", "gen-m1-dialect-encoder"],
-		{
-			encoding: "utf8",
-		},
-	);
-	expect(build.status, build.stderr).toBe(0);
-	const result = run(validArgs);
-	expect(result.status, result.stderr).toBe(0);
-}, 30_000);
+test("retains and consumes reflected dialect transfer metadata", async () => {
+	const temporaryRoot = await mkdtemp(join(tmpdir(), "m1-reflected-transfer-"));
+	try {
+		const build = spawnSync(
+			"zig",
+			[
+				"build",
+				"m1-reflected-transfer-fixtures",
+				"gen-m1-dialect-decoder",
+				"gen-m1-dialect-encoder",
+				"--prefix",
+				join(temporaryRoot, "zig-out"),
+			],
+			{ cwd: project, encoding: "utf8" },
+		);
+		expect(build.status, build.stderr).toBe(0);
+		const result = run(validArgs, temporaryRoot);
+		expect(result.status, result.stderr).toBe(0);
+	} finally {
+		await rm(temporaryRoot, { force: true, recursive: true });
+	}
+}, 60_000);
 
 test("rejects missing, unknown, bogus, and typo comparison inputs before artifacts", () => {
 	expect(run([]).status).not.toBe(0);

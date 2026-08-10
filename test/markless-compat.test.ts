@@ -3,8 +3,10 @@ import {
 	isEventAttribute,
 	normalizeEventName,
 	parseModule,
+	walk,
 	type Comment,
 	type Diagnostic,
+	type JSXForExpression,
 } from "yuku-tsrx";
 
 test("collects structured parser diagnostics without weakening strict mode", () => {
@@ -50,4 +52,26 @@ test("exports Markless-compatible event attribute helpers", () => {
 	expect(isEventAttribute("on")).toBe(false);
 	expect(normalizeEventName("onClick")).toBe("click");
 	expect(normalizeEventName("onPointerDownCapture")).toBe("pointerdown");
+});
+
+test("parses JSX-child @for index and key overlays", () => {
+	const source =
+		"const list = <ul>@for (const item of items; index slot; key item.id) { <li /> }</ul>;";
+	const errors: Diagnostic[] = [];
+	const program = parseModule(source, "list.tsrx", { collect: true, errors });
+	let directive: JSXForExpression | undefined;
+	walk(program, {
+		enter(node) {
+			if (node.type === "JSXForExpression") directive = node;
+		},
+	});
+
+	expect(errors).toEqual([]);
+	expect(directive?.statement.type).toBe("ForOfStatement");
+	if (directive?.statement.type !== "ForOfStatement") throw new Error("missing for-of");
+	expect(directive.statement.index).toMatchObject({ type: "Identifier", name: "slot" });
+	expect(directive.statement.key).toMatchObject({ type: "MemberExpression" });
+	expect(source.slice(directive.statement.key?.start, directive.statement.key?.end)).toBe(
+		"item.id",
+	);
 });

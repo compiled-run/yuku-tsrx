@@ -5,9 +5,10 @@ import { createHash } from "node:crypto";
 import { readFile } from "node:fs/promises";
 import { join, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
+import { gitChildEnvironment } from "./m1-git-environment.ts";
 
 const expectedRef = "eb2adcb4c17da16e7ade1a0517192d81d469e67f";
-const expectedSeamHead = "66410e5ce2e533401336be1025155cc662d7440a";
+const expectedSeamHead = "825405ad2850aade6fe219fbd320f091b6877117";
 const expectedControlHead = "bf03e146d97ae2f0c2d4c4ec90456e1e544d2760";
 const expectedSeamBranch = "seam/dialect";
 const nonTsPins = [
@@ -45,9 +46,12 @@ const parseArgs = (): { controlYuku: string; seamYuku: string; compareRef: strin
 
 const args = parseArgs();
 const gitText = (cwd: string, gitArgs: string[]): string =>
-	execFileSync("git", ["-C", cwd, ...gitArgs], { encoding: "utf8" }).trim();
+	execFileSync("git", ["-C", cwd, ...gitArgs], {
+		encoding: "utf8",
+		env: gitChildEnvironment(),
+	}).trim();
 const gitBytes = (cwd: string, gitArgs: string[]): Buffer =>
-	execFileSync("git", ["-C", cwd, ...gitArgs]);
+	execFileSync("git", ["-C", cwd, ...gitArgs], { env: gitChildEnvironment() });
 
 assert.equal(
 	gitText(args.controlYuku, ["rev-parse", "HEAD"]),
@@ -69,8 +73,8 @@ assert.equal(
 	expectedSeamHead,
 	"seam checkout HEAD mismatch",
 );
-execFileSync("git", ["-C", args.controlYuku, "cat-file", "-e", `${args.compareRef}^{commit}`]);
-execFileSync("git", ["-C", args.seamYuku, "cat-file", "-e", `${args.compareRef}^{commit}`]);
+gitBytes(args.controlYuku, ["cat-file", "-e", `${args.compareRef}^{commit}`]);
+gitBytes(args.seamYuku, ["cat-file", "-e", `${args.compareRef}^{commit}`]);
 
 execFileSync("zig", ["build", "gen-parser-decoder", "gen-codegen-encoder"], { cwd: args.seamYuku });
 assert.deepEqual(
