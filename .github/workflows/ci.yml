@@ -70,14 +70,14 @@ jobs:
             "$archive" | sha256sum --check -
           tar -xzf "$archive" -C "$RUNNER_TEMP"
           test -x "$ripgrep_dir/rg"
-          test "$("$ripgrep_dir/rg" --version | sed -n '1p')" = "ripgrep 15.2.0"
+          test "$("$ripgrep_dir/rg" --version | sed -n '1p')" = "ripgrep 15.2.0 (rev e89fff89ac)"
           printf '%s\n' "$ripgrep_dir" >> "$GITHUB_PATH"
 
       - name: Verify exact repository identities
         working-directory: yuku-tsrx
         run: |
           test "$(command -v rg)" = "$RUNNER_TEMP/ripgrep-15.2.0-x86_64-unknown-linux-musl/rg"
-          test "$(rg --version | sed -n '1p')" = "ripgrep 15.2.0"
+          test "$(rg --version | sed -n '1p')" = "ripgrep 15.2.0 (rev e89fff89ac)"
           test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
           test "$(git -C ../yuku rev-parse HEAD)" = bf03e146d97ae2f0c2d4c4ec90456e1e544d2760
           git -C ../yuku fetch --no-tags --depth=1 origin eb2adcb4c17da16e7ade1a0517192d81d469e67f
