@@ -58,9 +58,26 @@ jobs:
           cache: pnpm
           cache-dependency-path: yuku-tsrx/pnpm-lock.yaml
 
+      - name: Set up ripgrep 15.2.0
+        run: |
+          archive="$RUNNER_TEMP/ripgrep-15.2.0-x86_64-unknown-linux-musl.tar.gz"
+          ripgrep_dir="$RUNNER_TEMP/ripgrep-15.2.0-x86_64-unknown-linux-musl"
+          curl --fail --silent --show-error --location \
+            --output "$archive" \
+            https://github.com/BurntSushi/ripgrep/releases/download/15.2.0/ripgrep-15.2.0-x86_64-unknown-linux-musl.tar.gz
+          printf '%s  %s\n' \
+            33e15bcf1624b25cdd2a55813a47a2f95dbe126268203e76aa6a585d1e7b149c \
+            "$archive" | sha256sum --check -
+          tar -xzf "$archive" -C "$RUNNER_TEMP"
+          test -x "$ripgrep_dir/rg"
+          test "$("$ripgrep_dir/rg" --version | sed -n '1p')" = "ripgrep 15.2.0"
+          printf '%s\n' "$ripgrep_dir" >> "$GITHUB_PATH"
+
       - name: Verify exact repository identities
         working-directory: yuku-tsrx
         run: |
+          test "$(command -v rg)" = "$RUNNER_TEMP/ripgrep-15.2.0-x86_64-unknown-linux-musl/rg"
+          test "$(rg --version | sed -n '1p')" = "ripgrep 15.2.0"
           test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
           test "$(git -C ../yuku rev-parse HEAD)" = bf03e146d97ae2f0c2d4c4ec90456e1e544d2760
           git -C ../yuku fetch --no-tags --depth=1 origin eb2adcb4c17da16e7ade1a0517192d81d469e67f
