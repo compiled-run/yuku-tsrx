@@ -23,7 +23,7 @@ type CommandResult = {
 };
 
 const expectedRef = "eb2adcb4c17da16e7ade1a0517192d81d469e67f";
-const expectedSeamHead = "3a89a91f4dfb68d9a08d4dc2795433eb861ba10b";
+const expectedSeamHead = "66410e5ce2e533401336be1025155cc662d7440a";
 const expectedPriorArt = "bf03e146d97ae2f0c2d4c4ec90456e1e544d2760";
 const excludedNames = new Set([".git", ".zig-cache", "node_modules", "zig-cache", "zig-out"]);
 

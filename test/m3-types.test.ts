@@ -1,6 +1,8 @@
 import { expectTypeOf, test } from "vitest";
 import type {
 	BlockStatement,
+	Comment,
+	Diagnostic,
 	Expression,
 	ForOfStatement,
 	JSXCodeBlock,
@@ -10,6 +12,7 @@ import type {
 	JSXSwitchExpression,
 	JSXTryExpression,
 	Program,
+	ParseModuleOptions,
 	StyleSheet,
 	TSRXExpression,
 	TSRXJSXElement,
@@ -133,8 +136,25 @@ const program: Program = {
 	sourceType: "module",
 };
 
+const diagnostic: Diagnostic = {
+	severity: "error",
+	message: "broken",
+	start: 0,
+	end: 1,
+	help: null,
+	labels: [],
+};
+const comment: Comment = { type: "Block", value: " kept ", start: 0, end: 10 };
+const parseOptions: ParseModuleOptions = {
+	collect: true,
+	loose: true,
+	errors: [diagnostic],
+	comments: [comment],
+};
+
 test("exports structurally useful TSRX consumer types", () => {
 	expectTypeOf(tsrxExpression).toMatchTypeOf<TSRXExpression>();
 	expectTypeOf<TSRXExpression>().not.toEqualTypeOf<JSXCodeBlock>();
 	expectTypeOf(program).toMatchTypeOf<Program>();
+	expectTypeOf(parseOptions).toMatchTypeOf<ParseModuleOptions>();
 });

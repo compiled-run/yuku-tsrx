@@ -189,6 +189,11 @@ export interface Diagnostic {
 	labels: DiagnosticLabel[];
 }
 
+export interface Comment extends BaseNode {
+	type: "Line" | "Block";
+	value: string;
+}
+
 export interface ParseResult {
 	program: Program;
 	comments: BaseNode[];
@@ -201,6 +206,13 @@ export interface ParseOptions {
 	preserveParens?: boolean;
 	semanticErrors?: boolean;
 	attachComments?: boolean;
+	loose?: boolean;
+}
+
+export interface ParseModuleOptions extends Omit<ParseOptions, "sourceType"> {
+	collect?: boolean;
+	errors?: Diagnostic[];
+	comments?: Comment[];
 }
 
 export type WalkVisitor = (
@@ -220,8 +232,10 @@ export function parseWire(source: string | Uint8Array, options?: ParseOptions): 
 export function parseModule(
 	source: string | Uint8Array,
 	filename: string,
-	options?: Omit<ParseOptions, "sourceType">,
+	options?: ParseModuleOptions,
 ): Program;
+export function isEventAttribute(attribute: string): boolean;
+export function normalizeEventName(attribute: string): string;
 export function walk<T extends BaseNode>(root: T, visitors: Visitors, state?: unknown): T;
 export function decode(buffer: ArrayBuffer, source: string): ParseResult;
 export function decodeAnalyzer(buffer: ArrayBuffer, source: string): unknown;

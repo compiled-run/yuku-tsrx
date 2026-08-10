@@ -30,16 +30,41 @@ export function parse(source, options = {}) {
 }
 
 export function parseModule(source, filename, options = {}) {
+  const { collect = false, loose = false, errors, comments, ...parseOptions } = options;
   const result = parse(source, {
-    ...options,
-    lang: options.lang ?? inferLang(filename),
+    ...parseOptions,
+    lang: parseOptions.lang ?? inferLang(filename),
     sourceType: "module",
+    loose,
+    attachComments: parseOptions.attachComments ?? comments !== undefined,
   });
+  if ((collect || loose) && comments) comments.push(...result.comments);
   if (result.diagnostics.length > 0) {
+    if (collect || loose) {
+      if (errors) errors.push(...result.diagnostics);
+      return result.program;
+    }
     const diagnostic = result.diagnostics[0];
     throw new SyntaxError(`${diagnostic.message} (${diagnostic.start}:${diagnostic.end})`);
   }
   return result.program;
+}
+
+export function isEventAttribute(attribute) {
+  return (
+    attribute.startsWith("on") &&
+    attribute.length > 2 &&
+    attribute[2] === attribute[2].toUpperCase()
+  );
+}
+
+export function normalizeEventName(attribute) {
+  let name = attribute.slice(2);
+  const lower = name.toLowerCase();
+  if (name.endsWith("Capture") && lower !== "gotpointercapture" && lower !== "lostpointercapture") {
+    name = name.slice(0, -7);
+  }
+  return name.toLowerCase();
 }
 
 export { decode, decodeAnalyzer, encode, walk };

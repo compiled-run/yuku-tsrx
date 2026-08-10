@@ -121,6 +121,7 @@ pub fn build(b: *std.Build) void {
                 .dts = .auto,
             },
         });
+        installNpmHostWrapper(b);
 
         addEstreeGenerator(b, yuku, production_parser_module, production_transfer_module, .{
             .step = "gen-parser-decoder",
@@ -348,6 +349,30 @@ pub fn build(b: *std.Build) void {
             "Compare production TSRX trees and diagnostics with the immutable oracle",
         );
         fixture_step.dependOn(&fixture_oracle.step);
+    }
+}
+
+fn installNpmHostWrapper(b: *std.Build) void {
+    const install_step = b.getInstallStep();
+    const generated_steps = b.allocator.dupe(
+        *std.Build.Step,
+        install_step.dependencies.items,
+    ) catch @panic("unable to snapshot npm install dependencies");
+    inline for ([_][]const u8{
+        "index.js",
+        "index.d.ts",
+        "package.json",
+        "decode.js",
+        "decode-analyzer.js",
+        "encode.js",
+        "walk.js",
+    }) |name| {
+        const overlay = b.addInstallFile(
+            b.path(b.fmt("npm/yuku-tsrx/{s}", .{name})),
+            b.fmt("npm/yuku-tsrx/{s}", .{name}),
+        );
+        for (generated_steps) |generated| overlay.step.dependOn(generated);
+        install_step.dependOn(&overlay.step);
     }
 }
 

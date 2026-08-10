@@ -1,6 +1,15 @@
 {
 	"name": "yuku-tsrx",
 	"version": "0.0.0",
+	"files": [
+		"index.js",
+		"index.d.ts",
+		"binding.js",
+		"decode.js",
+		"decode-analyzer.js",
+		"encode.js",
+		"walk.js"
+	],
 	"type": "module",
 	"main": "index.js",
 	"types": "index.d.ts",
@@ -9,5 +18,19 @@
 			"types": "./index.d.ts",
 			"import": "./index.js"
 		}
+	},
+	"optionalDependencies": {
+		"@yuku-tsrx/binding-android-arm64": "0.0.0",
+		"@yuku-tsrx/binding-darwin-arm64": "0.0.0",
+		"@yuku-tsrx/binding-darwin-x64": "0.0.0",
+		"@yuku-tsrx/binding-freebsd-x64": "0.0.0",
+		"@yuku-tsrx/binding-linux-arm-gnu": "0.0.0",
+		"@yuku-tsrx/binding-linux-arm-musl": "0.0.0",
+		"@yuku-tsrx/binding-linux-arm64-gnu": "0.0.0",
+		"@yuku-tsrx/binding-linux-arm64-musl": "0.0.0",
+		"@yuku-tsrx/binding-linux-x64-gnu": "0.0.0",
+		"@yuku-tsrx/binding-linux-x64-musl": "0.0.0",
+		"@yuku-tsrx/binding-win32-arm64": "0.0.0",
+		"@yuku-tsrx/binding-win32-x64": "0.0.0"
 	}
 }
