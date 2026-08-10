@@ -1,0 +1,54 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          path: yuku-tsrx
+      - uses: actions/checkout@v4
+        with:
+          path: yuku
+          ref: eb2adcb4c17da16e7ade1a0517192d81d469e67f
+          repository: yuku-toolchain/yuku
+      - uses: actions/checkout@v4
+        with:
+          path: markless
+          repository: frameless-dev/markless
+      - uses: mlugg/setup-zig@v2
+        with:
+          version: 0.16.0
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.33.2
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+          cache-dependency-path: yuku-tsrx/pnpm-lock.yaml
+      - name: Establish exact Yuku control ref
+        run: |
+          git -C yuku remote add upstream https://github.com/yuku-toolchain/yuku.git
+          git -C yuku fetch upstream main
+      - name: Verify M0
+        working-directory: yuku-tsrx
+        run: |
+          git -C ../yuku rev-parse HEAD && git -C ../yuku status --porcelain=v1 && test "$(git -C ../yuku rev-parse upstream/main)" = eb2adcb4c17da16e7ade1a0517192d81d469e67f
+          pnpm install --frozen-lockfile
+          zig version && node --version && pnpm --version && pnpm exec vite --version && pnpm vp --version && pnpm list --depth 0 @tsrx/core typescript vite vite-plus vitest
+          node tools/m0-control.ts --yuku ../yuku --ref eb2adcb4c17da16e7ade1a0517192d81d469e67f -- zig build test
+          node tools/m0-control.ts --yuku ../yuku --ref eb2adcb4c17da16e7ade1a0517192d81d469e67f -- zig build fuzz
+          zig fmt --check .
+          pnpm vp check
+          pnpm vp lint
+          pnpm vp fmt --check
+          pnpm vp test
+          node tools/m0-control.ts --yuku ../yuku --ref eb2adcb4c17da16e7ade1a0517192d81d469e67f -- zig build profile -Doptimize=ReleaseFast
+          node tools/m0-control.ts --yuku ../yuku --ref eb2adcb4c17da16e7ade1a0517192d81d469e67f --sha256 zig-out/bin/yuku-tsrx-control -- zig build control -Doptimize=ReleaseFast
+          node benchmarks/tsrx-core.ts --corpus ../markless --json
+          git -C ../yuku rev-parse HEAD && git -C ../yuku status --porcelain=v1

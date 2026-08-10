@@ -1,0 +1,30 @@
+{
+	"name": "yuku-tsrx-workspace",
+	"version": "0.0.0",
+	"private": true,
+	"type": "module",
+	"scripts": {
+		"check": "vp check",
+		"check:m3-generated": "node tools/m3-generated.ts --check",
+		"fmt": "vp fmt",
+		"gen:npm": "node tools/m3-generated.ts --sync",
+		"lint": "vp lint",
+		"prepare": "git config core.hooksPath .githooks",
+		"test": "vp test"
+	},
+	"dependencies": {
+		"@tsrx/core": "0.1.32"
+	},
+	"devDependencies": {
+		"@types/node": "24.12.2",
+		"typescript": "5.9.3",
+		"vite": "8.0.16",
+		"vite-plus": "0.1.20",
+		"vitest": "4.1.5",
+		"yuku-tsrx": "workspace:*"
+	},
+	"engines": {
+		"node": ">=22"
+	},
+	"packageManager": "pnpm@10.33.2"
+}

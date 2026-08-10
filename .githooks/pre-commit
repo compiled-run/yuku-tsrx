@@ -1,0 +1,8 @@
+#!/bin/sh
+set -eu
+
+zig fmt --check .
+pnpm vp check
+pnpm vp lint
+pnpm vp fmt --check
+pnpm vp test

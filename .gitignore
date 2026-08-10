@@ -1,0 +1,8 @@
+node_modules/
+zig-cache/
+.zig-cache/
+.zig-global-cache/
+zig-out/
+zig-pkg/
+coverage/
+docs/goals/**/.goalbuddy-board/
