@@ -252,6 +252,67 @@ test "Markless compatibility copies nested for overlay references" {
     try expectRoundTrip(&tree);
 }
 
+test "for-of dialect labels preserve direct JSX-child key-only overlay" {
+    const source = "const view = <ul>@for (const row of rows; key row.id) { <li /> }</ul>;";
+    var tree = try parser.parse(std.testing.allocator, source, .{ .lang = .tsx });
+    defer tree.deinit();
+    try std.testing.expect(!tree.hasErrors());
+    try expectKeyOnlyFor(&tree, source);
+}
+
+test "for-of dialect labels preserve code-block key-only overlay" {
+    const source = "export function App() @{ @for (const row of rows; key row.id) { <li /> } }";
+    var tree = try parser.parse(std.testing.allocator, source, .{ .lang = .tsx });
+    defer tree.deinit();
+    try std.testing.expect(!tree.hasErrors());
+    try expectKeyOnlyFor(&tree, source);
+}
+
+test "for-of dialect labels preserve nested statement-host key-only overlay" {
+    const source = "const view = @if (ready) { @for (const row of rows; key row.id) { <li /> } };";
+    var tree = try parser.parse(std.testing.allocator, source, .{ .lang = .tsx });
+    defer tree.deinit();
+    try std.testing.expect(!tree.hasErrors());
+    try expectKeyOnlyFor(&tree, source);
+}
+
+test "for-of dialect labels preserve statement-host valid tails" {
+    for ([_]struct { source: []const u8, index_text: ?[]const u8, key_text: ?[]const u8 }{
+        .{ .source = "export function App() @{ @for (const row of rows; index slot) { <li /> } }", .index_text = "slot", .key_text = null },
+        .{ .source = "export function App() @{ @for (const row of rows; index slot; key row.id) { <li /> } }", .index_text = "slot", .key_text = "row.id" },
+    }) |case| {
+        var tree = try parser.parse(std.testing.allocator, case.source, .{ .lang = .tsx });
+        defer tree.deinit();
+        try std.testing.expect(!tree.hasErrors());
+        try expectForOverlay(&tree, case.source, case.index_text, case.key_text);
+        try expectRoundTrip(&tree);
+    }
+}
+
+test "for-of dialect labels reject malformed statement-host tails deterministically" {
+    for ([_][]const u8{
+        "export function App() @{ @for (const row of rows; position slot) { <li /> } }",
+        "export function App() @{ @for (const row of rows; index slot; index other) { <li /> } }",
+        "export function App() @{ @for (const row of rows; key row.id; index slot) { <li /> } }",
+        "export function App() @{ @for (const row of rows; slot) { <li /> } }",
+        "export function App() @{ @for (const row of rows; key) { <li /> } }",
+        "export function App() @{ @for (const row of rows; index slot; key row.id; extra value) { <li /> } }",
+        "export function App() @{ @for (const row of rows; key row.id;) { <li /> } }",
+    }) |source| {
+        var first = try parser.parse(std.testing.allocator, source, .{ .lang = .tsx });
+        defer first.deinit();
+        var second = try parser.parse(std.testing.allocator, source, .{ .lang = .tsx });
+        defer second.deinit();
+        try std.testing.expect(first.hasErrors());
+        try std.testing.expectEqual(first.diagnostics.items.len, second.diagnostics.items.len);
+        for (first.diagnostics.items, second.diagnostics.items) |left, right| {
+            try std.testing.expectEqualStrings(left.message, right.message);
+            try std.testing.expectEqual(left.span, right.span);
+        }
+        try std.testing.expectEqual(@as(usize, 0), first.dialect_store.overlays.items.len);
+    }
+}
+
 test "production binding prefix deterministically rejects non-pattern targets" {
     for ([_][]const u8{
         "function invalid(&name: string) {}",
@@ -280,6 +341,38 @@ fn expectRoundTrip(tree: *const parser.ast.Tree) !void {
     defer restored.deinit();
     try std.testing.expectEqualDeep(tree.dialect_store.records.items, restored.dialect_store.records.items);
     try std.testing.expectEqualDeep(tree.dialect_store.overlays.items, restored.dialect_store.overlays.items);
+}
+
+fn expectKeyOnlyFor(tree: *const parser.ast.Tree, source: []const u8) !void {
+    try expectForOverlay(tree, source, null, "row.id");
+    try expectRoundTrip(tree);
+}
+
+fn expectForOverlay(
+    tree: *const parser.ast.Tree,
+    source: []const u8,
+    expected_index: ?[]const u8,
+    expected_key: ?[]const u8,
+) !void {
+    var statement: ?parser.ast.NodeIndex = null;
+    for (tree.dialect_store.records.items) |record| switch (record) {
+        .jsx_for_expression => |jsx_for| statement = @enumFromInt(jsx_for.statement.raw),
+        else => {},
+    };
+    const for_of = statement orelse return error.MissingKeyOnlyFor;
+    try std.testing.expectEqual(.for_of_statement, std.meta.activeTag(tree.data(for_of)));
+    const overlay = tree.dialectOverlay(@intFromEnum(for_of)) orelse return error.MissingKeyOnlyForOverlay;
+    const record = tree.dialect_store.records.items[overlay].for_of;
+    if (expected_index) |text| {
+        const index: parser.ast.NodeIndex = @enumFromInt(record.index.raw);
+        try std.testing.expectEqual(.identifier_reference, std.meta.activeTag(tree.data(index)));
+        try std.testing.expectEqualStrings(text, source[tree.span(index).start..tree.span(index).end]);
+    } else try std.testing.expectEqual(@intFromEnum(parser.ast.NodeIndex.null), record.index.raw);
+    if (expected_key) |text| {
+        const key: parser.ast.NodeIndex = @enumFromInt(record.key.raw);
+        try std.testing.expectEqual(.member_expression, std.meta.activeTag(tree.data(key)));
+        try std.testing.expectEqualStrings(text, source[tree.span(key).start..tree.span(key).end]);
+    } else try std.testing.expectEqual(@intFromEnum(parser.ast.NodeIndex.null), record.key.raw);
 }
 
 fn findNode(tree: *const parser.ast.Tree, tag: std.meta.Tag(parser.ast.NodeData)) ?parser.ast.NodeIndex {

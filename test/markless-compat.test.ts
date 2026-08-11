@@ -6,6 +6,7 @@ import {
 	walk,
 	type Comment,
 	type Diagnostic,
+	type ForOfStatement,
 	type JSXForExpression,
 	type JSXIfExpression,
 	type MemberExpression,
@@ -176,4 +177,33 @@ test("Markless compatibility copies nested for overlay references", () => {
 	expect(source.slice(directive.statement.key?.start, directive.statement.key?.end)).toBe(
 		"item.id",
 	);
+});
+
+test("keyed repeat clause labels preserve nested Markless shape", () => {
+	const source = "const view = @if (ready) { @for (const row of rows; key row.id) { <li /> } };";
+	const errors: Diagnostic[] = [];
+	const program = parseModule(source, "key-only-repeat.tsrx", { collect: true, errors });
+	let directive: JSXForExpression | undefined;
+	let statement: ForOfStatement | undefined;
+	let key: MemberExpression | undefined;
+	walk(program, {
+		enter(node) {
+			if (node.type === "JSXForExpression") directive = node;
+			if (node.type === "ForOfStatement") statement = node;
+			if (node.type === "MemberExpression") key = node;
+		},
+	});
+
+	expect(errors).toEqual([]);
+	expect(directive?.statement.type).toBe("ForOfStatement");
+	if (directive?.statement.type !== "ForOfStatement") throw new Error("missing keyed repeat");
+	expect(directive.statement).toBe(statement);
+	expect(directive.statement.index).toBeNull();
+	expect(directive.statement.key).toBe(key);
+	expect(directive.statement.key).toMatchObject({
+		type: "MemberExpression",
+		object: { type: "Identifier", name: "row" },
+		property: { type: "Identifier", name: "id" },
+	});
+	expect(source.slice(directive.statement.key?.start, directive.statement.key?.end)).toBe("row.id");
 });

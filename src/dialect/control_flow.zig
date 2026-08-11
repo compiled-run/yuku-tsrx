@@ -158,14 +158,30 @@ pub fn forOfTail(comptime Host: type, parser: anytype, context: Host.Context) Ho
     var key = Host.NodeIndex.null;
     if (Host.currentToken(parser) == .semicolon) {
         if (!try Host.advance(parser)) return .{ .handled = null };
-        if (Host.currentToken(parser) == .identifier) {
+        var saw_index = false;
+        var saw_key = false;
+        while (true) {
+            if (Host.currentToken(parser) != .identifier) {
+                _ = try Host.expect(parser, .identifier, "Expected 'index' or 'key' after ';' in for-of expression");
+                return .{ .handled = null };
+            }
+            const is_index = contextual(Host, parser, "index");
+            const is_key = contextual(Host, parser, "key");
+            if ((!is_index and !is_key) or (is_index and (saw_index or saw_key)) or (is_key and saw_key)) {
+                _ = try Host.expect(parser, .right_paren, "Expected unique 'index' then 'key' clauses in for-of expression");
+                return .{ .handled = null };
+            }
             if (!try Host.advance(parser)) return .{ .handled = null };
-            index = try Host.parseExpression(parser) orelse return .{ .handled = null };
-            if (Host.currentToken(parser) == .semicolon and !try Host.advance(parser)) return .{ .handled = null };
-        }
-        if (Host.currentToken(parser) == .identifier) {
+            const value = try Host.parseExpression(parser) orelse return .{ .handled = null };
+            if (is_index) {
+                index = value;
+                saw_index = true;
+            } else {
+                key = value;
+                saw_key = true;
+            }
+            if (Host.currentToken(parser) != .semicolon) break;
             if (!try Host.advance(parser)) return .{ .handled = null };
-            key = try Host.parseExpression(parser) orelse return .{ .handled = null };
         }
     }
     if (!try Host.expect(parser, .right_paren, "Expected ')' after for-of expression")) return .{ .handled = null };
