@@ -65,6 +65,25 @@ test "sentinel splits code block render and creates dialect nodes" {
     }
 }
 
+test "reflected dialect node references are traversed" {
+    // The sentinel record points at a JSX subtree whose identifier must resolve.
+    dialect.resetHooks();
+    dialect.capability_mode = .block_split;
+    var tree = try parser.parse(
+        std.testing.allocator,
+        "const outer = 1; const view = @{ <A>{outer}</A> };",
+        .{ .lang = .tsx },
+    );
+    defer tree.deinit();
+    try std.testing.expect(!tree.hasErrors());
+    const semantic = try parser.semantic.analyze(&tree);
+    var resolved: u32 = 0;
+    for (semantic.references) |reference| {
+        if (reference.symbol != .none) resolved += 1;
+    }
+    try std.testing.expectEqual(@as(u32, 1), resolved);
+}
+
 test "sentinel splits a JSX-child code block and resumes the element" {
     const source = "<A>@{ const value = 1; <B /> }</A>";
     dialect.resetHooks();

@@ -111,10 +111,13 @@ pub fn build(b: *std.Build) void {
         const napi_dep = b.dependency("napi_zig", .{});
         napi_zig.addLib(b, napi_dep, .{
             .name = "yuku-tsrx",
-            .root = yuku.path("src/parser/ffi/parser.zig"),
+            .root = b.path("src/ffi/root.zig"),
             .target = target,
             .optimize = optimize,
-            .imports = &.{.{ .name = "parser", .module = production_parser_module }},
+            .imports = &.{
+                .{ .name = "parser", .module = production_parser_module },
+                .{ .name = "transfer", .module = production_transfer_module },
+            },
             .npm = .{
                 .scope = "@yuku-tsrx",
                 .description = "Native TSRX parser bindings",
@@ -186,6 +189,16 @@ pub fn build(b: *std.Build) void {
             "Compile the dependency-free dialect module graph",
         );
         dialect_cycle_step.dependOn(&dialect_tests.step);
+
+        const m4_test_module = b.createModule(.{
+            .root_source_file = b.path("src/testing/m4.zig"),
+            .target = target,
+            .optimize = optimize,
+        });
+        m4_test_module.addImport("parser", production_parser_module);
+        const m4_tests = b.addRunArtifact(b.addTest(.{ .root_module = m4_test_module }));
+        const m4_step = b.step("test-m4-surfaces", "Test TSRX semantic and codegen surfaces");
+        m4_step.dependOn(&m4_tests.step);
 
         const m1_fixture_module = b.createModule(.{
             .root_source_file = b.path("src/testing/m1_reflected_transfer_fixture.zig"),

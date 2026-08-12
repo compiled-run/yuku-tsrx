@@ -156,6 +156,35 @@ test "JSX-child for preserves index and key overlay" {
     try std.testing.expectEqualStrings("item.id", source[tree.span(key).start..tree.span(key).end]);
 }
 
+test "JSX-child for accepts bare identifier left" {
+    const source = "const list = <ul>@for (item of items; key item.id) { <li /> }</ul>;";
+    var tree = try parser.parse(std.testing.allocator, source, .{ .lang = .tsx });
+    defer tree.deinit();
+    try std.testing.expect(!tree.hasErrors());
+
+    const directive = findNode(&tree, .dialect_node) orelse return error.MissingBareIdentifierFor;
+    const directive_record = tree.dialect_store.records.items[tree.data(directive).dialect_node.record_index].jsx_for_expression;
+    const for_of: parser.ast.NodeIndex = @enumFromInt(directive_record.statement.raw);
+    try std.testing.expectEqual(.for_of_statement, std.meta.activeTag(tree.data(for_of)));
+    const data = tree.data(for_of).for_of_statement;
+    try std.testing.expectEqual(.identifier_reference, std.meta.activeTag(tree.data(data.left)));
+    try std.testing.expectEqual(.identifier_reference, std.meta.activeTag(tree.data(data.right)));
+    try std.testing.expectEqualStrings("item", source[tree.span(data.left).start..tree.span(data.left).end]);
+    try std.testing.expectEqualStrings("items", source[tree.span(data.right).start..tree.span(data.right).end]);
+    try std.testing.expectEqualStrings("@for (item of items; key item.id) { <li /> }", source[tree.span(directive).start..tree.span(directive).end]);
+    try std.testing.expectEqualStrings("for (item of items; key item.id) { <li /> }", source[tree.span(for_of).start..tree.span(for_of).end]);
+
+    const overlay = tree.dialectOverlay(@intFromEnum(for_of)) orelse
+        return error.MissingBareIdentifierForOverlay;
+    const record = tree.dialect_store.records.items[overlay].for_of;
+    try std.testing.expectEqual(@intFromEnum(for_of), record.host_node.raw);
+    try std.testing.expectEqual(@intFromEnum(parser.ast.NodeIndex.null), record.index.raw);
+    const key: parser.ast.NodeIndex = @enumFromInt(record.key.raw);
+    try std.testing.expectEqual(.member_expression, std.meta.activeTag(tree.data(key)));
+    try std.testing.expectEqualStrings("item.id", source[tree.span(key).start..tree.span(key).end]);
+    try expectRoundTrip(&tree);
+}
+
 test "Markless compatibility accepts static dynamic member tags" {
     const source = "const view = <{item.tag}></{item.tag}>;";
     var tree = try parser.parse(std.testing.allocator, source, .{ .lang = .tsx });

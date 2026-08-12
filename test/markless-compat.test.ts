@@ -79,6 +79,43 @@ test("parses JSX-child @for index and key overlays", () => {
 	);
 });
 
+test("parses bare identifier for binding in a JSX child", () => {
+	const source = "const list = <ul>@for (item of items; key item.id) { <li /> }</ul>;";
+	const errors: Diagnostic[] = [];
+	const program = parseModule(source, "bare-identifier-for.tsrx", { collect: true, errors });
+	let directive: JSXForExpression | undefined;
+	walk(program, {
+		enter(node) {
+			if (node.type === "JSXForExpression") directive = node;
+		},
+	});
+
+	expect(errors).toEqual([]);
+	expect(directive?.statement.type).toBe("ForOfStatement");
+	if (directive?.statement.type !== "ForOfStatement") throw new Error("missing bare for-of");
+	expect(directive.statement.left).toMatchObject({ type: "Identifier", name: "item" });
+	expect(directive.statement.right).toMatchObject({ type: "Identifier", name: "items" });
+	expect(directive.statement.index).toBeNull();
+	expect(directive.statement.key).toMatchObject({
+		type: "MemberExpression",
+		object: { type: "Identifier", name: "item" },
+		property: { type: "Identifier", name: "id" },
+	});
+	expect(source.slice(directive.statement.left.start, directive.statement.left.end)).toBe("item");
+	expect(source.slice(directive.statement.right.start, directive.statement.right.end)).toBe(
+		"items",
+	);
+	expect(source.slice(directive.statement.key?.start, directive.statement.key?.end)).toBe(
+		"item.id",
+	);
+	expect(source.slice(directive.start, directive.end)).toBe(
+		"@for (item of items; key item.id) { <li /> }",
+	);
+	expect(source.slice(directive.statement.start, directive.statement.end)).toBe(
+		"for (item of items; key item.id) { <li /> }",
+	);
+});
+
 test("Markless compatibility accepts static dynamic member tags", () => {
 	const source = "const view = <{item.tag}></{item.tag}>;";
 	const errors: Diagnostic[] = [];

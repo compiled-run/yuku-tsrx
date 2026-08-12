@@ -12,7 +12,7 @@ function sourceText(source) {
 }
 
 function inferLang(filename) {
-  const lower = filename.toLowerCase();
+  const lower = filename.split(/[?#]/, 1)[0].toLowerCase();
   if (lower.endsWith(".tsrx") || lower.endsWith(".tsx")) return "tsx";
   if (lower.endsWith(".jsx")) return "jsx";
   if (lower.endsWith(".d.ts")) return "dts";
@@ -27,6 +27,30 @@ export function parseWire(source, options = {}) {
 
 export function parse(source, options = {}) {
   return decode(parseWire(source, options), sourceText(source));
+}
+
+export function analyze(source, options = {}) {
+  const text = sourceText(source);
+  const bytes = typeof source === "string" ? encoder.encode(source) : source;
+  return decodeAnalyzer(binding.analyze(bytes, options), text);
+}
+
+function normalizeGenerateOptions(options) {
+  const { minify, sourceMaps, ...next } = options ?? {};
+  if (typeof next.comments === "boolean") next.comments = next.comments ? "all" : "none";
+  const modes = minify === true ? { whitespace: true, syntax: true, quotes: true } : minify || {};
+  next.minify = !!modes.syntax;
+  if (modes.whitespace) next.format = "compact";
+  if (modes.quotes) next.quotes = "shortest";
+  next.sourceMap ??= sourceMaps;
+  return next;
+}
+
+export function generate(program, options) {
+  if (!program || program.type !== "Program") {
+    throw new TypeError("Expected a Program node from yuku-tsrx");
+  }
+  return binding.generate(encode(program), normalizeGenerateOptions(options));
 }
 
 export function parseModule(source, filename, options = {}) {

@@ -10,6 +10,8 @@ test("generated npm host composes the compatibility wrapper with package-relativ
 	const module = await import(entry.href);
 
 	expect(module.parseModule("export const value = 1;", "value.tsrx").type).toBe("Program");
+	expect(module).toHaveProperty("analyze");
+	expect(module).toHaveProperty("generate");
 	expect(module.isEventAttribute("onClick")).toBe(true);
 
 	const binding = readFileSync(resolve(packageRoot, "binding.js"), "utf8");
@@ -28,5 +30,27 @@ test("generated npm host composes the compatibility wrapper with package-relativ
 			"encode.js",
 			"walk.js",
 		]),
+	);
+});
+
+test("generated npm host infers TSRX through query and hash suffixes", async () => {
+	const entry = pathToFileURL(resolve("zig-out/npm/yuku-tsrx/index.js"));
+	entry.searchParams.set("query-suffixes", String(Date.now()));
+	const { parseModule } = await import(entry.href);
+	const source = "const view = @if (ready) { <p /> };";
+
+	for (const filename of [
+		"module.tsrx?markless-route",
+		"module.tsrx?markless-resume",
+		"module.tsrx?markless-symbols",
+		"module.tsrx#compiled-view",
+	]) {
+		expect(parseModule(source, filename).type).toBe("Program");
+	}
+
+	expect(() => parseModule(source, "module.js?name=.tsrx")).toThrow(/Unexpected token '<'/);
+	expect(parseModule(source, "module.js?name=.tsrx", { lang: "tsx" }).type).toBe("Program");
+	expect(() => parseModule(source, "module.tsrx?markless-route", { lang: "js" })).toThrow(
+		/Unexpected token '<'/,
 	);
 });

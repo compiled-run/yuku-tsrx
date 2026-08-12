@@ -109,17 +109,26 @@ fn parseSimpleJsxFor(comptime Host: type, parser: anytype, start: u32) Host.Erro
     if (!try consume(Host, parser, .@"for", "Expected 'for' after '@'", null)) return null;
     if (!try consume(Host, parser, .left_paren, "Expected '(' after 'for'", null)) return null;
     const declaration_start = Host.currentSpan(parser).start;
-    if (!try consume(Host, parser, .@"const", "Expected declaration in TSRX for header", null)) return null;
-    const binding_span = Host.currentSpan(parser);
-    const binding_name = Host.sourceSlice(parser, binding_span.start, binding_span.end);
-    const binding = try Host.addNode(parser, Host.NodeData{ .binding_identifier = .{ .name = binding_name } }, binding_span);
-    if (!try Host.advance(parser)) return null;
-    const declarator = try Host.addNode(parser, Host.NodeData{ .variable_declarator = .{ .id = binding, .init = .null } }, binding_span);
-    const declarations = try Host.addExtra(parser, &.{declarator});
-    const declaration = try Host.addNode(parser, Host.NodeData{ .variable_declaration = .{
-        .declarators = declarations,
-        .kind = .@"const",
-    } }, .{ .start = declaration_start, .end = binding_span.end });
+    const left = if (Host.currentToken(parser) == .identifier) blk: {
+        const binding_span = Host.currentSpan(parser);
+        const binding_name = Host.sourceSlice(parser, binding_span.start, binding_span.end);
+        const binding = try Host.addNode(parser, Host.NodeData{ .identifier_reference = .{ .name = binding_name } }, binding_span);
+        if (!try Host.advance(parser)) return null;
+        break :blk binding;
+    } else blk: {
+        if (!try consume(Host, parser, .@"const", "Expected declaration in TSRX for header", null)) return null;
+        const binding_span = Host.currentSpan(parser);
+        const binding_name = Host.sourceSlice(parser, binding_span.start, binding_span.end);
+        const binding = try Host.addNode(parser, Host.NodeData{ .binding_identifier = .{ .name = binding_name } }, binding_span);
+        if (!try Host.advance(parser)) return null;
+        const declarator = try Host.addNode(parser, Host.NodeData{ .variable_declarator = .{ .id = binding, .init = .null } }, binding_span);
+        const declarations = try Host.addExtra(parser, &.{declarator});
+        const declaration = try Host.addNode(parser, Host.NodeData{ .variable_declaration = .{
+            .declarators = declarations,
+            .kind = .@"const",
+        } }, .{ .start = declaration_start, .end = binding_span.end });
+        break :blk declaration;
+    };
     if (!try consume(Host, parser, .of, "Expected 'of' in TSRX for header", null)) return null;
     const right = try parseValue(Host, parser) orelse return null;
     var index = Host.NodeIndex.null;
@@ -139,7 +148,7 @@ fn parseSimpleJsxFor(comptime Host: type, parser: anytype, start: u32) Host.Erro
     if (!try consume(Host, parser, .right_paren, "Expected ')' after for-of expression", null)) return null;
     const body = try templateBlock(Host, parser, false) orelse return null;
     const statement_node = try Host.addNode(parser, Host.NodeData{ .for_of_statement = .{
-        .left = declaration,
+        .left = left,
         .right = right,
         .body = body,
         .await = false,

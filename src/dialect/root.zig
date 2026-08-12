@@ -6,6 +6,7 @@ pub const Hook = abi.Hook;
 pub const hooks = std.enums.values(abi.Hook);
 pub const schema = @import("schema.zig");
 pub const Record = schema.Record;
+pub const codegen = @import("codegen.zig");
 
 pub const OverlayPair = struct {
     host_node: u32,

@@ -215,6 +215,31 @@ export interface ParseModuleOptions extends Omit<ParseOptions, "sourceType"> {
 	comments?: Comment[];
 }
 
+export interface SemanticView {
+	reference: { count: number; name(index: number): string; symbolId(index: number): number | null };
+	scope: { count: number; kind(index: number): string };
+	symbol: { count: number; name(index: number): string };
+}
+
+export interface AnalyzeResult extends ParseResult {
+	readonly semantic: SemanticView;
+}
+
+export interface GenerateOptions {
+	strip?: boolean;
+	minify?: boolean | { whitespace?: boolean; syntax?: boolean; quotes?: boolean };
+	format?: "pretty" | "compact";
+	indent?: number;
+	quotes?: "preserve" | "double" | "single" | "shortest";
+	comments?: boolean | "all" | "some" | "none" | "line" | "block";
+}
+
+export interface GenerateResult {
+	code: string;
+	errors: Array<{ message: string; start: number; end: number }>;
+	map: unknown | null;
+}
+
 export type WalkVisitor = (
 	node: BaseNode,
 	context: { parent: BaseNode | null; state: unknown },
@@ -228,6 +253,8 @@ export type Visitors = Record<
 };
 
 export function parse(source: string | Uint8Array, options?: ParseOptions): ParseResult;
+export function analyze(source: string | Uint8Array, options?: ParseOptions): AnalyzeResult;
+export function generate(program: Program, options?: GenerateOptions): GenerateResult;
 export function parseWire(source: string | Uint8Array, options?: ParseOptions): ArrayBuffer;
 export function parseModule(
 	source: string | Uint8Array,

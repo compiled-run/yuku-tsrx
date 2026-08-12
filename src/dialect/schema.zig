@@ -30,6 +30,7 @@ pub const ObjectPatternOverlay = struct {
 
 pub const JSXCodeBlock = struct {
     pub const estree_type = "JSXCodeBlock";
+    pub const scope_role = abi.ScopeRole.block;
     body: abi.NodeList,
     render: abi.OptionalNodeRef,
 };
