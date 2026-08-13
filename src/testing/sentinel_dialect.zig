@@ -1,108 +1,16 @@
 const std = @import("std");
 const abi = @import("dialect_abi");
+const adapter = @import("parser_adapter");
 
 pub const enabled = true;
 pub const Hook = abi.Hook;
 pub const hooks = std.enums.values(abi.Hook);
-pub const NodeRecord = struct {
-    value: abi.NodeRef,
-    active: bool,
-};
-
-pub const ForOfOverlay = struct {
-    pub const estree_type = "ForOfStatement";
-    host_node: abi.OverlayHost,
-    index: abi.NodeRef,
-    key: abi.NodeRef,
-};
-
-pub const CatchClauseOverlay = struct {
-    host_node: abi.OverlayHost,
-    reset_param: abi.OptionalNodeRef,
-};
-
-pub const ArrayPatternOverlay = struct {
-    host_node: abi.OverlayHost,
-    lazy: bool,
-};
-
-pub const ObjectPatternOverlay = struct {
-    host_node: abi.OverlayHost,
-    lazy: bool,
-};
-
-pub const Record = union(enum) {
-    node: NodeRecord,
-    for_of: ForOfOverlay,
-    catch_clause: CatchClauseOverlay,
-    array_pattern: ArrayPatternOverlay,
-    object_pattern: ObjectPatternOverlay,
-};
-
-const SentinelRecord = Record;
-pub const schema = struct {
-    pub const Record = SentinelRecord;
-    pub const record_count: u8 = @typeInfo(SentinelRecord).@"union".fields.len;
-};
-
-pub const OverlayPair = struct {
-    host_node: u32,
-    record_index: u32,
-};
-
-pub const Store = struct {
-    records: std.ArrayList(Record) = .empty,
-    overlays: std.ArrayList(OverlayPair) = .empty,
-
-    pub fn addRecord(self: *Store, arena: std.mem.Allocator, record: Record) !u32 {
-        std.debug.assert(self.records.items.len <= records_max);
-        std.debug.assert(self.overlays.items.len <= overlays_max);
-        if (self.records.items.len == records_max) return error.RecordCapacityExceeded;
-        const index: u32 = @intCast(self.records.items.len);
-        try self.records.append(arena, record);
-        return index;
-    }
-
-    pub fn addOverlay(
-        self: *Store,
-        arena: std.mem.Allocator,
-        host_node: u32,
-        record_index: u32,
-    ) !void {
-        std.debug.assert(self.records.items.len <= records_max);
-        std.debug.assert(self.overlays.items.len <= overlays_max);
-        if (record_index >= self.records.items.len) return error.InvalidRecordIndex;
-        if (self.overlays.items.len == overlays_max) return error.OverlayCapacityExceeded;
-        if (self.overlays.getLastOrNull()) |last| {
-            if (host_node <= last.host_node) return error.OverlayOrderInvalid;
-        }
-        try self.overlays.append(arena, .{
-            .host_node = host_node,
-            .record_index = record_index,
-        });
-    }
-
-    pub fn findOverlay(self: *const Store, host_node: u32) ?u32 {
-        std.debug.assert(self.records.items.len <= records_max);
-        std.debug.assert(self.overlays.items.len <= overlays_max);
-        var lower: u32 = 0;
-        var upper: u32 = @intCast(self.overlays.items.len);
-        var probes: u8 = 0;
-        while (lower < upper and probes < overlay_probes_max) : (probes += 1) {
-            const middle = lower + (upper - lower) / 2;
-            const pair = self.overlays.items[middle];
-            if (pair.host_node < host_node) lower = middle + 1 else upper = middle;
-        }
-        std.debug.assert(probes < overlay_probes_max or lower == upper);
-        if (lower == self.overlays.items.len) return null;
-        const pair = self.overlays.items[lower];
-        return if (pair.host_node == host_node) pair.record_index else null;
-    }
-};
-
-const records_max: u32 = 1 << 20;
-const overlays_max: u32 = 1 << 20;
-const overlay_probes_max: u8 = 32;
+pub const Record = abi.Record;
+pub const schema = abi;
+pub const schema_module = abi;
+pub const Store = adapter.Store;
+pub const Container = adapter.Container;
+pub const OverlayPair = adapter.OverlayPair;
 
 pub var selected_hook: ?Hook = null;
 pub var select_handled: bool = false;
@@ -132,7 +40,7 @@ fn handles(comptime hook: Hook) bool {
     return select_handled and selected_hook == hook;
 }
 
-pub fn statement_at_code_block(comptime Host: type, parser: anytype) Host.ErrorType!abi.Decision(?Host.NodeIndex) {
+fn impl_statement_at_code_block(comptime Host: type, parser: anytype) Host.ErrorType!abi.Decision(?Host.NodeIndex) {
     if (capability_mode == .block_split) {
         const start = Host.currentSpan(parser).start;
         if (!try Host.expect(parser, .at, "Expected sentinel code-block marker")) return .{ .handled = null };
@@ -140,9 +48,17 @@ pub fn statement_at_code_block(comptime Host: type, parser: anytype) Host.ErrorT
             return .{ .handled = null };
         return .{ .handled = try splitBlock(Host, parser, block, start) };
     }
-    return if (handles(.statement_at_code_block)) .{ .handled = try Host.parseStatementExpression(parser) } else .unhandled;
+    if (!handles(.statement_at_code_block)) return .unhandled;
+    if (!try Host.advance(parser)) return .{ .handled = null };
+    const node = try Host.parseStatementExpression(parser) orelse return .{ .handled = null };
+    const record = try Host.addRecord(parser, Record{ .node = .{
+        .value = abi.NodeRef.init(@intFromEnum(node)),
+        .active = true,
+    } });
+    try Host.addOverlay(parser, node, record);
+    return .{ .handled = node };
 }
-pub fn statement_at_control_flow(comptime Host: type, parser: anytype) Host.ErrorType!abi.Decision(?Host.NodeIndex) {
+fn impl_statement_at_control_flow(comptime Host: type, parser: anytype) Host.ErrorType!abi.Decision(?Host.NodeIndex) {
     if (selected_hook == .statement_at_control_flow and control_report_mode != .none) {
         if (control_report_mode == .no_help) {
             try Host.report(parser, Host.currentSpan(parser), "Sentinel control-flow report");
@@ -156,9 +72,17 @@ pub fn statement_at_control_flow(comptime Host: type, parser: anytype) Host.Erro
         }
         return .{ .handled = null };
     }
-    return if (handles(.statement_at_control_flow)) .{ .handled = try Host.parseStatementExpression(parser) } else .unhandled;
+    if (!handles(.statement_at_control_flow)) return .unhandled;
+    if (!try Host.advance(parser)) return .{ .handled = null };
+    const node = try Host.parseStatementExpression(parser) orelse return .{ .handled = null };
+    const record = try Host.addRecord(parser, Record{ .node = .{
+        .value = abi.NodeRef.init(@intFromEnum(node)),
+        .active = true,
+    } });
+    try Host.addOverlay(parser, node, record);
+    return .{ .handled = node };
 }
-pub fn expression_at_code_block(comptime Host: type, parser: anytype) Host.ErrorType!abi.Decision(?Host.NodeIndex) {
+fn impl_expression_at_code_block(comptime Host: type, parser: anytype) Host.ErrorType!abi.Decision(?Host.NodeIndex) {
     if (capability_mode == .block_split) {
         const start = Host.currentSpan(parser).start;
         if (!try Host.advance(parser)) return .{ .handled = null };
@@ -173,7 +97,7 @@ pub fn expression_at_code_block(comptime Host: type, parser: anytype) Host.Error
     try Host.addOverlay(parser, node, record);
     return .{ .handled = node };
 }
-pub fn expression_at_control_flow(comptime Host: type, parser: anytype) Host.ErrorType!abi.Decision(?Host.NodeIndex) {
+fn impl_expression_at_control_flow(comptime Host: type, parser: anytype) Host.ErrorType!abi.Decision(?Host.NodeIndex) {
     if (selected_hook == .expression_at_control_flow and control_report_mode != .none) {
         if (control_report_mode == .no_help) {
             try Host.report(parser, Host.currentSpan(parser), "Sentinel control-flow report");
@@ -194,7 +118,7 @@ pub fn expression_at_control_flow(comptime Host: type, parser: anytype) Host.Err
     try Host.addOverlay(parser, node, record);
     return .{ .handled = node };
 }
-pub fn lazy_assignment_pattern(comptime Host: type, parser: anytype) Host.ErrorType!abi.Decision(?Host.NodeIndex) {
+fn impl_lazy_assignment_pattern(comptime Host: type, parser: anytype) Host.ErrorType!abi.Decision(?Host.NodeIndex) {
     if (!handles(.lazy_assignment_pattern)) return .unhandled;
     const start = Host.currentSpan(parser).start;
     if (!try Host.advance(parser)) return .{ .handled = null };
@@ -220,11 +144,11 @@ pub fn lazy_assignment_pattern(comptime Host: type, parser: anytype) Host.ErrorT
     try Host.addOverlay(parser, node, record);
     return .{ .handled = node };
 }
-pub fn function_body_starts(comptime Host: type, parser: anytype) abi.Decision(bool) {
+fn impl_function_body_starts(comptime Host: type, parser: anytype) abi.Decision(bool) {
     if (capability_mode == .block_split) return .{ .handled = Host.currentToken(parser) != .left_brace };
     return if (handles(.function_body_starts)) .{ .handled = Host.currentToken(parser) != .left_brace } else .unhandled;
 }
-pub fn function_body(comptime Host: type, parser: anytype) Host.ErrorType!abi.Decision(?Host.NodeIndex) {
+fn impl_function_body(comptime Host: type, parser: anytype) Host.ErrorType!abi.Decision(?Host.NodeIndex) {
     if (capability_mode == .block_split) {
         const start = Host.currentSpan(parser).start;
         if (!try Host.advance(parser)) return .{ .handled = null };
@@ -238,7 +162,7 @@ pub fn function_body(comptime Host: type, parser: anytype) Host.ErrorType!abi.De
     try Host.addOverlay(parser, node, record);
     return .{ .handled = node };
 }
-pub fn for_of_tail(comptime Host: type, parser: anytype, context: Host.Context) Host.ErrorType!abi.Decision(?Host.NodeIndex) {
+fn impl_for_of_tail(comptime Host: type, parser: anytype, context: Host.Context) Host.ErrorType!abi.Decision(?Host.NodeIndex) {
     if (!handles(.for_of_tail)) return .unhandled;
     if (Host.currentToken(parser) != .colon) return .unhandled;
     if (!try Host.advance(parser)) return .{ .handled = null };
@@ -256,7 +180,7 @@ pub fn for_of_tail(comptime Host: type, parser: anytype, context: Host.Context) 
     try Host.addOverlay(parser, host, record_index);
     return .{ .handled = host };
 }
-pub fn binding_pattern(comptime Host: type, parser: anytype) Host.ErrorType!abi.Decision(?Host.NodeIndex) {
+fn impl_binding_pattern(comptime Host: type, parser: anytype) Host.ErrorType!abi.Decision(?Host.NodeIndex) {
     if (!handles(.binding_pattern)) return .unhandled;
     if (Host.currentToken(parser) != .bitwise_and) return .unhandled;
     const start = Host.currentSpan(parser).start;
@@ -279,25 +203,35 @@ pub fn binding_pattern(comptime Host: type, parser: anytype) Host.ErrorType!abi.
     try Host.addOverlay(parser, node, record);
     return .{ .handled = node };
 }
-pub fn module_specifier(comptime Host: type, parser: anytype) Host.ErrorType!abi.Decision(?Host.NodeIndex) {
-    return if (handles(.module_specifier)) .{ .handled = try Host.parseIdentifier(parser) } else .unhandled;
+fn impl_module_specifier(comptime Host: type, parser: anytype) Host.ErrorType!abi.Decision(?Host.NodeIndex) {
+    if (!handles(.module_specifier) or !Host.isIdentifierLike(Host.currentToken(parser))) return .unhandled;
+    return .{ .handled = try Host.parseIdentifier(parser) };
 }
-pub fn can_start_binding(comptime Host: type, token: Host.Token) abi.Decision(bool) {
+fn impl_can_start_binding(comptime Host: type, token: Host.Token) abi.Decision(bool) {
     if (handles(.binding_pattern) and token == .bitwise_and) return .{ .handled = true };
     return if (handles(.can_start_binding)) .{ .handled = !Host.isIdentifierLike(token) } else .unhandled;
 }
-pub fn jsx_element_after_open(comptime Host: type, parser: anytype, opening: Host.NodeIndex, comptime context: anytype) Host.ErrorType!abi.Decision(?Host.NodeIndex) {
+fn impl_jsx_element_after_open(comptime Host: type, parser: anytype, opening: Host.NodeIndex, comptime context: anytype) Host.ErrorType!abi.Decision(?Host.NodeIndex) {
     if (capability_mode == .raw_resume) return parseRawElement(Host, parser, opening, context);
-    if (!handles(.jsx_element_after_open)) return .unhandled;
-    const node = try Host.finishElement(parser, opening, context) orelse return .{ .handled = null };
-    const record = try Host.addRecord(parser, Record{ .node = .{ .value = abi.NodeRef.init(@intFromEnum(node)), .active = true } });
-    try Host.addOverlay(parser, node, record);
-    return .{ .handled = node };
+    if (handles(.jsx_element_after_open)) {
+        const record = try Host.addRecord(parser, Record{ .node = .{ .value = abi.NodeRef.init(@intFromEnum(opening)), .active = true } });
+        try Host.addOverlay(parser, opening, record);
+        return .unhandled;
+    }
+    const opening_data = switch (Host.data(parser, opening)) {
+        .jsx_opening_element => |data| data,
+        else => return .unhandled,
+    };
+    if (opening_data.self_closing) return .unhandled;
+    if (try adapter.parseLooseAncestorClose(Host, parser, opening, opening_data.name)) |node| {
+        return .{ .handled = node };
+    }
+    return .unhandled;
 }
-pub fn jsx_names_match(comptime Host: type, parser: anytype, left: Host.NodeIndex, right: Host.NodeIndex) abi.Decision(bool) {
+fn impl_jsx_names_match(comptime Host: type, parser: anytype, left: Host.NodeIndex, right: Host.NodeIndex) abi.Decision(bool) {
     return if (handles(.jsx_names_match)) .{ .handled = !Host.namesEqual(parser, left, right) } else .unhandled;
 }
-pub fn jsx_text_boundary(comptime Host: type, source: []const u8, cursor: u32) abi.Decision(bool) {
+fn impl_jsx_text_boundary(comptime Host: type, source: []const u8, cursor: u32) abi.Decision(bool) {
     _ = Host;
     const is_marker = cursor < source.len and source[cursor] == '@';
     if (select_handled and selected_hook == .jsx_text_boundary) {
@@ -306,7 +240,7 @@ pub fn jsx_text_boundary(comptime Host: type, source: []const u8, cursor: u32) a
     if (marker_boundary) return .{ .handled = is_marker };
     return .unhandled;
 }
-pub fn jsx_text_value(comptime Host: type, parser: anytype, span: anytype) Host.ErrorType!abi.Decision(Host.Value) {
+fn impl_jsx_text_value(comptime Host: type, parser: anytype, span: anytype) Host.ErrorType!abi.Decision(Host.Value) {
     if (capability_mode == .transformed_text) {
         const source = Host.sourceText(parser, span);
         var decoded: std.ArrayList(u8) = .empty;
@@ -336,7 +270,7 @@ pub fn jsx_text_value(comptime Host: type, parser: anytype, span: anytype) Host.
     }
     return if (handles(.jsx_text_value)) .{ .handled = Host.sourceSlice(parser, span.start, span.start) } else .unhandled;
 }
-pub fn jsx_child_at_code_block(comptime Host: type, parser: anytype) Host.ErrorType!abi.Decision(?Host.NodeIndex) {
+fn impl_jsx_child_at_code_block(comptime Host: type, parser: anytype) Host.ErrorType!abi.Decision(?Host.NodeIndex) {
     if (capability_mode == .block_split) {
         const start = Host.currentSpan(parser).start;
         if (!try Host.advance(parser)) return .{ .handled = null };
@@ -345,25 +279,131 @@ pub fn jsx_child_at_code_block(comptime Host: type, parser: anytype) Host.ErrorT
         return .{ .handled = try splitBlock(Host, parser, block, start) };
     }
     if (!handles(.jsx_child_at_code_block)) return .unhandled;
+    if (Host.currentToken(parser) != .at) return .unhandled;
     if (!try Host.advance(parser)) return .{ .handled = null };
     return .{ .handled = try Host.parseChild(parser) };
 }
-pub fn jsx_child_at_control_flow(comptime Host: type, parser: anytype) Host.ErrorType!abi.Decision(?Host.NodeIndex) {
+fn impl_jsx_child_at_control_flow(comptime Host: type, parser: anytype) Host.ErrorType!abi.Decision(?Host.NodeIndex) {
     if (!handles(.jsx_child_at_control_flow)) return .unhandled;
+    if (Host.currentToken(parser) != .at) return .unhandled;
     if (!try Host.advance(parser)) return .{ .handled = null };
     return .{ .handled = try Host.parseChild(parser) };
 }
-pub fn jsx_element_name(comptime Host: type, parser: anytype) Host.ErrorType!abi.Decision(?Host.NodeIndex) {
+fn impl_jsx_element_name(comptime Host: type, parser: anytype) Host.ErrorType!abi.Decision(?Host.NodeIndex) {
     if (!handles(.jsx_element_name)) return .unhandled;
     const node = try Host.parseTagExpressionContainer(parser) orelse return .{ .handled = null };
     const record = try Host.addRecord(parser, Record{ .node = .{ .value = abi.NodeRef.init(@intFromEnum(node)), .active = true } });
     try Host.addOverlay(parser, node, record);
     return .{ .handled = node };
 }
-pub fn validate_jsx_element_name(comptime Host: type, parser: anytype, node: Host.NodeIndex) Host.ErrorType!abi.Decision(void) {
+fn impl_validate_jsx_element_name(comptime Host: type, parser: anytype, node: Host.NodeIndex) Host.ErrorType!abi.Decision(void) {
     if (!handles(.validate_jsx_element_name)) return .unhandled;
     try Host.report(parser, Host.nodeSpan(parser, node), "Sentinel rejected JSX element name");
     return .{ .handled = {} };
+}
+
+fn decisionNode(comptime Result: type, decision: anytype) Result {
+    return switch (decision) {
+        .unhandled => null,
+        .handled => |value| @as(?@TypeOf(value), value),
+    };
+}
+
+fn hookNode(comptime Result: type, parser: anytype, comptime function: anytype) Result {
+    const Host = adapter.Host(@TypeOf(parser.*));
+    return decisionNode(Result, try function(Host, parser));
+}
+
+pub fn statement_at_code_block(comptime Result: type, parser: anytype) Result {
+    return hookNode(Result, parser, impl_statement_at_code_block);
+}
+pub fn statement_at_control_flow(comptime Result: type, parser: anytype) Result {
+    return hookNode(Result, parser, impl_statement_at_control_flow);
+}
+pub fn expression_at_code_block(comptime Result: type, parser: anytype) Result {
+    return hookNode(Result, parser, impl_expression_at_code_block);
+}
+pub fn expression_at_control_flow(comptime Result: type, parser: anytype) Result {
+    return hookNode(Result, parser, impl_expression_at_control_flow);
+}
+pub fn lazy_assignment_pattern(comptime Result: type, parser: anytype) Result {
+    return hookNode(Result, parser, impl_lazy_assignment_pattern);
+}
+pub fn function_body(comptime Result: type, parser: anytype) Result {
+    return hookNode(Result, parser, impl_function_body);
+}
+pub fn for_of_tail(comptime Result: type, parser: anytype, context: anytype) Result {
+    const Host = adapter.Host(@TypeOf(parser.*));
+    return decisionNode(Result, try impl_for_of_tail(Host, parser, .{
+        .start = context.start,
+        .left = context.left,
+        .right = context.right,
+        .is_for_await = context.is_for_await,
+    }));
+}
+pub fn binding_pattern(comptime Result: type, parser: anytype) Result {
+    return hookNode(Result, parser, impl_binding_pattern);
+}
+pub fn module_specifier(comptime Result: type, parser: anytype) Result {
+    return hookNode(Result, parser, impl_module_specifier);
+}
+pub fn jsx_child_at_code_block(comptime Result: type, parser: anytype) Result {
+    return hookNode(Result, parser, impl_jsx_child_at_code_block);
+}
+pub fn jsx_child_at_control_flow(comptime Result: type, parser: anytype) Result {
+    return hookNode(Result, parser, impl_jsx_child_at_control_flow);
+}
+pub fn jsx_element_name(comptime Result: type, parser: anytype) Result {
+    return hookNode(Result, parser, impl_jsx_element_name);
+}
+
+pub fn function_body_starts(parser: anytype) ?bool {
+    const Host = adapter.Host(@TypeOf(parser.*));
+    return switch (impl_function_body_starts(Host, parser)) {
+        .unhandled => null,
+        .handled => |value| value,
+    };
+}
+pub fn can_start_binding(tag: anytype) ?bool {
+    const Host = struct {
+        pub const Token = @TypeOf(tag);
+        pub fn isIdentifierLike(token: Token) bool {
+            return token.isIdentifierLike();
+        }
+    };
+    return switch (impl_can_start_binding(Host, tag)) {
+        .unhandled => null,
+        .handled => |value| value,
+    };
+}
+pub fn jsx_element_after_open(comptime Result: type, parser: anytype, opening: anytype, comptime context: anytype) Result {
+    const Host = adapter.Host(@TypeOf(parser.*));
+    return decisionNode(Result, try impl_jsx_element_after_open(Host, parser, opening, context));
+}
+pub fn jsx_names_match(parser: anytype, left: anytype, right: anytype) ?bool {
+    const Host = adapter.Host(@TypeOf(parser.*));
+    return switch (impl_jsx_names_match(Host, parser, left, right)) {
+        .unhandled => null,
+        .handled => |value| value,
+    };
+}
+pub fn jsx_text_boundary(source: anytype, cursor: u32) ?bool {
+    const Host = struct {};
+    return switch (impl_jsx_text_boundary(Host, source, cursor)) {
+        .unhandled => null,
+        .handled => |value| value,
+    };
+}
+pub fn jsx_text_value(comptime Result: type, parser: anytype, span: anytype) Result {
+    const Host = adapter.Host(@TypeOf(parser.*));
+    return switch (try impl_jsx_text_value(Host, parser, span)) {
+        .unhandled => null,
+        .handled => |value| value,
+    };
+}
+pub fn validate_jsx_element_name(comptime Result: type, parser: anytype, node: anytype) Result {
+    const Host = adapter.Host(@TypeOf(parser.*));
+    _ = try impl_validate_jsx_element_name(Host, parser, node);
 }
 
 fn splitBlock(comptime Host: type, parser: anytype, block: Host.NodeIndex, start: u32) Host.ErrorType!?Host.NodeIndex {
@@ -374,12 +414,13 @@ fn splitBlock(comptime Host: type, parser: anytype, block: Host.NodeIndex, start
     };
     const items = Host.extra(parser, range);
     var body_end = items.len;
-    while (body_end > 0 and Host.data(parser, items[body_end - 1]) == .empty_statement) body_end -= 1;
+    while (body_end > 0 and Host.data(parser, items[body_end - 1]) == .empty_statement and
+        !Host.isDialectNode(parser, items[body_end - 1])) body_end -= 1;
     if (body_end == 0) return null;
     const render_statement = items[body_end - 1];
     const render = switch (Host.data(parser, render_statement)) {
         .expression_statement => |data| data.expression,
-        .dialect_node => render_statement,
+        .empty_statement => if (Host.isDialectNode(parser, render_statement)) render_statement else return null,
         else => return null,
     };
     _ = try Host.addExtra(parser, items[0 .. body_end - 1]);

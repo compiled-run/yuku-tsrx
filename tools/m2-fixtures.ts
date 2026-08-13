@@ -211,8 +211,12 @@ const main = async (): Promise<void> => {
 	const { decode } = (await import(pathToFileURL(resolve("zig-out/dialect-decode.js")).href)) as {
 		decode(buffer: ArrayBuffer, source: string): Parsed;
 	};
+	const { decode: decodePlain } = (await import(
+		pathToFileURL(resolve("zig-out/dialect-free-fixture-decode.js")).href
+	)) as { decode(buffer: ArrayBuffer, source: string): Parsed };
 	const current = new Map<string, Parsed>();
 	for (const executable of ["yuku-tsrx-m2-fixtures-dialect", "yuku-tsrx-m2-fixtures-plain"]) {
+		const decodeFixture = executable.endsWith("-plain") ? decodePlain : decode;
 		const output = execFileSync(resolve("zig-out/bin", executable));
 		const cursor = { value: 0 };
 		for (let index = 0, count = readU32(output, cursor); index < count; index++) {
@@ -223,7 +227,7 @@ const main = async (): Promise<void> => {
 			wire.copy(padded);
 			const buffer = padded.buffer.slice(padded.byteOffset, padded.byteOffset + padded.byteLength);
 			try {
-				current.set(path, decode(buffer, source));
+				current.set(path, decodeFixture(buffer, source));
 			} catch (error) {
 				throw new Error(`failed to decode ${path}`, { cause: error });
 			}

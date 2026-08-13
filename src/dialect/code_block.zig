@@ -1,5 +1,5 @@
 const abi = @import("dialect_abi");
-const schema = @import("schema.zig");
+const schema = @import("dialect_schema");
 
 pub fn statement(comptime Host: type, parser: anytype) Host.ErrorType!abi.Decision(?Host.NodeIndex) {
     if (!startsBlock(Host, parser)) return .unhandled;
@@ -65,10 +65,11 @@ fn parse(comptime Host: type, parser: anytype, allow_return: bool) Host.ErrorTyp
 fn renderNode(comptime Host: type, parser: anytype, node: Host.NodeIndex) Host.NodeIndex {
     return switch (Host.data(parser, node)) {
         .expression_statement => |data| switch (Host.data(parser, data.expression)) {
-            .jsx_element, .jsx_fragment, .dialect_node => data.expression,
+            .jsx_element, .jsx_fragment => data.expression,
+            .empty_statement => if (Host.isDialectNode(parser, data.expression)) data.expression else .null,
             else => .null,
         },
-        .dialect_node => node,
+        .empty_statement => if (Host.isDialectNode(parser, node)) node else .null,
         else => .null,
     };
 }

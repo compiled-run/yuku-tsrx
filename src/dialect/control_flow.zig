@@ -1,6 +1,6 @@
 const std = @import("std");
 const abi = @import("dialect_abi");
-const schema = @import("schema.zig");
+const schema = @import("dialect_schema");
 
 pub fn statement(comptime Host: type, parser: anytype) Host.ErrorType!abi.Decision(?Host.NodeIndex) {
     return dispatch(Host, parser);
@@ -181,7 +181,10 @@ pub fn forOfTail(comptime Host: type, parser: anytype, context: Host.Context) Ho
                 return .{ .handled = null };
             }
             if (!try Host.advance(parser)) return .{ .handled = null };
-            const value = try Host.parseExpression(parser) orelse return .{ .handled = null };
+            const value = try Host.parseExpression(parser) orelse {
+                try Host.report(parser, Host.currentSpan(parser), "Expected an expression after a for-of tail clause");
+                return .{ .handled = null };
+            };
             if (is_index) {
                 index = value;
                 saw_index = true;
@@ -413,13 +416,16 @@ fn transformParsedBlock(comptime Host: type, parser: anytype, block: Host.NodeIn
     };
     const items = Host.extra(parser, data.body);
     var end = items.len;
-    while (end > 0 and Host.data(parser, items[end - 1]) == .empty_statement) end -= 1;
+    while (end > 0 and Host.data(parser, items[end - 1]) == .empty_statement) {
+        if (Host.isDialectNode(parser, items[end - 1])) break;
+        end -= 1;
+    }
     var body_len = end;
     var render = Host.NodeIndex.null;
     if (end > 0) {
         render = switch (Host.data(parser, items[end - 1])) {
             .expression_statement => |value| if (isRender(Host, parser, value.expression)) value.expression else .null,
-            .dialect_node => items[end - 1],
+            .empty_statement => if (Host.isDialectNode(parser, items[end - 1])) items[end - 1] else .null,
             else => .null,
         };
         if (render != .null) body_len -= 1;
@@ -434,7 +440,8 @@ fn transformParsedBlock(comptime Host: type, parser: anytype, block: Host.NodeIn
 
 fn isRender(comptime Host: type, parser: anytype, node: Host.NodeIndex) bool {
     return switch (Host.data(parser, node)) {
-        .jsx_element, .jsx_fragment, .dialect_node => true,
+        .jsx_element, .jsx_fragment => true,
+        .empty_statement => Host.isDialectNode(parser, node),
         else => false,
     };
 }

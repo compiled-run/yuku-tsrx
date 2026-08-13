@@ -43,14 +43,17 @@ pub fn analyze(env: napi.Env, source: []const u8, options: AnalyzeOptions) !napi
         .comments = if (options.attach_comments) .both else .flat,
     }) catch return error.AnalyzeFailed;
     defer tree.deinit();
-    const semantic = parser.semantic.analyze(&tree) catch return error.AnalyzeFailed;
+    var semantic = parser.semantic.analyze(&tree) catch return error.AnalyzeFailed;
+    semantic.symbol_table.resolveAll(semantic.scope_tree) catch return error.AnalyzeFailed;
     const records = parser.semantic.module_record.collect(
         &tree,
         &semantic,
     ) catch return error.AnalyzeFailed;
-    const size = semantic_transfer.bufferSize(&tree, &semantic, records);
+    const core_size = transfer.bufferSize(&tree);
+    const size = semantic_transfer.bufferSize(&tree, &semantic, records, core_size);
     const buffer = try env.createArrayBuffer(size);
-    _ = semantic_transfer.serializeInto(&tree, &semantic, records, buffer.data);
+    const core_written = transfer.serializeInto(&tree, buffer.data);
+    _ = try semantic_transfer.appendInto(&tree, &semantic, records, buffer.data, core_written);
     return buffer.val;
 }
 

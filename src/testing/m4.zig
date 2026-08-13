@@ -9,9 +9,7 @@ test "dialect children participate in semantic analysis" {
     try std.testing.expect(!tree.hasErrors());
     const semantic = try parser.semantic.analyze(&tree);
     var resolved: u32 = 0;
-    for (semantic.references) |reference| {
-        if (reference.symbol != .none) resolved += 1;
-    }
+    resolved = @intCast(semantic.symbol_table.references.len);
     try std.testing.expect(resolved >= 2);
 }
 
@@ -143,7 +141,7 @@ test "lazy object assignment prefix disambiguates direct arrow body" {
 }
 
 fn expectObjectAssignment(
-    tree: *const parser.ast.Tree,
+    tree: *const parser.ParseResult,
     lazy: bool,
     parenthesized: bool,
 ) !void {

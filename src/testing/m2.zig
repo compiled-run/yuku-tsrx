@@ -162,8 +162,8 @@ test "JSX-child for accepts bare identifier left" {
     defer tree.deinit();
     try std.testing.expect(!tree.hasErrors());
 
-    const directive = findNode(&tree, .dialect_node) orelse return error.MissingBareIdentifierFor;
-    const directive_record = tree.dialect_store.records.items[tree.data(directive).dialect_node.record_index].jsx_for_expression;
+    const directive = findDialectNode(&tree, .jsx_for_expression) orelse return error.MissingBareIdentifierFor;
+    const directive_record = tree.dialect_store.records.items[tree.dialectRecord(@intFromEnum(directive)).?].jsx_for_expression;
     const for_of: parser.ast.NodeIndex = @enumFromInt(directive_record.statement.raw);
     try std.testing.expectEqual(.for_of_statement, std.meta.activeTag(tree.data(for_of)));
     const data = tree.data(for_of).for_of_statement;
@@ -207,8 +207,8 @@ test "Markless compatibility parses comparison conditions" {
     defer tree.deinit();
     try std.testing.expect(!tree.hasErrors());
 
-    const directive = findNode(&tree, .dialect_node) orelse return error.MissingComparisonIf;
-    const record = tree.dialect_store.records.items[tree.data(directive).dialect_node.record_index].jsx_if_expression;
+    const directive = findDialectNode(&tree, .jsx_if_expression) orelse return error.MissingComparisonIf;
+    const record = tree.dialect_store.records.items[tree.dialectRecord(@intFromEnum(directive)).?].jsx_if_expression;
     const condition: parser.ast.NodeIndex = @enumFromInt(record.@"test".raw);
     const comparison = tree.data(condition).binary_expression;
     try std.testing.expectEqual(.greater_than, comparison.operator);
@@ -229,12 +229,12 @@ test "Markless compatibility parses compatible else-if spellings" {
         const outer_start = std.mem.indexOf(u8, case.source, "@if").?;
         const nested_start = std.mem.indexOfPos(u8, case.source, outer_start + 3, case.nested_marker).?;
         const end = std.mem.lastIndexOfScalar(u8, case.source, '}').? + 1;
-        const outer = findNodeWithSpan(&tree, .dialect_node, @intCast(outer_start), @intCast(end)) orelse
+        const outer = findDialectNodeWithSpan(&tree, .jsx_if_expression, @intCast(outer_start), @intCast(end)) orelse
             return error.MissingOuterElseIf;
-        const nested = findNodeWithSpan(&tree, .dialect_node, @intCast(nested_start), @intCast(end)) orelse
+        const nested = findDialectNodeWithSpan(&tree, .jsx_if_expression, @intCast(nested_start), @intCast(end)) orelse
             return error.MissingNestedElseIf;
-        const outer_record = tree.dialect_store.records.items[tree.data(outer).dialect_node.record_index].jsx_if_expression;
-        const nested_record = tree.dialect_store.records.items[tree.data(nested).dialect_node.record_index].jsx_if_expression;
+        const outer_record = tree.dialect_store.records.items[tree.dialectRecord(@intFromEnum(outer)).?].jsx_if_expression;
+        const nested_record = tree.dialect_store.records.items[tree.dialectRecord(@intFromEnum(nested)).?].jsx_if_expression;
         try std.testing.expectEqual(@intFromEnum(nested), outer_record.alternate.raw);
         const final_alternate: parser.ast.NodeIndex = @enumFromInt(nested_record.alternate.raw);
         try std.testing.expectEqual(.block_statement, std.meta.activeTag(tree.data(final_alternate)));
@@ -362,7 +362,7 @@ test "production binding prefix deterministically rejects non-pattern targets" {
     }
 }
 
-fn expectRoundTrip(tree: *const parser.ast.Tree) !void {
+fn expectRoundTrip(tree: *const parser.ParseResult) !void {
     const bytes = try std.testing.allocator.alignedAlloc(u8, .@"4", transfer.bufferSize(tree));
     defer std.testing.allocator.free(bytes);
     _ = transfer.serializeInto(tree, bytes);
@@ -372,13 +372,13 @@ fn expectRoundTrip(tree: *const parser.ast.Tree) !void {
     try std.testing.expectEqualDeep(tree.dialect_store.overlays.items, restored.dialect_store.overlays.items);
 }
 
-fn expectKeyOnlyFor(tree: *const parser.ast.Tree, source: []const u8) !void {
+fn expectKeyOnlyFor(tree: *const parser.ParseResult, source: []const u8) !void {
     try expectForOverlay(tree, source, null, "row.id");
     try expectRoundTrip(tree);
 }
 
 fn expectForOverlay(
-    tree: *const parser.ast.Tree,
+    tree: *const parser.ParseResult,
     source: []const u8,
     expected_index: ?[]const u8,
     expected_key: ?[]const u8,
@@ -404,21 +404,44 @@ fn expectForOverlay(
     } else try std.testing.expectEqual(@intFromEnum(parser.ast.NodeIndex.null), record.key.raw);
 }
 
-fn findNode(tree: *const parser.ast.Tree, tag: std.meta.Tag(parser.ast.NodeData)) ?parser.ast.NodeIndex {
-    for (tree.nodes.items(.data), 0..) |data, index| {
+fn findNode(tree: *const parser.ParseResult, tag: std.meta.Tag(parser.ast.NodeData)) ?parser.ast.NodeIndex {
+    for (tree.tree.nodes.items(.data), 0..) |data, index| {
         if (std.meta.activeTag(data) == tag) return @enumFromInt(index);
     }
     return null;
 }
 
 fn findNodeWithSpan(
-    tree: *const parser.ast.Tree,
+    tree: *const parser.ParseResult,
     tag: std.meta.Tag(parser.ast.NodeData),
     start: u32,
     end: u32,
 ) ?parser.ast.NodeIndex {
-    for (tree.nodes.items(.data), tree.nodes.items(.span), 0..) |data, span, index| {
+    for (tree.tree.nodes.items(.data), tree.tree.nodes.items(.span), 0..) |data, span, index| {
         if (std.meta.activeTag(data) == tag and span.start == start and span.end == end) return @enumFromInt(index);
+    }
+    return null;
+}
+
+fn findDialectNode(tree: *const parser.ParseResult, tag: std.meta.Tag(parser.dialect_schema.Record)) ?parser.ast.NodeIndex {
+    for (tree.dialect_store.associations.items) |association| {
+        if (std.meta.activeTag(tree.dialect_store.records.items[association.record_index]) == tag)
+            return @enumFromInt(association.anchor);
+    }
+    return null;
+}
+
+fn findDialectNodeWithSpan(
+    tree: *const parser.ParseResult,
+    tag: std.meta.Tag(parser.dialect_schema.Record),
+    start: u32,
+    end: u32,
+) ?parser.ast.NodeIndex {
+    for (tree.dialect_store.associations.items) |association| {
+        const node: parser.ast.NodeIndex = @enumFromInt(association.anchor);
+        const span = tree.span(node);
+        if (std.meta.activeTag(tree.dialect_store.records.items[association.record_index]) == tag and span.start == start and span.end == end)
+            return node;
     }
     return null;
 }
