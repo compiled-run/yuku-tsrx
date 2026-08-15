@@ -60,15 +60,25 @@ export function parseModule(source, filename, options = {}) {
     lang: parseOptions.lang ?? inferLang(filename),
     sourceType: "module",
     loose,
+    // A module boundary owes its caller the scope-dependent early errors, not
+    // just the grammar ones. Without them an undeclared export slips through,
+    // and a bundler that reads a parse throw as "this chunk still has live
+    // exports" will strip a body while keeping its exports.
+    semanticErrors: parseOptions.semanticErrors ?? true,
     attachComments: parseOptions.attachComments ?? comments !== undefined,
   });
   if ((collect || loose) && comments) comments.push(...result.comments);
-  if (result.diagnostics.length > 0) {
+  // Only `error` severity makes a module unusable. The native boundary lowers
+  // the early errors a mid-edit file still recovers from -- redeclarations --
+  // to `warning`, so they stay visible on `parse()` without failing the module
+  // here. See src/dialect/diagnostics.zig for how that set was derived.
+  const fatal = result.diagnostics.filter((diagnostic) => diagnostic.severity === "error");
+  if (fatal.length > 0) {
     if (collect || loose) {
-      if (errors) errors.push(...result.diagnostics);
+      if (errors) errors.push(...fatal);
       return result.program;
     }
-    const diagnostic = result.diagnostics[0];
+    const diagnostic = fatal[0];
     throw new SyntaxError(`${diagnostic.message} (${diagnostic.start}:${diagnostic.end})`);
   }
   return result.program;

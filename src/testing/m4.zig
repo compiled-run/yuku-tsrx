@@ -1,6 +1,119 @@
 const std = @import("std");
 const parser = @import("parser");
 
+test "the recoverable early-error set is exactly the redeclaration family" {
+    // Kept tight on purpose: yuku carries no diagnostic codes, so the message
+    // is all there is to key on, and every extra entry is another module the
+    // bundler stops rejecting. See src/dialect/diagnostics.zig.
+    try std.testing.expect(
+        parser.diagnostics.isRecoverable("Identifier 'repeated' has already been declared"),
+    );
+    try std.testing.expect(
+        parser.diagnostics.isRecoverable("Identifier '#a' has already been declared"),
+    );
+    try std.testing.expect(!parser.diagnostics.isRecoverable("Export 'a' is not defined"));
+    try std.testing.expect(!parser.diagnostics.isRecoverable("Duplicate export of 'n'"));
+    try std.testing.expect(!parser.diagnostics.isRecoverable("'with' in strict mode"));
+    // an empty name is not a message the checker emits
+    try std.testing.expect(
+        !parser.diagnostics.isRecoverable("Identifier '' has already been declared"),
+    );
+}
+
+/// Analyzes `source` the way the FFI parse entry point does and returns the
+/// diagnostics the wire would carry.
+fn boundaryDiagnostics(
+    tree: *parser.ParseResult,
+) []const parser.ast.Diagnostic {
+    parser.diagnostics.analyzeWithBoundarySeverity(tree);
+    return tree.tree.diagnostics.items;
+}
+
+fn findDiagnostic(
+    diagnostics: []const parser.ast.Diagnostic,
+    needle: []const u8,
+) ?parser.ast.Diagnostic {
+    for (diagnostics) |diagnostic| {
+        if (std.mem.indexOf(u8, diagnostic.message, needle) != null) return diagnostic;
+    }
+    return null;
+}
+
+test "an undeclared export stays a fatal early error" {
+    // The exact chunk shape that regressed: a Vite preload helper whose body
+    // was stripped while its export clause survived. `@tsrx/core` throws here
+    // (ES2015 16.2.1.5.1) and markless's preload-cleanup guard reads that
+    // throw as "this chunk still has live exports". Anything short of
+    // `.@"error"` here silently reintroduces the 62-byte chunk V8 rejects.
+    const source = "import{t as e}from\"./c.js\";export{a as n,i as t};";
+    var tree = try parser.parse(std.testing.allocator, source, .{ .lang = .js });
+    defer tree.deinit();
+    try std.testing.expect(!tree.hasErrors());
+
+    const diagnostics = boundaryDiagnostics(&tree);
+    const undeclared = findDiagnostic(diagnostics, "Export 'a' is not defined") orelse
+        return error.MissingUndeclaredExportDiagnostic;
+    try std.testing.expectEqual(parser.ast.Severity.@"error", undeclared.severity);
+    try std.testing.expect(tree.tree.hasErrors());
+}
+
+test "a duplicate binding stays a recoverable early error" {
+    // Markless re-reports redeclarations itself as recoverable `usage`
+    // diagnostics so a half-typed editor buffer still produces virtual code.
+    // Reporting them at `.@"error"` here makes the module boundary throw and
+    // closes those editor flows, so the checker's severity is lowered instead
+    // of the diagnostic being dropped -- `parse()` consumers still see it.
+    const source =
+        "export default function Duplicate() @{\n" ++
+        "\tlet repeated = 1;\n" ++
+        "\tlet repeated = 2;\n" ++
+        "\t<span>{repeated}</span>\n" ++
+        "}";
+    var tree = try parser.parse(std.testing.allocator, source, .{ .lang = .tsx });
+    defer tree.deinit();
+    try std.testing.expect(!tree.hasErrors());
+
+    const diagnostics = boundaryDiagnostics(&tree);
+    const duplicate = findDiagnostic(
+        diagnostics,
+        "Identifier 'repeated' has already been declared",
+    ) orelse return error.MissingDuplicateBindingDiagnostic;
+    try std.testing.expectEqual(parser.ast.Severity.warning, duplicate.severity);
+    // recoverable on its own: nothing here makes the module unusable
+    try std.testing.expect(!tree.tree.hasErrors());
+}
+
+test "a duplicate binding does not mask a fatal export in the same module" {
+    const source = "let a = 1;\nlet a = 2;\nexport{missing as gone};";
+    var tree = try parser.parse(std.testing.allocator, source, .{ .lang = .js });
+    defer tree.deinit();
+
+    const diagnostics = boundaryDiagnostics(&tree);
+    const duplicate = findDiagnostic(
+        diagnostics,
+        "Identifier 'a' has already been declared",
+    ) orelse return error.MissingDuplicateBindingDiagnostic;
+    const undeclared = findDiagnostic(diagnostics, "Export 'missing' is not defined") orelse
+        return error.MissingUndeclaredExportDiagnostic;
+    try std.testing.expectEqual(parser.ast.Severity.warning, duplicate.severity);
+    try std.testing.expectEqual(parser.ast.Severity.@"error", undeclared.severity);
+    try std.testing.expect(tree.tree.hasErrors());
+}
+
+test "boundary severity survives a tree parsed under recovery" {
+    // The editor path parses broken buffers loosely; classification must not
+    // depend on analysis completing.
+    const source = "export default function Broken() @{ <div>";
+    var tree = try parser.parse(std.testing.allocator, source, .{ .lang = .tsx, .loose = true });
+    defer tree.deinit();
+    const parse_errors = tree.tree.diagnostics.items.len;
+    try std.testing.expect(parse_errors > 0);
+
+    const diagnostics = boundaryDiagnostics(&tree);
+    try std.testing.expect(diagnostics.len >= parse_errors);
+    try std.testing.expect(tree.tree.hasErrors());
+}
+
 test "dialect children participate in semantic analysis" {
     // References inside a code block resolve through reflected dialect children.
     const source = "const outer = 1; const view = @{ const inner = outer; <p>{inner}</p> };";

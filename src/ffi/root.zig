@@ -29,7 +29,7 @@ pub fn parse(env: napi.Env, source: []const u8, options: ParseOptions) !napi.Val
         .loose = options.loose,
     }) catch return error.ParseFailed;
     defer tree.deinit();
-    if (options.semantic_errors) _ = parser.semantic.analyze(&tree) catch {};
+    if (options.semantic_errors) parser.diagnostics.analyzeWithBoundarySeverity(&tree);
     const buffer = try env.createArrayBuffer(transfer.bufferSize(&tree));
     _ = transfer.serializeInto(&tree, buffer.data);
     return buffer.val;
