@@ -518,7 +518,14 @@ pub fn Host(comptime Parser: type) type {
             if (nodes.len == 1) switch (p.tree.data(nodes[0])) {
                 .expression_statement => |value| switch (p.tree.data(value.expression)) {
                     .jsx_element, .jsx_fragment => child = value.expression,
-                    else => {},
+                    // A raw-text element the dialect owns - `<style>` - comes
+                    // back from the after-open hook as a dialect record hung on
+                    // an anchor statement rather than a host jsx node, and is
+                    // still exactly one child element.
+                    else => if (record(p, value.expression)) |value_record| switch (value_record) {
+                        .jsx_style_element => child = value.expression,
+                        else => {},
+                    },
                 },
                 else => {},
             };
@@ -997,7 +1004,37 @@ fn skipDelimited(source: []const u8, start: u32, comptime open: u8, comptime clo
     return null;
 }
 
-const TagScan = struct { end: u32, closing: bool, self_closing: bool };
+/// Closing tag of the one raw-text element the dialect owns. `style.afterOpen`
+/// finds the body's end with this exact byte sequence, so the raw scanners must
+/// use it too: a scan that ended anywhere else would disagree with the node the
+/// host hook builds, and the exact-span check would decline the whole element.
+const raw_text_close = "</style>";
+
+const TagScan = struct {
+    end: u32,
+    closing: bool,
+    self_closing: bool,
+    /// this opening tag's children are raw text - CSS - rather than JSX, so
+    /// `{`, `<` and `@` inside them are not the syntax the scanners model
+    raw_text: bool,
+};
+
+/// True for a tag name whose element body is raw text rather than JSX children.
+fn isRawTextTagName(name: []const u8) bool {
+    return std.mem.eql(u8, name, "style");
+}
+
+fn isJsxTagNameByte(byte: u8) bool {
+    return std.ascii.isAlphanumeric(byte) or byte == '-' or byte == '_' or
+        byte == '.' or byte == ':' or byte == '$';
+}
+
+/// Offset just past the `</style>` that closes a raw-text element whose opening
+/// tag ended at `from`.
+fn rawTextElementEnd(source: []const u8, from: u32) ?u32 {
+    const index = std.mem.indexOfPos(u8, source, from, raw_text_close) orelse return null;
+    return @intCast(index + raw_text_close.len);
+}
 
 /// Scan the single JSX tag - opening, closing, self-closing or fragment - that
 /// starts at the `<` at `start`, up to and including its `>`.
@@ -1010,6 +1047,10 @@ fn scanJsxTag(source: []const u8, start: u32) ?TagScan {
         closing = true;
         cursor += 1;
     }
+    const name_start = cursor;
+    var name_end = cursor;
+    while (name_end < source.len and isJsxTagNameByte(source[name_end])) name_end += 1;
+    const raw_text = !closing and isRawTextTagName(source[name_start..name_end]);
     var quote: u8 = 0;
     var escaped = false;
     while (cursor < source.len) : (cursor += 1) {
@@ -1034,10 +1075,12 @@ fn scanJsxTag(source: []const u8, start: u32) ?TagScan {
                 var back = cursor;
                 while (back > start + 1 and isJsxSpace(source[back - 1])) back -= 1;
                 const slash = back > start + 1 and source[back - 1] == '/';
+                const self_closing = slash and !closing;
                 return .{
                     .end = @intCast(cursor + 1),
                     .closing = closing,
-                    .self_closing = slash and !closing,
+                    .self_closing = self_closing,
+                    .raw_text = raw_text and !self_closing,
                 };
             },
             else => {},
@@ -1068,6 +1111,10 @@ fn scanJsxChildren(source: []const u8, from: u32, depth: u32) ?ChildrenScan {
                 if (tag.closing) return .{ .close = @intCast(cursor), .directive = directive };
                 if (tag.self_closing) {
                     cursor = tag.end;
+                    continue;
+                }
+                if (tag.raw_text) {
+                    cursor = rawTextElementEnd(source, tag.end) orelse return null;
                     continue;
                 }
                 const inner = scanJsxChildren(source, tag.end, depth + 1) orelse return null;
@@ -1105,6 +1152,7 @@ fn jsxElementEnd(source: []const u8, start: u32, depth: u32) ?u32 {
     const tag = scanJsxTag(source, start) orelse return null;
     if (tag.closing) return null;
     if (tag.self_closing) return tag.end;
+    if (tag.raw_text) return rawTextElementEnd(source, tag.end);
     const children = scanJsxChildren(source, tag.end, depth + 1) orelse return null;
     const closing = scanJsxTag(source, children.close) orelse return null;
     if (!closing.closing) return null;

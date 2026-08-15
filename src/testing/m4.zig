@@ -674,3 +674,156 @@ test "interleaved JSX children round-trip through codegen" {
         try std.testing.expect(!reparsed.hasErrors());
     }
 }
+
+test "style siblings survive a directive in the same children region" {
+    // A `<style>` sibling is the one child element the dialect itself owns: the
+    // after-open hook answers with a dialect record hung on an anchor statement
+    // instead of a host jsx node. The children loop has to accept that shape,
+    // and its raw scan has to walk the CSS as raw text - `{`, `<` and `@` in a
+    // stylesheet are not the JSX syntax the scan otherwise models.
+    const Case = struct {
+        source: []const u8,
+        shapes: []const ChildShape,
+    };
+    for ([_]Case{
+        // guard: style alone, with no directive, is the host's to parse
+        .{
+            .source = "const view = <section><style>.a{color:red}</style></section>;",
+            .shapes = &.{.directive},
+        },
+        // guard: a directive beside a plain element child still interleaves
+        .{
+            .source = "const view = <section>@if (a) {<p>y</p>} <span>x</span></section>;",
+            .shapes = &.{ .directive, .text, .element },
+        },
+        // guard: `@for`/`@empty` with no trailing sibling
+        .{
+            .source = "const view = <section>@for (const i of xs; index n; key i.id) {<p>y</p>} @empty {<span>e</span>}</section>;",
+            .shapes = &.{.directive},
+        },
+        // style sibling after a directive
+        .{
+            .source = "const view = <section>@if (a) {<p>y</p>} <style>.a{color:red}</style></section>;",
+            .shapes = &.{ .directive, .text, .directive },
+        },
+        // style sibling after `@for`/`@empty`
+        .{
+            .source = "const view = <section>@for (const i of xs; index n; key i.id) {<p>y</p>} @empty {<span>e</span>} <style>.a{color:red}</style></section>;",
+            .shapes = &.{ .directive, .text, .directive },
+        },
+        // style sibling before a directive
+        .{
+            .source = "const view = <section><style>.a{color:red}</style> @if (a) {<p>y</p>}</section>;",
+            .shapes = &.{ .directive, .text, .directive },
+        },
+        // CSS braces nest deeper than the element that holds them
+        .{
+            .source = "const view = <section>@if (a) {<p>y</p>} <style>@media (width>0px){.a{color:red}}</style></section>;",
+            .shapes = &.{ .directive, .text, .directive },
+        },
+        // a quoted brace in CSS closes nothing
+        .{
+            .source = "const view = <section>@if (a) {<p>y</p>} <style>.a::after{content:'{'}</style></section>;",
+            .shapes = &.{ .directive, .text, .directive },
+        },
+        .{
+            .source = "const view = <section>@if (a) {<p>y</p>} <style>.a::after{content:\"}\"}</style></section>;",
+            .shapes = &.{ .directive, .text, .directive },
+        },
+        // a `<` in a CSS comment opens no tag, and a `>` combinator closes none
+        .{
+            .source = "const view = <section>@if (a) {<p>y</p>} <style>/* a < b */ .a > .b{color:red}</style></section>;",
+            .shapes = &.{ .directive, .text, .directive },
+        },
+        // a partial `</style` inside a CSS string is not the closing tag
+        .{
+            .source = "const view = <section>@if (a) {<p>y</p>} <style>.a{content:\"</style\"}</style></section>;",
+            .shapes = &.{ .directive, .text, .directive },
+        },
+        // a self-closing style is not raw text and holds no body to scan
+        .{
+            .source = "const view = <section>@if (a) {<p>y</p>} <style /> <span>x</span></section>;",
+            .shapes = &.{ .directive, .text, .directive, .text, .element },
+        },
+        // a tag whose name merely starts with `style` is ordinary JSX
+        .{
+            .source = "const view = <section>@if (a) {<p>y</p>} <styled-box>{x}</styled-box></section>;",
+            .shapes = &.{ .directive, .text, .element },
+        },
+    }) |case| {
+        var tree = try parser.parse(std.testing.allocator, case.source, .{ .lang = .tsx });
+        defer tree.deinit();
+        std.testing.expectEqual(@as(usize, 0), tree.diagnostics.items.len) catch |err| {
+            std.debug.print("source: {s}\n", .{case.source});
+            for (tree.diagnostics.items) |diagnostic| {
+                std.debug.print("  diagnostic: {s}\n", .{diagnostic.message});
+            }
+            return err;
+        };
+        try std.testing.expect(!tree.hasErrors());
+
+        var buffer: [12]ChildShape = undefined;
+        const shapes = childShapes(&tree, declaredJsxRoot(&tree), &buffer);
+        std.testing.expectEqualSlices(ChildShape, case.shapes, shapes) catch |err| {
+            std.debug.print("source: {s}\n", .{case.source});
+            return err;
+        };
+    }
+}
+
+test "a style sibling keeps its exact span and its CSS" {
+    // The style child's span end is where the next text rescan starts, so an
+    // element the dialect owns has to report the same end the host hook built.
+    const source = "const view = <section>@if (a) {<p>y</p>} <style>.a{color:red}</style> tail</section>;";
+    var tree = try parser.parse(std.testing.allocator, source, .{ .lang = .tsx });
+    defer tree.deinit();
+    try std.testing.expectEqual(@as(usize, 0), tree.diagnostics.items.len);
+    try std.testing.expect(!tree.hasErrors());
+
+    const element = declaredJsxElement(&tree);
+    const nodes = tree.extra(tree.data(element).jsx_element.children);
+    try std.testing.expectEqual(@as(usize, 4), nodes.len);
+
+    const style_node = nodes[2];
+    try std.testing.expectEqual(
+        @as(u32, @intCast(std.mem.indexOf(u8, source, "<style>").?)),
+        tree.span(style_node).start,
+    );
+    try std.testing.expectEqual(
+        @as(u32, @intCast(std.mem.indexOf(u8, source, "</style>").? + "</style>".len)),
+        tree.span(style_node).end,
+    );
+
+    const record_index = tree.dialectRecord(@intFromEnum(style_node)).?;
+    const record = tree.dialect_store.records.items[record_index];
+    try std.testing.expectEqual(.jsx_style_element, std.meta.activeTag(record));
+    try std.testing.expectEqualStrings(
+        ".a{color:red}",
+        source[record.jsx_style_element.css.start..record.jsx_style_element.css.end],
+    );
+
+    // the sibling after the style element is not truncated
+    try std.testing.expectEqual(.jsx_text, std.meta.activeTag(tree.data(nodes[3])));
+    try std.testing.expectEqualStrings(" tail", tree.string(tree.data(nodes[3]).jsx_text.value));
+}
+
+test "style siblings round-trip through codegen" {
+    for ([_][]const u8{
+        "const view = <section>@if (a) {<p>y</p>} <style>.a{color:red}</style></section>;",
+        "const view = <section>@for (const i of xs; index n; key i.id) {<p>y</p>} @empty {<span>e</span>} <style>.a{color:red}</style></section>;",
+        "const view = <section><style>.a{color:red}</style> @if (a) {<p>y</p>}</section>;",
+    }) |source| {
+        var tree = try parser.parse(std.testing.allocator, source, .{ .lang = .tsx });
+        defer tree.deinit();
+        try std.testing.expect(!tree.hasErrors());
+
+        const result = try parser.codegen.generate(std.testing.allocator, &tree, .{});
+        defer result.deinit(std.testing.allocator);
+        try std.testing.expectEqual(@as(usize, 0), result.errors.len);
+        try std.testing.expect(std.mem.indexOf(u8, result.code, ".a{color:red}") != null);
+
+        var reparsed = try parser.parse(std.testing.allocator, result.code, .{ .lang = .tsx });
+        defer reparsed.deinit();
+        try std.testing.expect(!reparsed.hasErrors());
+    }
+}
