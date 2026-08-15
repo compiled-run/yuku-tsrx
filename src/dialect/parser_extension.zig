@@ -350,6 +350,135 @@ pub fn Host(comptime Parser: type) type {
             return parseSimpleExpression(p);
         }
 
+        /// Parse one TSRX directive-header expression, delegating to the host
+        /// parser so the header accepts the whole JavaScript expression
+        /// grammar rather than the identifier/member/`>` sketch that
+        /// `parseSimpleExpression` recognises.
+        ///
+        /// `stops` lists the bytes that can close this particular header:
+        /// `")"` for `@if`/`@switch`, `":"` for `@case`, `");"` for a for-of
+        /// tail clause.  The first such byte outside quotes, brackets and a
+        /// pending `?:` is where the header ends.
+        pub fn parseExpressionUntil(p: *P, stops: []const u8) ErrorType!?NodeIndex {
+            if (headerExpressionEnd(p, stops)) |end| {
+                if (try parseDelegatedExpression(p, end)) |node| return node;
+            }
+            return parseSimpleExpression(p);
+        }
+
+        /// Source offset of the byte that closes the header starting at the
+        /// current token, or null when no unnested `stops` byte follows.
+        fn headerExpressionEnd(p: *P, stops: []const u8) ?u32 {
+            const bytes = p.source;
+            var cursor: usize = p.current_token.span.start;
+            var depth: u32 = 0;
+            var conditional: u32 = 0;
+            var quote: u8 = 0;
+            var escaped = false;
+            while (cursor < bytes.len) : (cursor += 1) {
+                const byte = bytes[cursor];
+                if (quote != 0) {
+                    if (escaped) {
+                        escaped = false;
+                    } else if (byte == '\\') {
+                        escaped = true;
+                    } else if (byte == quote) {
+                        quote = 0;
+                    }
+                    continue;
+                }
+                switch (byte) {
+                    '\'', '"', '`' => quote = byte,
+                    '(', '[', '{' => depth += 1,
+                    ')', ']', '}' => {
+                        if (depth > 0) {
+                            depth -= 1;
+                        } else if (std.mem.indexOfScalar(u8, stops, byte) != null) {
+                            return @intCast(cursor);
+                        } else {
+                            return null;
+                        }
+                    },
+                    // `?.` and `??` are not conditional expressions, so only a
+                    // lone `?` claims the `:` that follows it.
+                    '?' => if (depth == 0) {
+                        const next = if (cursor + 1 < bytes.len) bytes[cursor + 1] else 0;
+                        if (next == '?') {
+                            cursor += 1;
+                        } else if (next != '.') {
+                            conditional += 1;
+                        }
+                    },
+                    ':' => if (depth == 0) {
+                        if (conditional > 0) {
+                            conditional -= 1;
+                        } else if (std.mem.indexOfScalar(u8, stops, byte) != null) {
+                            return @intCast(cursor);
+                        }
+                    },
+                    ';' => if (depth == 0 and std.mem.indexOfScalar(u8, stops, byte) != null) {
+                        return @intCast(cursor);
+                    },
+                    else => {},
+                }
+            }
+            return null;
+        }
+
+        /// Parse `[current token, end)` with the host parser and recover the
+        /// single expression it produced.
+        ///
+        /// Yuku publishes no expression entry point, only `parseBody`, whose
+        /// statement parser demands a semicolon - real or ASI-inserted - after
+        /// an expression statement.  A header stops at `)` or `:`, where ASI
+        /// never applies, so hiding the rest of the source from the lexer is
+        /// what makes the header a complete body: the statement then ends at
+        /// end-of-input, where a semicolon is always implied.
+        fn parseDelegatedExpression(p: *P, end: u32) ErrorType!?NodeIndex {
+            const start = p.current_token.span.start;
+            if (end <= start or end > p.source.len) return null;
+
+            const saved = p.checkpoint();
+            const saved_store = container(p).store.checkpoint();
+            const whole_source = p.lexer.source;
+            p.lexer.source = whole_source[0..end];
+            const body = p.parseBody(null, .other) catch |err| {
+                p.lexer.source = whole_source;
+                return err;
+            };
+            p.lexer.source = whole_source;
+
+            const nodes = p.tree.extra(body);
+            var expression = NodeIndex.null;
+            if (nodes.len == 1) switch (p.tree.data(nodes[0])) {
+                .expression_statement => |value| expression = value.expression,
+                else => {},
+            };
+            const parsed_exactly_one = expression != .null and
+                p.diagnostics.items.len == saved.diagnostics_len and
+                p.tree.span(expression).start == start and
+                p.tree.span(expression).end <= end;
+            if (!parsed_exactly_one) {
+                p.rewind(saved);
+                container(p).store.rewind(saved_store);
+                return null;
+            }
+
+            // Keep the nodes this parse produced - the caller is about to hang
+            // the header off them - but put every other piece of parser state
+            // back, then resume lexing at the byte that closes the header so
+            // the caller still sees the terminator it expects.
+            var restore = saved;
+            restore.nodes_len = p.tree.nodes.len;
+            restore.extra_len = p.tree.extras.items.len;
+            p.rewind(restore);
+            p.lexer.rewindTo(end);
+            p.current_token = TokenValue.eof(end);
+            p.prev_token_end = end;
+            try p.advance() orelse return null;
+            return @as(?NodeIndex, expression);
+        }
+
         pub fn parseStatementExpression(p: *P) ErrorType!?NodeIndex {
             const expression = try parseExpression(p) orelse return null;
             return @as(?NodeIndex, try p.tree.addNode(.{ .expression_statement = .{

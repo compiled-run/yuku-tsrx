@@ -51,7 +51,7 @@ fn parseIf(comptime Host: type, parser: anytype) Host.ErrorType!?Host.NodeIndex 
 fn parseIfFromCurrent(comptime Host: type, parser: anytype, start: u32) Host.ErrorType!?Host.NodeIndex {
     if (!try consume(Host, parser, .@"if", "Expected 'if' after '@'", "TSRX if directives are written '@if (...) { ... }'")) return null;
     if (!try consume(Host, parser, .left_paren, "Expected '(' after '@if'", null)) return null;
-    const condition = try parseValue(Host, parser) orelse return null;
+    const condition = try parseValueUntil(Host, parser, ")") orelse return null;
     if (!try consume(Host, parser, .right_paren, "Expected ')' after '@if' condition", null)) return null;
     const consequent = try templateBlock(Host, parser, false) orelse return null;
 
@@ -130,19 +130,19 @@ fn parseSimpleJsxFor(comptime Host: type, parser: anytype, start: u32) Host.Erro
         break :blk declaration;
     };
     if (!try consume(Host, parser, .of, "Expected 'of' in TSRX for header", null)) return null;
-    const right = try parseValue(Host, parser) orelse return null;
+    const right = try parseValueUntil(Host, parser, ");") orelse return null;
     var index = Host.NodeIndex.null;
     var key = Host.NodeIndex.null;
     if (Host.currentToken(parser) == .semicolon) {
         if (!try Host.advance(parser)) return null;
         if (contextual(Host, parser, "index")) {
             if (!try Host.advance(parser)) return null;
-            index = try parseValue(Host, parser) orelse return null;
+            index = try parseValueUntil(Host, parser, ");") orelse return null;
             if (Host.currentToken(parser) == .semicolon and !try Host.advance(parser)) return null;
         }
         if (contextual(Host, parser, "key")) {
             if (!try Host.advance(parser)) return null;
-            key = try parseValue(Host, parser) orelse return null;
+            key = try parseValueUntil(Host, parser, ");") orelse return null;
         }
     }
     if (!try consume(Host, parser, .right_paren, "Expected ')' after for-of expression", null)) return null;
@@ -181,7 +181,7 @@ pub fn forOfTail(comptime Host: type, parser: anytype, context: Host.Context) Ho
                 return .{ .handled = null };
             }
             if (!try Host.advance(parser)) return .{ .handled = null };
-            const value = try Host.parseExpression(parser) orelse {
+            const value = try parseValueUntil(Host, parser, ");") orelse {
                 try Host.report(parser, Host.currentSpan(parser), "Expected an expression after a for-of tail clause");
                 return .{ .handled = null };
             };
@@ -265,7 +265,7 @@ fn parseSwitch(comptime Host: type, parser: anytype) Host.ErrorType!?Host.NodeIn
     const switch_start = Host.currentSpan(parser).start;
     if (!try consume(Host, parser, .@"switch", "Expected 'switch' after '@'", "TSRX switch directives are written '@switch (...) { ... }'")) return null;
     if (!try consume(Host, parser, .left_paren, "Expected '(' after '@switch'", null)) return null;
-    const discriminant = try parseValue(Host, parser) orelse return null;
+    const discriminant = try parseValueUntil(Host, parser, ")") orelse return null;
     if (!try consume(Host, parser, .right_paren, "Expected ')' after '@switch' expression", null)) return null;
     if (!try consume(Host, parser, .left_brace, "Expected '{' to start TSRX switch body", "TSRX switch bodies contain '@case' and '@default' clauses.")) return null;
 
@@ -281,7 +281,7 @@ fn parseSwitch(comptime Host: type, parser: anytype) Host.ErrorType!?Host.NodeIn
             if (!try consume(Host, parser, .default, "Expected 'default' after '@'", null)) return null;
         } else {
             if (!try consume(Host, parser, .case, "Expected 'case' after '@'", null)) return null;
-            case_test = try parseValue(Host, parser) orelse return null;
+            case_test = try parseValueUntil(Host, parser, ":") orelse return null;
         }
         if (!try consume(Host, parser, .colon, "Expected ':' after TSRX switch clause", null)) return null;
         const body = try templateBlock(Host, parser, true) orelse return null;
@@ -381,6 +381,19 @@ fn parseBinding(comptime Host: type, parser: anytype) Host.ErrorType!?Host.NodeI
         if (!try Host.advance(parser)) return null;
     }
     return @as(?Host.NodeIndex, try Host.addNode(parser, Host.NodeData{ .binding_identifier = .{ .name = name, .type_annotation = annotation } }, .{ .start = name_span.start, .end = end }));
+}
+
+/// Parse a directive-header expression that ends at one of `stops`.
+///
+/// Every TSRX header sits between a directive keyword and a byte that closes
+/// it - `)` for `@if` and `@switch`, `:` for `@case`, `;` or `)` for a for-of
+/// tail clause - so handing that byte to the host lets it parse the header
+/// with the full expression grammar instead of a local sketch of one.
+fn parseValueUntil(comptime Host: type, parser: anytype, stops: []const u8) Host.ErrorType!?Host.NodeIndex {
+    if (comptime @hasDecl(Host, "parseExpressionUntil")) {
+        return Host.parseExpressionUntil(parser, stops);
+    }
+    return parseValue(Host, parser);
 }
 
 fn parseValue(comptime Host: type, parser: anytype) Host.ErrorType!?Host.NodeIndex {
