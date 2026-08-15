@@ -129,6 +129,7 @@ fn normalizeJsxTypeArguments(tree: *ast.Tree) void {
 }
 
 pub const semantic = @import("semantic.zig");
+pub const diagnostics = @import("diagnostics.zig");
 pub const traverser = @import("traverser.zig");
 pub const projection = @import("projection.zig");
 pub const codegen = @import("codegen.zig");
