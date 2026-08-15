@@ -483,7 +483,7 @@ fn expectObjectAssignment(
 
 /// Shape of one JSX child, coarse enough to describe an interleaving without
 /// pinning the whole subtree.
-const ChildShape = enum { text, element, fragment, directive, other };
+const ChildShape = enum { text, element, fragment, directive, expression, other };
 
 fn childShapes(
     tree: *const parser.ParseResult,
@@ -502,6 +502,7 @@ fn childShapes(
             .jsx_text => .text,
             .jsx_element => .element,
             .jsx_fragment => .fragment,
+            .jsx_expression_container => .expression,
             else => if (tree.dialectRecord(@intFromEnum(child)) != null)
                 .directive
             else
@@ -616,6 +617,147 @@ test "TSRX directives interleave with sibling element children" {
         const shapes = childShapes(&tree, declaredJsxRoot(&tree), &buffer);
         std.testing.expectEqualSlices(ChildShape, case.shapes, shapes) catch |err| {
             std.debug.print("source: {s}\n", .{case.source});
+            return err;
+        };
+    }
+}
+
+test "TSRX directives interleave with expression container children" {
+    // `{expr}` is the third kind of child the dialect's own children loop has
+    // to recognise: with only directives and element children handled, a single
+    // expression container made the loop decline and handed the whole element
+    // back to the host, whose loop then choked on the directive.
+    const Case = struct {
+        source: []const u8,
+        shapes: []const ChildShape,
+    };
+    for ([_]Case{
+        // directive then expression container
+        .{
+            .source = "const view = <section>@if (a) {<p>y</p>} {fb}</section>;",
+            .shapes = &.{ .directive, .text, .expression },
+        },
+        // expression container then directive
+        .{
+            .source = "const view = <section>{fb} @if (a) {<p>y</p>}</section>;",
+            .shapes = &.{ .expression, .text, .directive },
+        },
+        // expression container between two directives
+        .{
+            .source = "const view = <section>@if (a) {<p>y</p>} {fb} @if (b) {<p>z</p>}</section>;",
+            .shapes = &.{ .directive, .text, .expression, .text, .directive },
+        },
+        // expression container after a code-block directive
+        .{
+            .source = "const view = <section>@{ const l = 1; <span>{l}</span> } {fb}</section>;",
+            .shapes = &.{ .directive, .text, .expression },
+        },
+        // expression container beside both a directive and an element child
+        .{
+            .source = "const view = <section>@if (a) {<p>y</p>} {fb} <b>x</b></section>;",
+            .shapes = &.{ .directive, .text, .expression, .text, .element },
+        },
+        // object literals inside the container nest braces of their own
+        .{
+            .source = "const view = <section>@if (a) {<p>y</p>} {c ? {x:1} : {y:2}}</section>;",
+            .shapes = &.{ .directive, .text, .expression },
+        },
+        // a string holding `}` and `<` is not child syntax
+        .{
+            .source = "const view = <section>@if (a) {<p>y</p>} {\"}<\"}</section>;",
+            .shapes = &.{ .directive, .text, .expression },
+        },
+        // template literals carry their own braces
+        .{
+            .source = "const view = <section>@if (a) {<p>y</p>} {`a${b}c`}</section>;",
+            .shapes = &.{ .directive, .text, .expression },
+        },
+        // an arrow function body is a braced region inside the container
+        .{
+            .source = "const view = <section>@if (a) {<p>y</p>} {(() => { return x; })()}</section>;",
+            .shapes = &.{ .directive, .text, .expression },
+        },
+        // an empty container holds no expression at all
+        .{
+            .source = "const view = <section>@if (a) {<p>y</p>} {}</section>;",
+            .shapes = &.{ .directive, .text, .expression },
+        },
+        // a container whose expression is itself JSX carrying a directive
+        .{
+            .source = "const view = <section>@if (a) {<p>y</p>} {c ? <b>@if (d) {<i>q</i>}</b> : null}</section>;",
+            .shapes = &.{ .directive, .text, .expression },
+        },
+        // guard: expression-container-only children stay on the host path
+        .{
+            .source = "const view = <section>{fb}</section>;",
+            .shapes = &.{.expression},
+        },
+        // guard: directive-only children keep working
+        .{
+            .source = "const view = <section>@{ const l = t.trim(); <span>{l}</span> }</section>;",
+            .shapes = &.{.directive},
+        },
+    }) |case| {
+        var tree = try parser.parse(std.testing.allocator, case.source, .{ .lang = .tsx });
+        defer tree.deinit();
+        std.testing.expectEqual(@as(usize, 0), tree.diagnostics.items.len) catch |err| {
+            std.debug.print("source: {s}\n", .{case.source});
+            for (tree.diagnostics.items) |diagnostic| {
+                std.debug.print("  diagnostic: {s}\n", .{diagnostic.message});
+            }
+            return err;
+        };
+        try std.testing.expect(!tree.hasErrors());
+
+        var buffer: [12]ChildShape = undefined;
+        const shapes = childShapes(&tree, declaredJsxRoot(&tree), &buffer);
+        std.testing.expectEqualSlices(ChildShape, case.shapes, shapes) catch |err| {
+            std.debug.print("source: {s}\n", .{case.source});
+            return err;
+        };
+    }
+}
+
+test "expression container children keep exact spans" {
+    // The container's span end is where the next text rescan starts, so a
+    // brace counted wrong silently truncates every sibling that follows it.
+    const source = "const view = <section>@if (a) {<p>y</p>} {fb} tail</section>;";
+    var tree = try parser.parse(std.testing.allocator, source, .{ .lang = .tsx });
+    defer tree.deinit();
+    try std.testing.expectEqual(@as(usize, 0), tree.diagnostics.items.len);
+    try std.testing.expect(!tree.hasErrors());
+
+    const element = declaredJsxRoot(&tree);
+    const nodes = tree.extra(tree.data(element).jsx_element.children);
+    try std.testing.expectEqual(@as(usize, 4), nodes.len);
+
+    const container_start: u32 = @intCast(std.mem.indexOf(u8, source, "{fb}").?);
+    try std.testing.expectEqual(.jsx_expression_container, std.meta.activeTag(tree.data(nodes[2])));
+    try std.testing.expectEqual(container_start, tree.span(nodes[2]).start);
+    try std.testing.expectEqual(container_start + @as(u32, "{fb}".len), tree.span(nodes[2]).end);
+    try std.testing.expectEqual(.jsx_text, std.meta.activeTag(tree.data(nodes[3])));
+    try std.testing.expectEqualStrings(" tail", tree.string(tree.data(nodes[3]).jsx_text.value));
+}
+
+test "expression container children round-trip through codegen" {
+    for ([_][]const u8{
+        "const view = <section>@if (a) {<p>y</p>} {fb}</section>;",
+        "const view = <section>{fb} @if (a) {<p>y</p>}</section>;",
+        "const view = <section>@{ const l = 1; <span>{l}</span> } {fb}</section>;",
+        "const view = <section>@if (a) {<p>y</p>} {c ? {x:1} : {y:2}} @if (b) {<p>z</p>}</section>;",
+    }) |source| {
+        var tree = try parser.parse(std.testing.allocator, source, .{ .lang = .tsx });
+        defer tree.deinit();
+        try std.testing.expect(!tree.hasErrors());
+
+        const result = try parser.codegen.generate(std.testing.allocator, &tree, .{});
+        defer result.deinit(std.testing.allocator);
+        try std.testing.expectEqual(@as(usize, 0), result.errors.len);
+
+        var reparsed = try parser.parse(std.testing.allocator, result.code, .{ .lang = .tsx });
+        defer reparsed.deinit();
+        std.testing.expect(!reparsed.hasErrors()) catch |err| {
+            std.debug.print("source: {s}\ncode: {s}\n", .{ source, result.code });
             return err;
         };
     }
