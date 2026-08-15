@@ -410,14 +410,30 @@ pub fn Host(comptime Parser: type) type {
             // entry point.  A TSRX directive needs exactly one statement, so
             // select the token immediately following its balanced body as a
             // temporary terminator and recover the sole parsed node.
-            const terminator: Token = statementTerminator(p);
+            const body_end = balancedBodyEnd(p);
+            const terminator: Token = statementTerminator(p, body_end);
+            const saved = p.checkpoint();
+            const saved_store = container(p).store.checkpoint();
             const body = try p.parseBody(terminator, .other);
             const nodes = p.tree.extra(body);
-            if (nodes.len != 1) return null;
+            // A directive body that stopped anywhere other than its own
+            // balanced close means the terminator lookahead was wrong and the
+            // parser has run past the directive.  Discard that speculative
+            // parse - together with its diagnostics - and decline instead of
+            // leaving the surrounding template holding a bad token position.
+            const consumed_exactly_one = nodes.len == 1 and
+                (body_end == null or p.tree.span(nodes[0]).end == body_end.?);
+            if (!consumed_exactly_one) {
+                p.rewind(saved);
+                container(p).store.rewind(saved_store);
+                return null;
+            }
             return nodes[0];
         }
 
-        fn statementTerminator(p: *P) Token {
+        /// Source offset just past the balanced `{ ... }` body that follows the
+        /// current token, or null when the directive has no braced body.
+        fn balancedBodyEnd(p: *P) ?u32 {
             const bytes = p.source;
             var cursor: usize = p.current_token.span.start;
             var parens: u32 = 0;
@@ -452,22 +468,27 @@ pub fn Host(comptime Parser: type) type {
                     },
                     '}' => if (parens == 0 and braces > 0) {
                         braces -= 1;
-                        if (saw_body and braces == 0) {
-                            cursor += 1;
-                            while (cursor < bytes.len and std.ascii.isWhitespace(bytes[cursor])) : (cursor += 1) {}
-                            if (cursor < bytes.len) return switch (bytes[cursor]) {
-                                '@' => .at,
-                                '<' => .less_than,
-                                '}' => .right_brace,
-                                else => .semicolon,
-                            };
-                            return .semicolon;
-                        }
+                        if (saw_body and braces == 0) return @intCast(cursor + 1);
                     },
                     else => {},
                 }
             }
-            return .semicolon;
+            return null;
+        }
+
+        /// The tag of the first real token after the directive body.  Lexing it
+        /// rather than classifying its first byte is what lets a directive that
+        /// is followed by ordinary JSX text stop at its own closing brace: the
+        /// byte-level guess collapsed every such case to `.semicolon`, which
+        /// made `parseBody` run on through the rest of the template.
+        fn statementTerminator(p: *P, body_end: ?u32) Token {
+            const end = body_end orelse return .semicolon;
+            const saved = p.checkpoint();
+            defer p.rewind(saved);
+            p.setLexerMode(.normal);
+            p.lexer.rewindTo(end);
+            const token = p.lexer.nextToken() catch return .semicolon;
+            return token.tag;
         }
 
         pub fn addForOf(p: *P, value: Context, body: NodeIndex) ErrorType!NodeIndex {

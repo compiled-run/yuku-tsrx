@@ -140,6 +140,190 @@ test "lazy object assignment prefix disambiguates direct arrow body" {
     try std.testing.expect(record.object_pattern.lazy);
 }
 
+test "every control-flow directive family parses as a JSX child" {
+    // `@for`/`@switch`/`@try` reach the dialect's JSX children loop through the
+    // same `jsx_element_after_open` seam as `@if`, and each has to leave the
+    // enclosing element closed behind it.
+    const Case = struct { source: []const u8, tag: []const u8 };
+    for ([_]Case{
+        .{
+            .source = "const view = <div>@if (ready) {<p>a</p>}</div>;",
+            .tag = "jsx_if_expression",
+        },
+        .{
+            .source = "const view = <div>@if (ready) {<p>a</p>} @else {<p>b</p>}</div>;",
+            .tag = "jsx_if_expression",
+        },
+        .{
+            .source = "const view = <div>@for (const item of items) {<p>{item}</p>}</div>;",
+            .tag = "jsx_for_expression",
+        },
+        .{
+            .source = "const view = <div>@for (const item of items) {<p>a</p>} @empty {<p>b</p>}</div>;",
+            .tag = "jsx_for_expression",
+        },
+        .{
+            .source = "const view = <div>@for (const item of items; index i; key item.id) {<p>a</p>}</div>;",
+            .tag = "jsx_for_expression",
+        },
+        .{
+            .source = "const view = <div>@for (const { id } of items) {<p>{id}</p>}</div>;",
+            .tag = "jsx_for_expression",
+        },
+        .{
+            .source = "const view = <div>@for (let i = 0; i < total; i++) {<p>{i}</p>}</div>;",
+            .tag = "jsx_for_expression",
+        },
+        .{
+            .source = "const view = <div>@switch (kind) {@case 1: {<p>a</p>} @default: {<p>b</p>}}</div>;",
+            .tag = "jsx_switch_expression",
+        },
+        .{
+            .source = "const view = <div>@try {<p>a</p>} @catch (error) {<p>b</p>}</div>;",
+            .tag = "jsx_try_expression",
+        },
+        .{
+            .source = "const view = <div>@try {<p>a</p>} @pending {<p>b</p>}</div>;",
+            .tag = "jsx_try_expression",
+        },
+    }) |case| {
+        var tree = try parser.parse(std.testing.allocator, case.source, .{ .lang = .tsx });
+        defer tree.deinit();
+        try std.testing.expectEqual(@as(usize, 0), tree.diagnostics.items.len);
+        try std.testing.expect(!tree.hasErrors());
+
+        const element = declaredJsxElement(&tree);
+        try std.testing.expect(tree.data(element).jsx_element.closing_element != .null);
+
+        const children = dialectChildTags(&tree, element);
+        try std.testing.expectEqual(@as(usize, 1), children.len);
+        try std.testing.expectEqualStrings(case.tag, children.tags[0]);
+    }
+}
+
+test "control-flow directives parse in template blocks and at statement position" {
+    // The same directive bodies have to terminate cleanly when the directive is
+    // not the last thing in its enclosing block.
+    for ([_][]const u8{
+        "const view = @{ @for (const item of items) {<p>{item}</p>} };",
+        "const view = @{ @for (const item of items) { const label = item; <p>{label}</p> } };",
+        "const view = @{ @switch (kind) {@case 1: {<p>a</p>}} };",
+        "const view = @{ @for (const item of items) {<p>a</p>} @if (ready) {<b>b</b>} };",
+        "const view = @{ @for (const item of items) {<p>a</p>} const trailing = 1; <p>{trailing}</p> };",
+        "@for (const item of items) {<p>a</p>}",
+    }) |source| {
+        var tree = try parser.parse(std.testing.allocator, source, .{ .lang = .tsx });
+        defer tree.deinit();
+        try std.testing.expectEqual(@as(usize, 0), tree.diagnostics.items.len);
+        try std.testing.expect(!tree.hasErrors());
+        try std.testing.expect(tree.dialect_store.associations.items.len >= 1);
+    }
+}
+
+test "a JSX child directive ends at its own closing brace" {
+    // The children loop resumes its text scan at the child's span end, so a
+    // directive node that over- or under-reports its end silently desyncs every
+    // sibling that follows it.
+    const source = "const view = <div>@for (const item of items) {<li>a</li>}@if (ready) {<b>b</b>}tail</div>;";
+    var tree = try parser.parse(std.testing.allocator, source, .{ .lang = .tsx });
+    defer tree.deinit();
+    try std.testing.expectEqual(@as(usize, 0), tree.diagnostics.items.len);
+    try std.testing.expect(!tree.hasErrors());
+
+    const element = declaredJsxElement(&tree);
+    try std.testing.expect(tree.data(element).jsx_element.closing_element != .null);
+
+    const children = dialectChildTags(&tree, element);
+    try std.testing.expectEqual(@as(usize, 2), children.len);
+    try std.testing.expectEqualStrings("jsx_for_expression", children.tags[0]);
+    try std.testing.expectEqualStrings("jsx_if_expression", children.tags[1]);
+
+    const nodes = tree.extra(tree.data(element).jsx_element.children);
+    try std.testing.expectEqual(@as(usize, 3), nodes.len);
+    try std.testing.expectEqual(
+        @as(u32, @intCast(std.mem.indexOf(u8, source, "@for").?)),
+        tree.span(nodes[0]).start,
+    );
+    try std.testing.expectEqual(
+        @as(u32, @intCast(std.mem.indexOf(u8, source, "}@if").? + 1)),
+        tree.span(nodes[0]).end,
+    );
+    try std.testing.expectEqual(
+        @as(u32, @intCast(std.mem.indexOf(u8, source, "}tail").? + 1)),
+        tree.span(nodes[1]).end,
+    );
+    try std.testing.expectEqual(.jsx_text, std.meta.activeTag(tree.data(nodes[2])));
+    try std.testing.expectEqualStrings("tail", tree.string(tree.data(nodes[2]).jsx_text.value));
+}
+
+test "control-flow JSX children round-trip through codegen" {
+    for ([_][]const u8{
+        "const view = <div>@for (const item of items) {<p>{item}</p>}</div>;",
+        "const view = <div>@for (const item of items; index i; key item.id) {<p>a</p>}</div>;",
+        "const view = <div>@for (const item of items) {<p>a</p>} @empty {<p>b</p>}</div>;",
+        "const view = <div>@switch (kind) {@case 1: {<p>a</p>} @default: {<p>b</p>}}</div>;",
+        "const view = <div>@try {<p>a</p>} @catch (error) {<p>b</p>}</div>;",
+    }) |source| {
+        var tree = try parser.parse(std.testing.allocator, source, .{ .lang = .tsx });
+        defer tree.deinit();
+        try std.testing.expect(!tree.hasErrors());
+
+        const result = try parser.codegen.generate(std.testing.allocator, &tree, .{});
+        defer result.deinit(std.testing.allocator);
+        try std.testing.expectEqual(@as(usize, 0), result.errors.len);
+
+        var reparsed = try parser.parse(std.testing.allocator, result.code, .{ .lang = .tsx });
+        defer reparsed.deinit();
+        try std.testing.expect(!reparsed.hasErrors());
+
+        const element = declaredJsxElement(&tree);
+        const expected = dialectChildTags(&tree, element);
+        const reparsed_element = declaredJsxElement(&reparsed);
+        const actual = dialectChildTags(&reparsed, reparsed_element);
+        try std.testing.expectEqual(expected.len, actual.len);
+        try std.testing.expectEqual(@as(usize, 1), actual.len);
+        try std.testing.expectEqualStrings(expected.tags[0], actual.tags[0]);
+    }
+}
+
+test "a JSX child for-of binding resolves inside its body" {
+    const source = "const view = <div>@for (const item of items) {<p>{item}</p>}</div>;";
+    var tree = try parser.parse(std.testing.allocator, source, .{ .lang = .tsx });
+    defer tree.deinit();
+    try std.testing.expect(!tree.hasErrors());
+    const semantic = try parser.semantic.analyze(&tree);
+    try std.testing.expect(semantic.references.len >= 2);
+}
+
+fn declaredJsxElement(tree: *const parser.ParseResult) parser.ast.NodeIndex {
+    const program = tree.data(tree.root).program;
+    const body = tree.extra(program.body);
+    const declaration = tree.data(body[0]).variable_declaration;
+    const declarators = tree.extra(declaration.declarators);
+    const element = tree.data(declarators[0]).variable_declarator.init;
+    std.debug.assert(tree.data(element) == .jsx_element);
+    return element;
+}
+
+const DialectChildTags = struct {
+    tags: [8][]const u8 = undefined,
+    len: usize = 0,
+};
+
+fn dialectChildTags(
+    tree: *const parser.ParseResult,
+    element: parser.ast.NodeIndex,
+) DialectChildTags {
+    var found: DialectChildTags = .{};
+    for (tree.extra(tree.data(element).jsx_element.children)) |child| {
+        const index = tree.dialectRecord(@intFromEnum(child)) orelse continue;
+        if (found.len == found.tags.len) break;
+        found.tags[found.len] = @tagName(tree.dialect_store.records.items[index]);
+        found.len += 1;
+    }
+    return found;
+}
+
 fn expectObjectAssignment(
     tree: *const parser.ParseResult,
     lazy: bool,
