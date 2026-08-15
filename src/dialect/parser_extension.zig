@@ -836,6 +836,11 @@ pub fn jsx_element_after_open(comptime Result: type, parser: anytype, opening: a
     const node = try parseExtendedJsxElement(H, parser, opening, context) orelse return null;
     return decisionNode(Result, abi.Decision(?H.NodeIndex){ .handled = node });
 }
+pub fn jsx_fragment_after_open(comptime Result: type, parser: anytype, opening: anytype) Result {
+    const H = Host(@TypeOf(parser.*));
+    const node = try parseExtendedJsxFragment(H, parser, opening) orelse return null;
+    return decisionNode(Result, abi.Decision(?H.NodeIndex){ .handled = node });
+}
 pub fn validate_jsx_element_name(comptime Result: type, parser: anytype, name: anytype) Result {
     const H = Host(@TypeOf(parser.*));
     _ = try jsx.validateElementName(H, parser, name);
@@ -883,32 +888,7 @@ fn parseExtendedJsxElement(comptime H: type, parser: anytype, opening: H.NodeInd
 
     var children: std.ArrayList(H.NodeIndex) = .empty;
     defer children.deinit(H.allocator(parser));
-    H.setLexerMode(parser, .normal);
-    var scan_from = opening_span.end;
-    while (true) {
-        const text_token = H.reScanJsxText(parser, scan_from);
-        if (text_token.len() > 0) {
-            var value = H.sourceSlice(parser, text_token.span.start, text_token.span.end);
-            switch (try text.value(H, parser, text_token.span)) {
-                .handled => |decoded| value = decoded,
-                .unhandled => {},
-            }
-            const text_node = try H.addNode(parser, H.NodeData{ .jsx_text = .{ .value = value } }, text_token.span);
-            try children.append(H.allocator(parser), text_node);
-        }
-        if (!try H.advanceWithRescannedToken(parser, text_token)) return null;
-        if (H.currentToken(parser) == .less_than) break;
-        if (H.currentToken(parser) != .at) return null;
-        const child = switch (try code_block.jsxChild(H, parser)) {
-            .handled => |node| node,
-            .unhandled => switch (try control_flow.jsxChild(H, parser)) {
-                .handled => |node| node,
-                .unhandled => return null,
-            },
-        } orelse return null;
-        try children.append(H.allocator(parser), child);
-        scan_from = H.nodeSpan(parser, child).end;
-    }
+    if (!try parseExtendedJsxChildren(H, parser, &children, opening_span.end)) return null;
 
     const closing_start = H.currentSpan(parser).start;
     H.setLexerMode(parser, .jsx_tag);
@@ -944,6 +924,80 @@ fn parseExtendedJsxElement(comptime H: type, parser: anytype, opening: H.NodeInd
         .opening_element = opening,
         .children = child_range,
         .closing_element = closing,
+    } }, .{ .start = opening_span.start, .end = closing_end }));
+}
+
+/// collects jsx text and `@` directive children from `from` up to the `<` that opens
+/// the closing tag, which the caller parses; false declines the whole host node.
+fn parseExtendedJsxChildren(
+    comptime H: type,
+    parser: anytype,
+    children: *std.ArrayList(H.NodeIndex),
+    from: u32,
+) H.ErrorType!bool {
+    H.setLexerMode(parser, .normal);
+    var scan_from = from;
+    while (true) {
+        const text_token = H.reScanJsxText(parser, scan_from);
+        if (text_token.len() > 0) {
+            var value = H.sourceSlice(parser, text_token.span.start, text_token.span.end);
+            switch (try text.value(H, parser, text_token.span)) {
+                .handled => |decoded| value = decoded,
+                .unhandled => {},
+            }
+            const text_node = try H.addNode(parser, H.NodeData{ .jsx_text = .{ .value = value } }, text_token.span);
+            try children.append(H.allocator(parser), text_node);
+        }
+        if (!try H.advanceWithRescannedToken(parser, text_token)) return false;
+        if (H.currentToken(parser) == .less_than) return true;
+        if (H.currentToken(parser) != .at) return false;
+        const child = switch (try code_block.jsxChild(H, parser)) {
+            .handled => |node| node,
+            .unhandled => switch (try control_flow.jsxChild(H, parser)) {
+                .handled => |node| node,
+                .unhandled => return false,
+            },
+        } orelse return false;
+        try children.append(H.allocator(parser), child);
+        scan_from = H.nodeSpan(parser, child).end;
+    }
+}
+
+fn parseExtendedJsxFragment(comptime H: type, parser: anytype, opening: H.NodeIndex) H.ErrorType!?H.NodeIndex {
+    switch (H.data(parser, opening)) {
+        .jsx_opening_fragment => {},
+        else => return null,
+    }
+    const opening_span = H.nodeSpan(parser, opening);
+    const source = H.source(parser);
+    const at = std.mem.indexOfScalarPos(u8, source, opening_span.end, '@') orelse return null;
+    const nested = std.mem.indexOfScalarPos(u8, source, opening_span.end, '<') orelse return null;
+    if (nested < at) return null;
+    const close = std.mem.indexOfPos(u8, source, opening_span.end, "</") orelse return null;
+    if (at >= close) return null;
+
+    var children: std.ArrayList(H.NodeIndex) = .empty;
+    defer children.deinit(H.allocator(parser));
+    if (!try parseExtendedJsxChildren(H, parser, &children, opening_span.end)) return null;
+
+    const closing_start = H.currentSpan(parser).start;
+    H.setLexerMode(parser, .jsx_tag);
+    if (!try H.advance(parser)) return null;
+    if (!try H.expect(parser, .slash, "Expected '/' in JSX closing fragment")) return null;
+    const closing_end = H.currentSpan(parser).end;
+    // leave jsx_tag before consuming '>' so the token after the fragment is plain javascript
+    H.setLexerMode(parser, .normal);
+    if (!try H.expect(parser, .greater_than, "Expected '>' to close JSX closing fragment")) return null;
+
+    const closing = try H.addNode(parser, H.NodeData{ .jsx_closing_fragment = .{} }, .{
+        .start = closing_start,
+        .end = closing_end,
+    });
+    const child_range = try H.addExtra(parser, children.items);
+    return @as(?H.NodeIndex, try H.addNode(parser, H.NodeData{ .jsx_fragment = .{
+        .opening_fragment = opening,
+        .children = child_range,
+        .closing_fragment = closing,
     } }, .{ .start = opening_span.start, .end = closing_end }));
 }
 

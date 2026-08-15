@@ -295,6 +295,123 @@ test "a JSX child for-of binding resolves inside its body" {
     try std.testing.expect(semantic.references.len >= 2);
 }
 
+test "every control-flow directive family parses at JSX fragment root" {
+    // Fragments reach the dialect's children loop through `jsx_fragment_after_open`,
+    // the fragment-shaped twin of the seam elements use.
+    const Case = struct { source: []const u8, tag: []const u8 };
+    for ([_]Case{
+        .{
+            .source = "const view = <>@if (ready) {<p>a</p>}</>;",
+            .tag = "jsx_if_expression",
+        },
+        .{
+            .source = "const view = <>@if (ready) {<p>a</p>} @else {<p>b</p>}</>;",
+            .tag = "jsx_if_expression",
+        },
+        .{
+            .source = "const view = <>@for (const item of items) {<p>{item}</p>}</>;",
+            .tag = "jsx_for_expression",
+        },
+        .{
+            .source = "const view = <>@for (const item of items) {<p>a</p>} @empty {<p>b</p>}</>;",
+            .tag = "jsx_for_expression",
+        },
+        .{
+            .source = "const view = <>@switch (kind) {@case 1: {<p>a</p>} @default: {<p>b</p>}}</>;",
+            .tag = "jsx_switch_expression",
+        },
+        .{
+            .source = "const view = <>@try {<p>a</p>} @pending {<p>b</p>}</>;",
+            .tag = "jsx_try_expression",
+        },
+        .{
+            .source = "const view = <>@try {<p>a</p>} @catch (error) {<p>b</p>}</>;",
+            .tag = "jsx_try_expression",
+        },
+    }) |case| {
+        var tree = try parser.parse(std.testing.allocator, case.source, .{ .lang = .tsx });
+        defer tree.deinit();
+        try std.testing.expectEqual(@as(usize, 0), tree.diagnostics.items.len);
+        try std.testing.expect(!tree.hasErrors());
+
+        const fragment = declaredJsxFragment(&tree);
+        try std.testing.expect(tree.data(fragment).jsx_fragment.closing_fragment != .null);
+
+        const children = dialectChildTags(&tree, fragment);
+        try std.testing.expectEqual(@as(usize, 1), children.len);
+        try std.testing.expectEqualStrings(case.tag, children.tags[0]);
+    }
+}
+
+test "a fragment root directive ends at its own closing brace" {
+    const source = "const view = <>@for (const item of items) {<li>a</li>}@if (ready) {<b>b</b>}tail</>;";
+    var tree = try parser.parse(std.testing.allocator, source, .{ .lang = .tsx });
+    defer tree.deinit();
+    try std.testing.expectEqual(@as(usize, 0), tree.diagnostics.items.len);
+    try std.testing.expect(!tree.hasErrors());
+
+    const fragment = declaredJsxFragment(&tree);
+    const children = dialectChildTags(&tree, fragment);
+    try std.testing.expectEqual(@as(usize, 2), children.len);
+    try std.testing.expectEqualStrings("jsx_for_expression", children.tags[0]);
+    try std.testing.expectEqualStrings("jsx_if_expression", children.tags[1]);
+
+    const nodes = tree.extra(tree.data(fragment).jsx_fragment.children);
+    try std.testing.expectEqual(@as(usize, 3), nodes.len);
+    try std.testing.expectEqual(
+        @as(u32, @intCast(std.mem.indexOf(u8, source, "@for").?)),
+        tree.span(nodes[0]).start,
+    );
+    try std.testing.expectEqual(.jsx_text, std.meta.activeTag(tree.data(nodes[2])));
+    try std.testing.expectEqualStrings("tail", tree.string(tree.data(nodes[2]).jsx_text.value));
+    try std.testing.expectEqual(
+        @as(u32, @intCast(source.len - ";".len)),
+        tree.span(fragment).end,
+    );
+}
+
+test "a directive-free fragment keeps the parser's own children" {
+    var tree = try parser.parse(std.testing.allocator, "const view = <><p>a</p>{b}</>;", .{ .lang = .tsx });
+    defer tree.deinit();
+    try std.testing.expectEqual(@as(usize, 0), tree.diagnostics.items.len);
+
+    const fragment = declaredJsxFragment(&tree);
+    const nodes = tree.extra(tree.data(fragment).jsx_fragment.children);
+    try std.testing.expectEqual(@as(usize, 2), nodes.len);
+    try std.testing.expectEqual(.jsx_element, std.meta.activeTag(tree.data(nodes[0])));
+    try std.testing.expectEqual(.jsx_expression_container, std.meta.activeTag(tree.data(nodes[1])));
+}
+
+test "fragment root control-flow children round-trip through codegen" {
+    for ([_][]const u8{
+        "const view = <>@if (ready) {<p>a</p>} @else {<p>b</p>}</>;",
+        "const view = <>@for (const item of items) {<p>{item}</p>}</>;",
+        "const view = <>@try {<p>a</p>} @pending {<p>b</p>}</>;",
+    }) |source| {
+        var tree = try parser.parse(std.testing.allocator, source, .{ .lang = .tsx });
+        defer tree.deinit();
+        try std.testing.expect(!tree.hasErrors());
+
+        const result = try parser.codegen.generate(std.testing.allocator, &tree, .{});
+        defer result.deinit(std.testing.allocator);
+        try std.testing.expectEqual(@as(usize, 0), result.errors.len);
+
+        var reparsed = try parser.parse(std.testing.allocator, result.code, .{ .lang = .tsx });
+        defer reparsed.deinit();
+        try std.testing.expect(!reparsed.hasErrors());
+    }
+}
+
+fn declaredJsxFragment(tree: *const parser.ParseResult) parser.ast.NodeIndex {
+    const program = tree.data(tree.root).program;
+    const body = tree.extra(program.body);
+    const declaration = tree.data(body[0]).variable_declaration;
+    const declarators = tree.extra(declaration.declarators);
+    const fragment = tree.data(declarators[0]).variable_declarator.init;
+    std.debug.assert(tree.data(fragment) == .jsx_fragment);
+    return fragment;
+}
+
 fn declaredJsxElement(tree: *const parser.ParseResult) parser.ast.NodeIndex {
     const program = tree.data(tree.root).program;
     const body = tree.extra(program.body);
@@ -312,10 +429,15 @@ const DialectChildTags = struct {
 
 fn dialectChildTags(
     tree: *const parser.ParseResult,
-    element: parser.ast.NodeIndex,
+    host: parser.ast.NodeIndex,
 ) DialectChildTags {
     var found: DialectChildTags = .{};
-    for (tree.extra(tree.data(element).jsx_element.children)) |child| {
+    const host_children = switch (tree.data(host)) {
+        .jsx_element => |value| value.children,
+        .jsx_fragment => |value| value.children,
+        else => unreachable,
+    };
+    for (tree.extra(host_children)) |child| {
         const index = tree.dialectRecord(@intFromEnum(child)) orelse continue;
         if (found.len == found.tags.len) break;
         found.tags[found.len] = @tagName(tree.dialect_store.records.items[index]);
