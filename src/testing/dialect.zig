@@ -126,11 +126,10 @@ test "reflected dialect node references are traversed" {
     );
     defer tree.deinit();
     try std.testing.expect(!tree.hasErrors());
-    var semantic = try parser.semantic.analyze(&tree);
+    const semantic = try parser.semantic.analyze(&tree);
     var resolved: u32 = 0;
-    try semantic.symbol_table.resolveAll(semantic.scope_tree);
-    for (semantic.symbol_table.resolutions) |symbol| {
-        if (symbol != .none) resolved += 1;
+    for (semantic.references) |reference| {
+        if (reference.symbol != .none) resolved += 1;
     }
     try std.testing.expectEqual(@as(u32, 1), resolved);
 }

@@ -16,14 +16,14 @@ pub const IMPORT_SIZE = base.IMPORT_SIZE;
 pub const EXPORT_SIZE = base.EXPORT_SIZE;
 pub const SCOPE_KIND_MASK = base.SCOPE_KIND_MASK;
 pub const SCOPE_STRICT_BIT = base.SCOPE_STRICT_BIT;
-pub const REFERENCE_TYPE_BIT = base.REFERENCE_TYPE_BIT;
 pub const REFERENCE_WRITE_BIT = base.REFERENCE_WRITE_BIT;
-pub const IMPORT_NAME_KIND_MASK = base.IMPORT_NAME_KIND_MASK;
+pub const REFERENCE_SPACE_SHIFT = base.REFERENCE_SPACE_SHIFT;
+pub const REFERENCE_SPACE_MASK = base.REFERENCE_SPACE_MASK;
+pub const IMPORT_KIND_MASK = base.IMPORT_KIND_MASK;
 pub const IMPORT_TYPE_BIT = base.IMPORT_TYPE_BIT;
 pub const IMPORT_HAS_PHASE_BIT = base.IMPORT_HAS_PHASE_BIT;
 pub const IMPORT_PHASE_BIT = base.IMPORT_PHASE_BIT;
-pub const EXPORT_NAME_KIND_MASK = base.EXPORT_NAME_KIND_MASK;
-pub const EXPORT_FROM_KIND_SHIFT = base.EXPORT_FROM_KIND_SHIFT;
+pub const EXPORT_KIND_MASK = base.EXPORT_KIND_MASK;
 pub const EXPORT_TYPE_BIT = base.EXPORT_TYPE_BIT;
 
 pub fn bufferSize(tree: anytype, semantic: anytype, records: anytype, core_size: usize) usize {

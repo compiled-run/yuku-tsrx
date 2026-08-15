@@ -2,8 +2,10 @@ const std = @import("std");
 const parser = @import("yuku");
 
 pub const module_record = struct {
-    pub fn collect(tree: anytype, analysis: anytype) !parser.semantic.module_record.ModuleRecords {
-        return parser.semantic.module_record.collect(&tree.tree, &analysis.symbol_table);
+    pub const Flags = parser.semantic.module_record.Flags;
+
+    pub fn collect(tree: anytype, analysis: anytype) !parser.semantic.module_record.Records {
+        return parser.semantic.module_record.collect(&tree.tree, analysis);
     }
 };
 

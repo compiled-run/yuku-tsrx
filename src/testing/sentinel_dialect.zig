@@ -276,7 +276,14 @@ fn impl_jsx_child_at_code_block(comptime Host: type, parser: anytype) Host.Error
         if (!try Host.advance(parser)) return .{ .handled = null };
         const block = try Host.parseBlockWithTemporaryReturn(parser, false) orelse
             return .{ .handled = null };
-        return .{ .handled = try splitBlock(Host, parser, block, start) };
+        const node = try splitBlock(Host, parser, block, start) orelse return .{ .handled = null };
+        // The child hook owns the '}' closing the expression container, and the
+        // children loop resumes from the returned node's span end.
+        if (Host.currentToken(parser) != .right_brace) return .{ .handled = node };
+        const container: Host.Span = .{ .start = start, .end = Host.currentSpan(parser).end };
+        return .{ .handled = try Host.addNode(parser, Host.NodeData{
+            .jsx_expression_container = .{ .expression = node },
+        }, container) };
     }
     if (!handles(.jsx_child_at_code_block)) return .unhandled;
     if (Host.currentToken(parser) != .at) return .unhandled;

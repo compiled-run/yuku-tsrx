@@ -44,7 +44,6 @@ pub fn analyze(env: napi.Env, source: []const u8, options: AnalyzeOptions) !napi
     }) catch return error.AnalyzeFailed;
     defer tree.deinit();
     var semantic = parser.semantic.analyze(&tree) catch return error.AnalyzeFailed;
-    semantic.symbol_table.resolveAll(semantic.scope_tree) catch return error.AnalyzeFailed;
     const records = parser.semantic.module_record.collect(
         &tree,
         &semantic,

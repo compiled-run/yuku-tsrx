@@ -9,7 +9,7 @@ test "dialect children participate in semantic analysis" {
     try std.testing.expect(!tree.hasErrors());
     const semantic = try parser.semantic.analyze(&tree);
     var resolved: u32 = 0;
-    resolved = @intCast(semantic.symbol_table.references.len);
+    resolved = @intCast(semantic.references.len);
     try std.testing.expect(resolved >= 2);
 }
 

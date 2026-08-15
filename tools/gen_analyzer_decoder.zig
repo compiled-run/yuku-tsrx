@@ -356,11 +356,36 @@ fn strCell(
 
 fn writeSemanticConstants(w: *Writer) !void {
     try writeArray(w, "SCOPE_KINDS", &.{
-        "global", "module",      "function",       "block",
-        "class",  "staticBlock", "expressionName", "tsModule",
+        "global",       "module",      "function",       "block",
+        "class",        "staticBlock", "expressionName", "tsModule",
+        "functionBody",
     });
-    try writeArray(w, "NAME_KINDS", &.{ "named", "star", "none", "equals", "global" });
     try writeArray(w, "IMPORT_PHASES", &.{ "source", "defer" });
+    try writeArray(w, "IMPORT_KINDS", &.{
+        "named", "namespace", "sideEffect", "importEquals", "dynamic", "require",
+    });
+    try writeArray(w, "EXPORT_KINDS", &.{
+        "named", "reExport", "namespace", "star", "equals", "global",
+    });
+
+    // one entry per Reference.Space value, in enum order, plus the
+    // mirrored Space.inTypePosition lookup
+    const space_fields = @typeInfo(Reference.Space).@"enum".fields;
+    const space_names = comptime blk: {
+        var names: [space_fields.len][]const u8 = undefined;
+        for (space_fields, 0..) |field, i| names[i] = field.name;
+        break :blk names;
+    };
+    try writeArray(w, "REFERENCE_SPACES", &space_names);
+    const space_type_position = comptime blk: {
+        var vals: [space_fields.len][]const u8 = undefined;
+        for (space_fields, 0..) |field, i| {
+            const space = @field(Reference.Space, field.name);
+            vals[i] = if (space.inTypePosition()) "true" else "false";
+        }
+        break :blk vals;
+    };
+    try writeArrayRaw(w, "REFERENCE_TYPE_POSITION", &space_type_position);
 
     try w.writeAll("const SymbolFlags = Object.freeze({\n");
     inline for (@typeInfo(Symbol.Flags).@"struct".fields) |field| {
@@ -1934,7 +1959,7 @@ fn writeSemanticBody(w: *Writer) !void {
         \\    const scopeCount = _u32[o], symbolCount = _u32[o + 1],
         \\          referenceCount = _u32[o + 2], declNodeCount = _u32[o + 3],
         \\          importCount = _u32[o + 4], exportCount = _u32[o + 5],
-        \\          nodeScopeCount = _u32[o + 6];
+        \\          nodeScopeCount = _u32[o + 6], moduleFlags = _u32[o + 7];
         \\    o += {[sub]d};
         \\    const scopes = _u32.subarray(o, o + scopeCount * {[scope]d});
         \\    o += scopeCount * {[scope]d};
@@ -2026,7 +2051,8 @@ fn writeSemanticAccessors(w: *Writer) !void {
         \\        scopeId: (i) => {[scope]s},
         \\        node: (i) => node({[n]s}),
         \\        nodeIndex: (i) => {[n]s},
-        \\        kind: (i) => IMPORT_EXPORT_KINDS[({[bits]s} >> {[tbit]d}) & 1],
+        \\        space: (i) => REFERENCE_SPACES[({[bits]s} >> {[sshift]d}) & {[smask]d}],
+        \\        inTypePosition: (i) => REFERENCE_TYPE_POSITION[({[bits]s} >> {[sshift]d}) & {[smask]d}],
         \\        isWrite: (i) => (({[bits]s} >> {[wbit]d}) & 1) !== 0,
         \\        symbolId: (i) => _id({[sym]s}),
         \\        start: (i) => startOf({[n]s}),
@@ -2038,15 +2064,16 @@ fn writeSemanticAccessors(w: *Writer) !void {
         .scope = comptime cell("references", Ref, "scope"),
         .n = comptime cell("references", Ref, "node"),
         .bits = comptime cell("references", Ref, "bits"),
-        .tbit = sem_rt.REFERENCE_TYPE_BIT,
+        .sshift = sem_rt.REFERENCE_SPACE_SHIFT,
+        .smask = sem_rt.REFERENCE_SPACE_MASK,
         .wbit = sem_rt.REFERENCE_WRITE_BIT,
         .sym = comptime cell("references", Ref, "symbol"),
     });
     try w.print(
         \\      import: {{
         \\        count: importCount,
+        \\        kind: (i) => IMPORT_KINDS[{[bits]s} & {[kmask]d}],
         \\        symbolId: (i) => _id({[sym]s}),
-        \\        nameKind: (i) => NAME_KINDS[{[bits]s} & {[nkmask]d}],
         \\        name: (i) => {[name]s},
         \\        specifier: (i) => {[spec]s},
         \\        typeOnly: (i) => (({[bits]s} >> {[tbit]d}) & 1) !== 0,
@@ -2060,7 +2087,7 @@ fn writeSemanticAccessors(w: *Writer) !void {
     , .{
         .sym = comptime cell("imports", Imp, "symbol"),
         .bits = comptime cell("imports", Imp, "bits"),
-        .nkmask = sem_rt.IMPORT_NAME_KIND_MASK,
+        .kmask = sem_rt.IMPORT_KIND_MASK,
         .name = comptime strCell("imports", Imp, "name_start", "name_end"),
         .spec = comptime strCell("imports", Imp, "specifier_start", "specifier_end"),
         .tbit = sem_rt.IMPORT_TYPE_BIT,
@@ -2071,8 +2098,7 @@ fn writeSemanticAccessors(w: *Writer) !void {
     try w.print(
         \\      export: {{
         \\        count: exportCount,
-        \\        nameKind: (i) => NAME_KINDS[{[bits]s} & {[nkmask]d}],
-        \\        fromKind: (i) => NAME_KINDS[({[bits]s} >> {[fkshift]d}) & {[nkmask]d}],
+        \\        kind: (i) => EXPORT_KINDS[{[bits]s} & {[kmask]d}],
         \\        typeOnly: (i) => (({[bits]s} >> {[tbit]d}) & 1) !== 0,
         \\        name: (i) => {[name]s},
         \\        fromName: (i) => {[fname]s},
@@ -2080,19 +2106,28 @@ fn writeSemanticAccessors(w: *Writer) !void {
         \\        symbolId: (i) => _id({[sym]s}),
         \\        node: (i) => node({[n]s}),
         \\      }},
+        \\      moduleFlags: {{
+        \\        usesRequire: (moduleFlags & {[require]d}) !== 0,
+        \\        usesModule: (moduleFlags & {[module]d}) !== 0,
+        \\        usesExports: (moduleFlags & {[exports]d}) !== 0,
+        \\        usesImportMeta: (moduleFlags & {[meta]d}) !== 0,
+        \\      }},
         \\      nodeScope: (i) => nodeScopes[i],
         \\    }});
         \\
     , .{
         .bits = comptime cell("exports", Exp, "bits"),
-        .nkmask = sem_rt.EXPORT_NAME_KIND_MASK,
-        .fkshift = sem_rt.EXPORT_FROM_KIND_SHIFT,
+        .kmask = sem_rt.EXPORT_KIND_MASK,
         .tbit = sem_rt.EXPORT_TYPE_BIT,
         .name = comptime strCell("exports", Exp, "name_start", "name_end"),
         .fname = comptime strCell("exports", Exp, "from_name_start", "from_name_end"),
         .spec = comptime strCell("exports", Exp, "specifier_start", "specifier_end"),
         .sym = comptime cell("exports", Exp, "symbol"),
         .n = comptime cell("exports", Exp, "node"),
+        .require = @as(u32, 1) << @bitOffsetOf(ModuleFlags, "uses_require"),
+        .module = @as(u32, 1) << @bitOffsetOf(ModuleFlags, "uses_module"),
+        .exports = @as(u32, 1) << @bitOffsetOf(ModuleFlags, "uses_exports"),
+        .meta = @as(u32, 1) << @bitOffsetOf(ModuleFlags, "uses_import_meta"),
     });
 }
 
