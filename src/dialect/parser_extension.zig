@@ -550,6 +550,94 @@ pub fn Host(comptime Parser: type) type {
             return @as(?NodeIndex, child);
         }
 
+        /// Parse the JSX expression container child that begins at the current
+        /// `{` with the host parser, then leave the cursor just past its
+        /// closing `}` so the children loop can resume its text scan there.
+        ///
+        /// Yuku's own child-container parser is private, so this borrows the
+        /// trick `parseJsxChildElement` uses: the balanced `}` is located by
+        /// raw scan - the same scan the children gate already walks, so the two
+        /// can never disagree about where the container ends - every byte from
+        /// that brace on is hidden from the lexer, and the inner expression
+        /// comes back from `parseBody` as the sole statement of a body that
+        /// ends at end-of-input, where a semicolon is always implied.
+        ///
+        /// The container node itself is the one piece built here rather than
+        /// delegated: the host exposes no entry point that produces one.
+        ///
+        /// Anything the raw scan and the host parse disagree about - a
+        /// diagnostic, more than one statement, an expression that starts
+        /// somewhere other than just past the `{` or runs past the scanned
+        /// brace - rewinds and declines, leaving the token position untouched
+        /// for the caller to fall back on.
+        pub fn parseJsxChildExpressionContainer(p: *P) ErrorType!?NodeIndex {
+            if (p.current_token.tag != .left_brace) return null;
+            const start = p.current_token.span.start;
+            const close = skipBracedRegion(p.source, start) orelse return null;
+            const end = close + 1;
+            if (end > p.source.len) return null;
+
+            const saved = p.checkpoint();
+            const saved_store = container(p).store.checkpoint();
+            var owned = false;
+            defer if (!owned) {
+                p.rewind(saved);
+                container(p).store.rewind(saved_store);
+            };
+
+            p.setLexerMode(.normal);
+            try p.advance() orelse return null;
+
+            var expression = NodeIndex.null;
+            if (p.current_token.tag == .right_brace and p.current_token.span.start == close) {
+                // `{}` - and `{ }`, and a container holding only comments -
+                // carries no expression at all.
+                expression = try p.tree.addNode(.{ .jsx_empty_expression = .{} }, .{
+                    .start = start + 1,
+                    .end = close,
+                });
+            } else {
+                const inner_start = p.current_token.span.start;
+                const whole_source = p.source;
+                p.source = whole_source[0..close];
+                p.lexer.source = whole_source[0..close];
+                const body = p.parseBody(null, .other) catch |err| {
+                    p.source = whole_source;
+                    p.lexer.source = whole_source;
+                    return err;
+                };
+                p.source = whole_source;
+                p.lexer.source = whole_source;
+
+                const nodes = p.tree.extra(body);
+                if (nodes.len == 1) switch (p.tree.data(nodes[0])) {
+                    .expression_statement => |value| expression = value.expression,
+                    else => {},
+                };
+                const parsed_exactly_one = expression != .null and
+                    p.diagnostics.items.len == saved.diagnostics_len and
+                    p.tree.span(expression).start == inner_start and
+                    p.tree.span(expression).end <= close;
+                if (!parsed_exactly_one) return null;
+            }
+
+            // Keep the nodes this parse produced - and the dialect records any
+            // directive nested inside the expression just registered - but put
+            // the rest of the parser state back before hanging the container
+            // off them and resuming at the brace that closed it.
+            var restore = saved;
+            restore.nodes_len = p.tree.nodes.len;
+            restore.extra_len = p.tree.extras.items.len;
+            p.rewind(restore);
+
+            const node = try p.tree.addNode(.{ .jsx_expression_container = .{
+                .expression = expression,
+            } }, .{ .start = start, .end = end });
+            if (!try resumeAfterRawSpan(p, end, .child)) return null;
+            owned = true;
+            return @as(?NodeIndex, node);
+        }
+
         pub fn parseStatementExpression(p: *P) ErrorType!?NodeIndex {
             const expression = try parseExpression(p) orelse return null;
             return @as(?NodeIndex, try p.tree.addNode(.{ .expression_statement = .{
@@ -1197,6 +1285,7 @@ fn parseExtendedJsxChildren(
                 if (closesJsxElement(H.source(parser), H.currentSpan(parser).start)) return true;
                 break :blk try H.parseJsxChildElement(parser) orelse return false;
             },
+            .left_brace => try H.parseJsxChildExpressionContainer(parser) orelse return false,
             .at => switch (try code_block.jsxChild(H, parser)) {
                 .handled => |node| node orelse return false,
                 .unhandled => switch (try control_flow.jsxChild(H, parser)) {
