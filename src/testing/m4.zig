@@ -480,3 +480,197 @@ fn expectObjectAssignment(
         try std.testing.expectEqual(@as(?u32, null), record_index);
     }
 }
+
+/// Shape of one JSX child, coarse enough to describe an interleaving without
+/// pinning the whole subtree.
+const ChildShape = enum { text, element, fragment, directive, other };
+
+fn childShapes(
+    tree: *const parser.ParseResult,
+    element: parser.ast.NodeIndex,
+    buffer: []ChildShape,
+) []const ChildShape {
+    const children = switch (tree.data(element)) {
+        .jsx_element => |value| tree.extra(value.children),
+        .jsx_fragment => |value| tree.extra(value.children),
+        else => &[_]parser.ast.NodeIndex{},
+    };
+    var len: usize = 0;
+    for (children) |child| {
+        if (len == buffer.len) break;
+        buffer[len] = switch (tree.data(child)) {
+            .jsx_text => .text,
+            .jsx_element => .element,
+            .jsx_fragment => .fragment,
+            else => if (tree.dialectRecord(@intFromEnum(child)) != null)
+                .directive
+            else
+                .other,
+        };
+        len += 1;
+    }
+    return buffer[0..len];
+}
+
+fn declaredJsxRoot(tree: *const parser.ParseResult) parser.ast.NodeIndex {
+    const program = tree.data(tree.root).program;
+    const body = tree.extra(program.body);
+    const declaration = tree.data(body[0]).variable_declaration;
+    const declarators = tree.extra(declaration.declarators);
+    return tree.data(declarators[0]).variable_declarator.init;
+}
+
+test "TSRX directives interleave with sibling element children" {
+    // The dialect owns the children loop of any element that holds a directive,
+    // so that loop - not just the host's - has to accept element children on
+    // either side of the directive instead of mistaking the first '<' it meets
+    // for the closing tag.
+    const Case = struct {
+        source: []const u8,
+        shapes: []const ChildShape,
+    };
+    for ([_]Case{
+        // directive then element
+        .{
+            .source = "const view = <div>@if (a) {<p>y</p>} <span>x</span></div>;",
+            .shapes = &.{ .directive, .text, .element },
+        },
+        // element then directive
+        .{
+            .source = "const view = <div><span>x</span> @if (a) {<p>y</p>}</div>;",
+            .shapes = &.{ .element, .text, .directive },
+        },
+        // directive, text, element
+        .{
+            .source = "const view = <div>@if (a) {<p>y</p>} hi <b>x</b></div>;",
+            .shapes = &.{ .directive, .text, .element },
+        },
+        // capitalised component child after a directive
+        .{
+            .source = "const view = <div>@if (a) {<p>y</p>} <Link>x</Link></div>;",
+            .shapes = &.{ .directive, .text, .element },
+        },
+        // self-closing component child before a directive
+        .{
+            .source = "const view = <div><Link /> @if (a) {<p>y</p>}</div>;",
+            .shapes = &.{ .element, .text, .directive },
+        },
+        // full interleaving in both directions
+        .{
+            .source = "const view = <div>a <b>c</b> @if (a) {<p>y</p>} d <i>e</i> tail</div>;",
+            .shapes = &.{ .text, .element, .text, .directive, .text, .element, .text },
+        },
+        // nested fragment among directives
+        .{
+            .source = "const view = <div>@if (a) {<p>y</p>} <><b>x</b></> @if (b) {<p>z</p>}</div>;",
+            .shapes = &.{ .directive, .text, .fragment, .text, .directive },
+        },
+        // a child element that carries its own directive
+        .{
+            .source = "const view = <div><Card>@if (a) {<p>y</p>}</Card> @if (b) {<p>z</p>}</div>;",
+            .shapes = &.{ .element, .text, .directive },
+        },
+        // element child holding an expression container next to a directive
+        .{
+            .source = "const view = <div>@if (a) {<p>y</p>} <b>{value}</b></div>;",
+            .shapes = &.{ .directive, .text, .element },
+        },
+        // a code-block directive interleaved with elements
+        .{
+            .source = "const view = <div><b>x</b> @{ <p>y</p> } <i>z</i></div>;",
+            .shapes = &.{ .element, .text, .directive, .text, .element },
+        },
+        // guard: directive-only children keep working
+        .{
+            .source = "const view = <div>@if (a) {<p>y</p>}</div>;",
+            .shapes = &.{.directive},
+        },
+        // guard: two directives keep working
+        .{
+            .source = "const view = <div>@if (a) {<p>y</p>} @if (b) {<p>z</p>}</div>;",
+            .shapes = &.{ .directive, .text, .directive },
+        },
+        // guard: element-only children stay on the host path
+        .{
+            .source = "const view = <div><span>x</span></div>;",
+            .shapes = &.{.element},
+        },
+        // guard: a plain fragment stays on the host path
+        .{
+            .source = "const view = <><p>a</p></>;",
+            .shapes = &.{.element},
+        },
+    }) |case| {
+        var tree = try parser.parse(std.testing.allocator, case.source, .{ .lang = .tsx });
+        defer tree.deinit();
+        std.testing.expectEqual(@as(usize, 0), tree.diagnostics.items.len) catch |err| {
+            std.debug.print("source: {s}\n", .{case.source});
+            for (tree.diagnostics.items) |diagnostic| {
+                std.debug.print("  diagnostic: {s}\n", .{diagnostic.message});
+            }
+            return err;
+        };
+        try std.testing.expect(!tree.hasErrors());
+
+        var buffer: [12]ChildShape = undefined;
+        const shapes = childShapes(&tree, declaredJsxRoot(&tree), &buffer);
+        std.testing.expectEqualSlices(ChildShape, case.shapes, shapes) catch |err| {
+            std.debug.print("source: {s}\n", .{case.source});
+            return err;
+        };
+    }
+}
+
+test "interleaved JSX children keep exact spans" {
+    // Every child span feeds the next text rescan, so an element child that
+    // over- or under-reports its end silently truncates its siblings.
+    const source = "const view = <div>@if (a) {<p>y</p>} <span>x</span> tail</div>;";
+    var tree = try parser.parse(std.testing.allocator, source, .{ .lang = .tsx });
+    defer tree.deinit();
+    try std.testing.expectEqual(@as(usize, 0), tree.diagnostics.items.len);
+    try std.testing.expect(!tree.hasErrors());
+
+    const element = declaredJsxElement(&tree);
+    try std.testing.expect(tree.data(element).jsx_element.closing_element != .null);
+
+    const nodes = tree.extra(tree.data(element).jsx_element.children);
+    try std.testing.expectEqual(@as(usize, 4), nodes.len);
+    try std.testing.expectEqual(
+        @as(u32, @intCast(std.mem.indexOf(u8, source, "@if").?)),
+        tree.span(nodes[0]).start,
+    );
+    try std.testing.expectEqual(
+        @as(u32, @intCast(std.mem.indexOf(u8, source, "} <span").? + 1)),
+        tree.span(nodes[0]).end,
+    );
+    try std.testing.expectEqual(
+        @as(u32, @intCast(std.mem.indexOf(u8, source, "<span").?)),
+        tree.span(nodes[2]).start,
+    );
+    try std.testing.expectEqual(
+        @as(u32, @intCast(std.mem.indexOf(u8, source, "</span>").? + "</span>".len)),
+        tree.span(nodes[2]).end,
+    );
+    try std.testing.expectEqual(.jsx_text, std.meta.activeTag(tree.data(nodes[3])));
+    try std.testing.expectEqualStrings(" tail", tree.string(tree.data(nodes[3]).jsx_text.value));
+}
+
+test "interleaved JSX children round-trip through codegen" {
+    for ([_][]const u8{
+        "const view = <div>@if (a) {<p>y</p>} <span>x</span></div>;",
+        "const view = <div><span>x</span> @if (a) {<p>y</p>}</div>;",
+        "const view = <div>@for (const item of items) {<p>a</p>} <b>x</b></div>;",
+    }) |source| {
+        var tree = try parser.parse(std.testing.allocator, source, .{ .lang = .tsx });
+        defer tree.deinit();
+        try std.testing.expect(!tree.hasErrors());
+
+        const result = try parser.codegen.generate(std.testing.allocator, &tree, .{});
+        defer result.deinit(std.testing.allocator);
+        try std.testing.expectEqual(@as(usize, 0), result.errors.len);
+
+        var reparsed = try parser.parse(std.testing.allocator, result.code, .{ .lang = .tsx });
+        defer reparsed.deinit();
+        try std.testing.expect(!reparsed.hasErrors());
+    }
+}
