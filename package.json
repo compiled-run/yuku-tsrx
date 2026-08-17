@@ -10,6 +10,7 @@
 		"docs:build": "node docs/build.mjs",
 		"docs:serve": "node docs/serve.mjs",
 		"docs:social-card": "node docs/generate-social-card.mjs",
+		"docs:transcripts": "node tools/capture-transcripts.mjs",
 		"docs:verify-playground": "node docs/verify-playground.mjs",
 		"docs:wasm": "zig build wasm -Doptimize=ReleaseSmall",
 		"docs:wasm-smoke": "node tools/wasm-smoke.mjs",

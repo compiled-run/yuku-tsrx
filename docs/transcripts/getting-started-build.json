@@ -1,0 +1,45 @@
+{
+  "generated_by": "tools/capture-transcripts.mjs",
+  "captured_at": "2026-08-17T21:47:44.775Z",
+  "platform": {
+    "os": "Darwin 25.5.0",
+    "arch": "arm64",
+    "cpu": "Apple M5 Pro",
+    "node": "v24.15.0",
+    "zig": "0.16.0"
+  },
+  "caption": "Captured on 2026-08-17 by tools/capture-transcripts.mjs on Darwin 25.5.0 arm64 (Apple M5 Pro), Node v24.15.0, Zig 0.16.0. Every line is what the command printed; long output is trimmed where marked.",
+  "dropped": [
+    {
+      "command": "pnpm test",
+      "exit_code": 1,
+      "duration_ms": 61956
+    }
+  ],
+  "transcript": [
+    {
+      "comment": "build the addon and write the npm package layout",
+      "command": "zig build",
+      "exit_code": 0,
+      "duration_ms": 118,
+      "output": "",
+      "omitted_lines": 0
+    },
+    {
+      "comment": "zig build prints nothing on success, so look at what it wrote",
+      "command": "ls zig-out/npm/yuku-tsrx",
+      "exit_code": 0,
+      "duration_ms": 2,
+      "output": "@yuku-tsrx\nbinding.js\ndecode-analyzer.js\ndecode.js\nencode.js\nindex.d.ts\nindex.js\npackage.json\nwalk.js",
+      "omitted_lines": 0
+    },
+    {
+      "comment": "the Zig test suite; --summary all only adds the tree at the end",
+      "command": "zig build test --summary all",
+      "exit_code": 0,
+      "duration_ms": 155,
+      "output": "Build Summary: 7/7 steps succeeded; 2/2 tests passed\ntest success\n+- run test 1 pass (1 total) 7ms MaxRSS:3M\n|  +- compile test Debug native cached 51ms MaxRSS:31M\n|     +- options cached\n|     +- options cached\n+- run test 1 pass (1 total) 7ms MaxRSS:3M\n   +- compile test Debug native cached 51ms MaxRSS:31M\n      +- options (reused)\n      +- options (reused)",
+      "omitted_lines": 0
+    }
+  ]
+}

@@ -73,6 +73,11 @@ carries a 17,057-line parser engine that is mostly plain TypeScript parsing done
 a second time. The dialect design exists to avoid owning that copy.
 [Zig/Yuku Dialect Core](/architecture/yuku-dialect) has the mechanism.
 
+Five steps take a `.tsrx` file to the JavaScript API, and the interesting part
+of each one is who owns it:
+
+<!-- how-it-works -->
+
 ## Who it is for
 
 This is a library for people building tooling that has to understand `.tsrx`

@@ -759,6 +759,332 @@ function guideFigureMarkdown(body) {
 const hasGuideFigure = (body) =>
   /<!-- (?:ast-explorer|symbol-explorer|codegen-walkthrough) -->/.test(body)
 
+// ---------- recorded terminal walkthroughs ----------
+// `<!-- terminal-demo:NAME -->` embeds docs/transcripts/NAME.json, written by
+// tools/capture-transcripts.mjs from real runs on a real machine. This build
+// never invokes zig or a test runner, so what a reader sees is a recording with
+// the date and the machine on it, not a re-enactment. A missing transcript is a
+// build failure rather than a placeholder, and so is an entry that did not exit
+// zero: failing commands are dropped at capture time, never published.
+const transcriptsDir = path.join(docsDir, 'transcripts')
+const TERMINAL_DEMO_MARKER = /<!-- terminal-demo:([a-z0-9-]+) -->/g
+
+async function loadTranscript(name) {
+  const file = path.join(transcriptsDir, `${name}.json`)
+  const relative = path.relative(repoRoot, file)
+  let raw
+  try {
+    raw = await readFile(file, 'utf8')
+  } catch {
+    throw new Error(`missing ${relative}: run \`pnpm run docs:transcripts\` first`)
+  }
+  const demo = JSON.parse(raw)
+  if (!Array.isArray(demo.transcript) || demo.transcript.length === 0) {
+    throw new Error(`${relative}: the transcript is empty`)
+  }
+  if (!demo.captured_at || Number.isNaN(Date.parse(demo.captured_at))) {
+    throw new Error(`${relative}: captured_at is not a date`)
+  }
+  for (const entry of demo.transcript) {
+    if (entry.exit_code !== 0) {
+      throw new Error(
+        `${relative}: \`${entry.command}\` exited ${entry.exit_code}; a command that fails is dropped at capture, never published`,
+      )
+    }
+  }
+  return demo
+}
+
+const OMITTED_MARKER = /^\.{3} \d+ lines omitted \.{3}$/
+
+function transcriptOutputHtml(output) {
+  const lines = output.split('\n')
+  return lines
+    .map((line, index) => {
+      if (index === lines.length - 1 && line === '') return ''
+      // The trim marker is the tool speaking, not the command, so it is styled
+      // as a comment rather than passed off as output.
+      // Deliberately narrow: a compiler's own `error:` prefix, not any line
+      // with the word in it. "0 errors" is a pass, and colouring it red would
+      // be the figure lying about a run that succeeded.
+      const kind = OMITTED_MARKER.test(line.trim())
+        ? ' gs-terminal-comment'
+        : /(^|:\d+:\d+: )error:/.test(line)
+          ? ' gs-terminal-line-error'
+          : /(^|:\d+:\d+: )warning:/.test(line)
+            ? ' gs-terminal-line-warning'
+            : ''
+      return `<span class="gs-terminal-line gs-terminal-output${kind}">${escapeHtml(line)}</span>${index < lines.length - 1 ? '\n' : ''}`
+    })
+    .join('')
+}
+
+function terminalDemoHtml(demo) {
+  const transcript = demo.transcript
+    .map((entry) => {
+      const parts = []
+      if (entry.comment) {
+        parts.push(
+          `<span class="gs-terminal-line gs-terminal-comment"># ${escapeHtml(entry.comment)}</span>`,
+        )
+      }
+      parts.push(
+        `<span class="gs-terminal-line gs-terminal-command">${escapeHtml(entry.command)}</span>`,
+      )
+      const output = transcriptOutputHtml(entry.output)
+      if (output) parts.push(output)
+      // The exit status is the part a reader cannot infer from the output, and
+      // it is the reason this transcript is on the page at all.
+      parts.push(
+        `<span class="gs-terminal-line gs-terminal-comment"># exit ${entry.exit_code}</span>`,
+      )
+      return parts.join('\n')
+    })
+    .join('\n\n')
+  const regionLabel = `Recorded output of ${demo.transcript[0].command}`
+  return `<figure class="gs-terminal" data-terminal-demo>
+  <div class="gs-terminal-titlebar">
+    <span class="gs-terminal-title">See it run</span>
+    <button type="button" data-terminal-play aria-label="Play terminal walkthrough">Play</button>
+  </div>
+  <pre class="gs-terminal-transcript" role="region" aria-label="${escapeHtml(regionLabel)}" tabindex="0">${transcript}</pre>
+  <figcaption>${escapeHtml(demo.caption)}</figcaption>
+</figure>
+`
+}
+
+// The Markdown twin is the same recording as plain text. Nothing is added and
+// nothing is summarised away, because an export that paraphrases a transcript
+// is no longer a transcript.
+function terminalDemoMarkdown(demo) {
+  const body = demo.transcript
+    .flatMap((entry) => [
+      ...(entry.comment ? [`# ${entry.comment}`] : []),
+      `$ ${entry.command}`,
+      ...(entry.output ? [entry.output.replace(/\n+$/, '')] : []),
+      `# exit ${entry.exit_code}`,
+      '',
+    ])
+    .join('\n')
+    .replace(/\n+$/, '')
+  return [demo.caption, '', '```text', body, '```'].join('\n')
+}
+
+// ---------- chooser (a decision a reader makes about their own project) ----------
+// `<!-- chooser -->` before a two-column table turns the first column into
+// buttons and the second into the answer that button reveals. Without JS every
+// answer stays on the page under its own label, which is the table again in
+// prose form.
+function chooserHtml(article) {
+  const marker = '<!-- chooser -->'
+  const markerIndex = article.indexOf(marker)
+  const start = article.indexOf('<div class="table-wrap">', markerIndex)
+  const end = article.indexOf('</table></div>', start)
+  if (markerIndex === -1 || start === -1 || end === -1) {
+    throw new Error('chooser marker found without a following table')
+  }
+  const table = article.slice(start, end)
+  const prompt = table.match(/<th[^>]*>([\s\S]*?)<\/th>/)?.[1]?.trim()
+  const rows = [
+    ...table.matchAll(/<tr>\s*<td[^>]*>([\s\S]*?)<\/td>\s*<td[^>]*>([\s\S]*?)<\/td>\s*<\/tr>/g),
+  ]
+  if (!prompt || rows.length < 2) {
+    throw new Error('chooser needs a two-column table with a header and at least two rows')
+  }
+  const options = rows.map(([, label, answer], index) => ({
+    index,
+    // The chip is a button, so the label has to survive as plain text.
+    chip: label.replace(/<[^>]*>/g, '').trim(),
+    label: label.trim(),
+    answer: answer.trim(),
+  }))
+  const chips = options
+    .map(
+      (option) =>
+        `<button type="button" data-chooser-option="${option.index}" aria-pressed="false">${escapeHtml(option.chip)}</button>`,
+    )
+    .join('\n    ')
+  const panels = options
+    .map(
+      (option) =>
+        `<div class="chooser-panel" data-chooser-panel="${option.index}">
+      <p class="chooser-label">${option.label}</p>
+      <p class="chooser-answer">${option.answer}</p>
+    </div>`,
+    )
+    .join('\n    ')
+  const replacement = `<div class="chooser" data-chooser>
+  <p class="chooser-prompt">${prompt}</p>
+  <div class="chooser-chips" role="group" aria-label="${escapeHtml(prompt.replace(/<[^>]*>/g, ''))}">
+    ${chips}
+  </div>
+  <div class="chooser-panels">
+    ${panels}
+  </div>
+</div>`
+  return (
+    article.slice(0, markerIndex) +
+    article.slice(markerIndex + marker.length, start) +
+    replacement +
+    article.slice(end + '</table></div>'.length)
+  )
+}
+
+const chooserTwin =
+  'On the site this table is a chooser: you pick your route and only that answer stays on screen.'
+
+// ---------- how it works (guide/introduction) ----------
+// The five steps a `.tsrx` file goes through, and who owns each one. Everything
+// here is either prose or read out of the repository at build time: the hook
+// chips are the `pub fn` declarations in src/dialect/parser_extension.zig, and
+// the build refuses to render the figure if that file stops declaring exactly
+// twenty of them.
+const HOOK_AREAS = {
+  statement_at_code_block: 'Statement',
+  statement_at_control_flow: 'Statement',
+  expression_at_code_block: 'Expression',
+  expression_at_control_flow: 'Expression',
+  lazy_assignment_pattern: 'Pattern',
+  function_body: 'Function',
+  for_of_tail: 'For-of',
+  binding_pattern: 'Pattern',
+  module_specifier: 'Module',
+  jsx_child_at_code_block: 'JSX',
+  jsx_child_at_control_flow: 'JSX',
+  jsx_element_name: 'JSX',
+  function_body_starts: 'Function',
+  can_start_binding: 'Pattern',
+  jsx_element_after_open: 'JSX',
+  jsx_fragment_after_open: 'JSX',
+  validate_jsx_element_name: 'JSX',
+  jsx_names_match: 'JSX',
+  jsx_text_boundary: 'Text',
+  jsx_text_value: 'Text',
+}
+
+const EXPECTED_HOOK_COUNT = 20
+
+// Read once per build, not per page: the file is the source of truth for the
+// chips, and reading it twice would only give two chances to disagree.
+async function readHooks() {
+  const file = path.join(repoRoot, 'src', 'dialect', 'parser_extension.zig')
+  const source = await readFile(file, 'utf8')
+  const names = [...source.matchAll(/^pub fn ([a-z_]+)\(/gm)].map((match) => match[1])
+  if (names.length !== EXPECTED_HOOK_COUNT) {
+    throw new Error(
+      `src/dialect/parser_extension.zig declares ${names.length} hooks, expected ${EXPECTED_HOOK_COUNT}`,
+    )
+  }
+  const unmapped = names.filter((name) => !HOOK_AREAS[name])
+  if (unmapped.length > 0) {
+    throw new Error(`docs/build.mjs has no area for hook(s): ${unmapped.join(', ')}`)
+  }
+  const groups = []
+  for (const name of names) {
+    const area = HOOK_AREAS[name]
+    const group = groups.find((candidate) => candidate.area === area)
+    if (group) group.hooks.push(name)
+    else groups.push({ area, hooks: [name] })
+  }
+  return { names, groups }
+}
+
+const TSRX_NODE_TYPES = [
+  'JSXCodeBlock',
+  'JSXIfExpression',
+  'JSXForExpression',
+  'JSXSwitchExpression',
+  'JSXTryExpression',
+  'TSRXExpression',
+  'JSXStyleElement',
+  'StyleSheet',
+]
+
+async function howItWorksSteps() {
+  const { names, groups } = await readHooks()
+  const nodeTypesHref = withBase(
+    '/guide/parser#the-tsrx-node-types-and-why-the-names-are-exact',
+  )
+  const wireHref = withBase('/guide/parser#the-wire-format-underneath')
+  return [
+    {
+      id: 'source',
+      label: 'Your .tsrx',
+      text: 'The file you wrote. Nothing owns it yet, and nothing on disk changes at any point in what follows.',
+      panel: `<div class="hiw-source code-block" data-lang="tsrx">${addTsrxHovers(highlightHtml(heroCode, 'tsrx'))}</div>`,
+    },
+    {
+      id: 'hooks',
+      label: 'Yuku parses, the dialect answers',
+      text: `Yuku owns the JavaScript and TypeScript grammar. yuku-tsrx owns only the ${names.length} answers below, declared in <code>src/dialect/parser_extension.zig</code> and resolved at compile time.`,
+      panel: `<div class="hiw-hooks">${groups
+        .map(
+          (group) =>
+            `<div class="hiw-hook-group"><h4>${escapeHtml(group.area)}</h4><p class="hiw-hook-chips">${group.hooks
+              .map((name) => `<code>${escapeHtml(name)}</code>`)
+              .join(' ')}</p></div>`,
+        )
+        .join('\n')}</div>`,
+    },
+    {
+      id: 'tree',
+      label: 'A TSRX tree, not a lowering',
+      text: 'Yuku owns the ordinary nodes. yuku-tsrx owns these records, declared in <code>src/dialect/schema.zig</code>, and the parser produces those exact names rather than lowering TSRX to TSX.',
+      panel: `<p class="hiw-nodes">${TSRX_NODE_TYPES.map(
+        (type) => `<a href="${nodeTypesHref}"><code>${type}</code></a>`,
+      ).join(' ')}</p>`,
+    },
+    {
+      id: 'buffer',
+      label: 'One buffer across the boundary',
+      text: 'The tree crosses into JavaScript as a single buffer, decoded on the JavaScript side rather than built node by node in the addon.',
+      panel: `<p>The layout, and what the decoder does with it, is written up in <a href="${wireHref}">The wire format underneath</a>. The Zig side of it is <code>src/dialect/transfer.zig</code> and <code>src/dialect/semantic_transfer.zig</code>.</p>`,
+    },
+    {
+      id: 'api',
+      label: 'parse, analyze, generate',
+      text: 'Three calls on the JavaScript side, each with its own guide.',
+      panel: `<ul class="hiw-api">
+        <li><a href="${withBase('/guide/parser')}"><code>parse</code> and <code>parseModule</code></a>: source in, a TSRX tree and its diagnostics out.</li>
+        <li><a href="${withBase('/guide/analyzer')}"><code>analyze</code></a>: scopes, symbols and references over that tree.</li>
+        <li><a href="${withBase('/guide/codegen')}"><code>generate</code></a>: a tree back to source.</li>
+      </ul>
+      <p>The same module compiled to WebAssembly is what runs in the <a href="${withBase('/playground')}">playground</a> and in the figures on the guide pages.</p>`,
+    },
+  ]
+}
+
+async function howItWorksHtml() {
+  const steps = await howItWorksSteps()
+  return `<figure class="how-it-works hiw-yuku" data-how-it-works>
+  <div class="hiw-steps" role="group" aria-label="The five steps from a .tsrx file to a JavaScript API">
+    ${steps
+      .map(
+        (step, index) =>
+          `<button type="button" data-hiw-step="${step.id}" aria-pressed="false"><span class="pipeline-step" aria-hidden="true">${index + 1}</span>${escapeHtml(step.label)}</button>`,
+      )
+      .join('\n    ')}
+  </div>
+  <div class="hiw-strip" aria-live="polite">
+    ${steps.map((step) => `<p class="hiw-text" data-hiw-text="${step.id}">${step.text}</p>`).join('\n    ')}
+  </div>
+  ${steps
+    .map((step) => `<div class="hiw-panel" data-hiw-panel="${step.id}">${step.panel}</div>`)
+    .join('\n  ')}
+</figure>
+`
+}
+
+async function howItWorksMarkdown() {
+  const steps = await howItWorksSteps()
+  return steps
+    .map(
+      (step, index) =>
+        `${index + 1}. **${step.label}.** ${step.text.replace(/<\/?code>/g, '`').replace(/<[^>]*>/g, '')}`,
+    )
+    .join('\n')
+}
+
 // Each project's own mark, as the single-path glyphs published by Simple Icons
 // (CC0; the marks themselves stay their owners' trademarks and are used here to
 // name the tool they belong to). They are inlined rather than fetched, so the
@@ -1296,6 +1622,20 @@ async function build() {
       const figureSources = collectFigureSources(body, sourcePath)
       article = renderGuideFigures(article, figureSources, sourcePath)
       exportedBody = guideFigureMarkdown(exportedBody)
+    }
+    if (article.includes('<!-- how-it-works -->')) {
+      article = article.replace('<!-- how-it-works -->', await howItWorksHtml())
+      exportedBody = exportedBody.replace('<!-- how-it-works -->', await howItWorksMarkdown())
+    }
+    TERMINAL_DEMO_MARKER.lastIndex = 0
+    for (const match of [...article.matchAll(TERMINAL_DEMO_MARKER)]) {
+      const demo = await loadTranscript(match[1])
+      article = article.replace(match[0], terminalDemoHtml(demo))
+      exportedBody = exportedBody.replace(match[0], terminalDemoMarkdown(demo))
+    }
+    if (article.includes('<!-- chooser -->')) {
+      article = chooserHtml(article)
+      exportedBody = exportedBody.replace('<!-- chooser -->', chooserTwin)
     }
     article = addGlossary(article)
     searchDocs.push(...extractSections(new Marked(), exportedBody, page))

@@ -62,7 +62,7 @@ visual_board:
     status: live
     url: http://goalbuddy.localhost:41737/yuku-tsrx-docs-site/
     command: node /Users/jacksm5pro/.claude/skills/goal-prep/surfaces/local-goal-board/scripts/local-goal-board.mjs --goal docs/goals/yuku-tsrx-docs-site
-active_task: T024
+active_task: T025
 tasks:
   - id: T001
     type: scout
@@ -1177,7 +1177,7 @@ tasks:
   - id: T024
     type: worker
     assignee: Worker
-    status: active
+    status: done
     reasoning_hint: default
     objective: "Getting-started chooser, real captured terminal transcripts, and the intro how-it-works (Judge spec T022 sections 3.5-3.8): tools/capture-transcripts.mjs (script docs:transcripts) runs getting-started-build (zig build; ls zig-out/npm/yuku-tsrx; zig build test --summary all; pnpm test) and getting-started-wasm (zig build wasm -Doptimize=ReleaseSmall; node tools/wasm-smoke.mjs) for real, strips colour, trims head/tail 15 lines with a labelled omitted marker, writes docs/transcripts/<name>.json with captured_at, platform, per-command exit codes; port terminalDemoHtml/terminalDemoMarkdown into build.mjs for <!-- terminal-demo:NAME --> (missing file is a build error) with dated caption and '# exit N'; port chooserHtml and add docs/assets/interactive.js (initChoosers + initMatrixFilters) with the lazy import restored in app.js; the 'Which route are you on' chooser (Consume from Node via link:, Run it in a browser via the wasm, Hack on the dialect) and both terminal demos on guide/getting-started.md;\
       \ howItWorksHtml (five steps: source, hooks, tree, buffer, api; 20 hook chips read from src/dialect/parser_extension.zig with a hard count of 20; panels visible without JS) with <!-- how-it-works --> on guide/introduction.md and CSS for the new step ids; extend the verifier; rebuild, verify, redeploy, screenshot."
@@ -1213,11 +1213,40 @@ tasks:
       - A chooser answer would state something not checkable in package.json, tools/, docs/assets, or src/dialect.
       - Any change is needed under src/, build.zig, npm/, or test/.
       - Vercel prompts for auth or offers a different project.
-    receipt: null
+    receipt:
+      result: done
+      harness: claude-code
+      changed_files:
+        - tools/capture-transcripts.mjs
+        - docs/transcripts/getting-started-build.json
+        - docs/transcripts/getting-started-wasm.json
+        - package.json
+        - docs/build.mjs
+        - docs/assets/app.js
+        - docs/assets/interactive.js
+        - docs/assets/style.css
+        - docs/guide/getting-started.md
+        - docs/guide/introduction.md
+        - docs/verify-playground.mjs
+        - docs/goals/yuku-tsrx-docs-site/notes/T024-walkthrough.md
+        - docs/goals/yuku-tsrx-docs-site/notes/T024-getting-started.png
+        - docs/goals/yuku-tsrx-docs-site/notes/T024-how-it-works.png
+      commands:
+        - cmd: "pnpm run docs:transcripts (zig build, ls, zig build test, zig build wasm, wasm-smoke all exit 0; pnpm test dropped: exit 1 on 2 stale m1 controls, stated on page)"
+          status: pass
+        - cmd: "pnpm run docs:build (20 hooks read from parser_extension.zig)"
+          status: pass
+        - cmd: "node docs/verify-playground.mjs local + --url production"
+          status: pass
+        - cmd: "deploy --prod"
+          status: pass
+        - cmd: "PM reviewed T024-getting-started.png: chooser + playing captured transcript with dated caption"
+          status: pass
+      summary: "Getting-started chooser (three routes), two playable terminal demos from real captured transcripts (docs/transcripts JSON, dated, no edits, failing pnpm test dropped and stated), and a five-step how-it-works on the introduction with the 20 hook chips read from parser_extension.zig. interactive.js restored with a lazy import; a real production race (chooser clicked before its module loaded) fixed in the verifier."
   - id: T025
     type: worker
     assignee: Worker
-    status: queued
+    status: active
     reasoning_hint: default
     objective: "Build-time wasm chips, hook matrix, in-tab benchmark (Judge spec T022 sections 3.9-3.11): bootWasmForBuild() in docs/build.mjs (Node instantiation of zig-out/wasm/yuku-tsrx.wasm with npm/yuku-tsrx/decode.js, mirroring tools/wasm-smoke.mjs; failure is a build failure) and node-type chips under every tsrx fence on guide/tsrx-syntax.md (<!-- node-chips -->; TSRX node types the parser produced, ForOfStatement.index/.key when set; a real diagnostic-count chip for no-playground fences); the Area column on the twenty-hook table in architecture/yuku-dialect.md and the <!-- hook-matrix --> build step validating the 20 names against src/dialect/parser_extension.zig, appending 'Implemented in' derived from each hook body's callee module, area chips via the generalized matrix filter; the 'Measure in this tab' figure on reference/benchmarks.md (sample and iteration chips, median/p95/parses per second/MB per second from parse() timings, always-visible non-comparability caveat, never beside\
       \ the committed table) via yuku-explorers.js; extend the verifier; rebuild, verify, redeploy, screenshot."

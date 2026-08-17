@@ -1390,6 +1390,92 @@ html.dark .doc td.bench-fail {
   background: var(--c-brand-soft) !important;
   box-shadow: inset 3px 0 0 var(--c-brand);
 }
+/* ---------- how it works: the five-step figure on guide/introduction ---------- */
+/* This one is not a projection map: it has one panel per step rather than two
+   code panes, so it brings its own box. Everything below keys on data-step,
+   which only JavaScript ever sets, so with JavaScript off the figure is every
+   explanation and every panel stacked in order, which is the numbered list the
+   Markdown twin prints. */
+.hiw-yuku {
+  margin: 24px 0;
+  overflow: hidden;
+  border: 1px solid var(--c-divider);
+  border-radius: 10px;
+  background: var(--c-bg-soft);
+}
+.how-it-works[data-step="source"] [data-hiw-text="source"],
+.how-it-works[data-step="hooks"] [data-hiw-text="hooks"],
+.how-it-works[data-step="tree"] [data-hiw-text="tree"],
+.how-it-works[data-step="buffer"] [data-hiw-text="buffer"],
+.how-it-works[data-step="api"] [data-hiw-text="api"] {
+  display: block;
+}
+.doc .hiw-panel {
+  margin: 0;
+  padding: 14px 16px;
+  background: var(--c-bg);
+}
+.hiw-panel + .hiw-panel {
+  border-top: 1px solid var(--c-divider);
+}
+.how-it-works[data-step] .hiw-panel {
+  display: none;
+}
+.how-it-works[data-step="source"] [data-hiw-panel="source"],
+.how-it-works[data-step="hooks"] [data-hiw-panel="hooks"],
+.how-it-works[data-step="tree"] [data-hiw-panel="tree"],
+.how-it-works[data-step="buffer"] [data-hiw-panel="buffer"],
+.how-it-works[data-step="api"] [data-hiw-panel="api"] {
+  display: block;
+  border-top: 0;
+}
+.doc .hiw-panel > :first-child {
+  margin-top: 0;
+}
+.doc .hiw-panel > :last-child {
+  margin-bottom: 0;
+}
+.doc .hiw-panel .code-block {
+  margin: 0;
+}
+.hiw-hooks {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 12px 20px;
+}
+.doc .hiw-hook-group h4 {
+  margin: 0 0 6px;
+  color: var(--c-text-3);
+  font-size: 11.5px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+.doc .hiw-hook-chips,
+.doc .hiw-nodes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 0;
+}
+.doc .hiw-hook-chips code,
+.doc .hiw-nodes code {
+  padding: 3px 8px;
+  border-radius: 999px;
+  background: var(--c-brand-soft);
+  color: var(--c-text-1);
+  font-size: 12px;
+}
+.doc .hiw-nodes a {
+  text-decoration: none;
+}
+.doc .hiw-nodes a:hover code {
+  color: var(--c-brand);
+}
+.doc .hiw-api {
+  margin: 0 0 10px;
+  padding-left: 20px;
+}
 .projection-map-panes {
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);

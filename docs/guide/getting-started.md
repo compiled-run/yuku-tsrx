@@ -44,6 +44,24 @@ merges, the path dependency becomes a normal versioned one. See
 [Upstreaming to Yuku](/architecture/upstreaming-to-yuku).
 <!-- /details -->
 
+## Which route are you on
+
+Three things people come here to do, and they need different commands. Pick
+yours; the other two answers are not on your path.
+
+<!-- chooser -->
+
+| What do you want to do with yuku-tsrx? | What that route looks like |
+| --- | --- |
+| Consume it from Node | `zig build` writes a complete npm package layout into `zig-out/npm/yuku-tsrx/`. A consuming project points at that directory with `"yuku-tsrx": "link:../yuku-tsrx/zig-out/npm/yuku-tsrx"` and then does `import { parseModule } from "yuku-tsrx"`. [Use the built package from another project](#use-the-built-package-from-another-project) has the whole sequence. |
+| Run it in a browser | `pnpm run docs:wasm` is `zig build wasm -Doptimize=ReleaseSmall`, and it writes `zig-out/wasm/yuku-tsrx.wasm`. `node tools/wasm-smoke.mjs` instantiates that module in Node and parses with it, so the build is proven before any page fetches it. `docs/assets/yuku-wasm.js` is the browser host for the same module, and the [playground](/playground) is that host running in your tab. |
+| Hack on the dialect | The dialect is `src/dialect/`: `parser_extension.zig` declares the hooks Yuku calls, `schema.zig` the TSRX node records, and `transfer.zig` the buffer that crosses into JavaScript. Run `zig build test` for the Zig suite and `pnpm test` for the JavaScript one. The Yuku-side seam is [yuku-toolchain/yuku#164](https://github.com/yuku-toolchain/yuku/pull/164); see [Zig/Yuku Dialect Core](/architecture/yuku-dialect) and [Upstreaming to Yuku](/architecture/upstreaming-to-yuku). |
+
+The browser route is the shortest one to a working build, because it needs
+nothing from npm:
+
+<!-- terminal-demo:getting-started-wasm -->
+
 ## Build
 
 ```sh
@@ -51,6 +69,14 @@ zig build            # builds the addon and writes the package to zig-out/npm/yu
 zig build test       # the Zig test suite
 pnpm test            # the JavaScript test suite
 ```
+
+<!-- terminal-demo:getting-started-build -->
+
+`pnpm test` is not in that recording. `tools/capture-transcripts.mjs` drops any
+command that did not exit zero rather than editing its output, and on the day
+above two checks in `test/m1.test.ts`, which assert things about the build
+environment rather than about the parser, were failing. Run it yourself and read
+what it says.
 
 `zig build` is the one that produces something you can import. It writes a
 complete npm package layout into `zig-out/npm/yuku-tsrx/`: `index.js`,

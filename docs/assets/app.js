@@ -720,6 +720,14 @@ function initPage() {
       .then((module) => module.init(pageCleanupCallbacks))
       .catch(() => {})
   }
+  // The chooser and the filterable matrix are plain DOM with no engine behind
+  // them, but they are guide-page components, so the home page and the
+  // playground should not carry their code either.
+  if (document.querySelector('[data-chooser], [data-matrix-filter]')) {
+    import(new URL('./interactive.js', import.meta.url))
+      .then((module) => module.init())
+      .catch(() => {})
+  }
   // The home comparison chart paints a rocket-fuel plume into each lane with
   // WebGL. The CSS gradient in .comp-fill is the whole story without it, so the
   // module is only fetched when the chart is about to be on screen, and never

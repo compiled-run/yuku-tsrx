@@ -11,7 +11,7 @@
 // import cannot pass.
 
 import { spawn } from 'node:child_process'
-import { stat } from 'node:fs/promises'
+import { readFile, stat } from 'node:fs/promises'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { chromium } from 'playwright-core'
@@ -368,6 +368,108 @@ async function main() {
       `guide/codegen: the equivalent call does not name the compact format: ${call}`,
     )
     notes.push(`codegen walkthrough: ${call.trim()}`)
+
+    // ---- T024: the how-it-works step-through on the introduction ----
+    const introPage = await context.newPage()
+    watch(introPage, 'guide/introduction')
+    await introPage.goto(`${origin}${basePath}/guide/introduction`, { waitUntil: 'load' })
+    const hiwSteps = introPage.locator('[data-how-it-works] [data-hiw-step]')
+    check(
+      (await introPage.locator('[data-how-it-works]').count()) === 1,
+      'guide/introduction: the how-it-works figure is not on the page',
+    )
+    const stepCount = await hiwSteps.count()
+    check(stepCount === 5, `guide/introduction: ${stepCount} steps, expected 5`)
+    await hiwSteps.nth(1).click()
+    const step = await introPage.getAttribute('[data-how-it-works]', 'data-step')
+    check(step === 'hooks', `guide/introduction: the second step selected "${step}", expected hooks`)
+    // "Visible" as the browser computes it, not as the markup implies: the
+    // whole point of the CSS is that one panel is displayed at a time and all
+    // five are displayed when the figure never got a data-step.
+    const visiblePanels = await introPage.$$eval('[data-hiw-panel]', (nodes) =>
+      nodes.filter((node) => node.offsetParent !== null).map((node) => node.dataset.hiwPanel),
+    )
+    check(
+      visiblePanels.length === 1 && visiblePanels[0] === 'hooks',
+      `guide/introduction: visible panels are ${visiblePanels.join(', ') || 'none'}, expected only hooks`,
+    )
+    const hookChips = await introPage.locator('[data-hiw-panel="hooks"] code').count()
+    check(
+      hookChips === 20,
+      `guide/introduction: the hooks panel shows ${hookChips} chips, expected the 20 in parser_extension.zig`,
+    )
+    notes.push(`how-it-works: ${stepCount} steps, ${hookChips} hook chips`)
+
+    // ---- T024: the getting-started chooser and the recorded transcripts ----
+    const startPage = await context.newPage()
+    watch(startPage, 'guide/getting-started')
+    await startPage.goto(`${origin}${basePath}/guide/getting-started`, { waitUntil: 'load' })
+    // interactive.js is a dynamic import, so on a real network the chips exist
+    // in the HTML before anything is listening to them. data-ready is set by
+    // initChoosers and is the only honest signal that a click will land.
+    await startPage.waitForSelector('[data-chooser][data-ready]', { timeout: 30_000 })
+    const options = startPage.locator('[data-chooser] [data-chooser-option]')
+    const optionCount = await options.count()
+    check(optionCount === 3, `guide/getting-started: ${optionCount} chooser options, expected 3`)
+    await options.nth(1).click()
+    const shownPanels = await startPage.$$eval('[data-chooser-panel]', (nodes) =>
+      nodes.filter((node) => !node.hidden).map((node) => node.dataset.chooserPanel),
+    )
+    check(
+      shownPanels.length === 1 && shownPanels[0] === '1',
+      `guide/getting-started: chooser shows panel(s) ${shownPanels.join(', ') || 'none'}, expected only 1`,
+    )
+    const terminals = startPage.locator('[data-terminal-demo]')
+    const terminalCount = await terminals.count()
+    check(terminalCount === 2, `guide/getting-started: ${terminalCount} terminal demos, expected 2`)
+
+    // The recording plays a line at a time, so "it played" means every line is
+    // visible again at the end and the button offers a replay.
+    const buildTerminal = startPage.locator('[data-terminal-demo]').nth(1)
+    await buildTerminal.scrollIntoViewIfNeeded()
+    await buildTerminal.locator('[data-terminal-play]').click()
+    await startPage.waitForFunction(
+      () => {
+        const terminal = document.querySelectorAll('[data-terminal-demo]')[1]
+        if (!terminal || terminal.dataset.playing) return false
+        return [...terminal.querySelectorAll('.gs-terminal-line')].every(
+          (line) => !line.classList.contains('gs-terminal-line-hidden'),
+        )
+      },
+      null,
+      { timeout: 30_000 },
+    )
+    const played = await buildTerminal.locator('.gs-terminal-transcript').textContent()
+    check(played.includes('zig build'), 'guide/getting-started: the transcript has no zig build line')
+    check(played.includes('# exit 0'), 'guide/getting-started: the transcript has no exit status')
+
+    // The text on screen is the committed JSON, not a retelling of it: every
+    // output line of every entry has to be in the played transcript.
+    const buildJson = JSON.parse(
+      await readFile(path.join(docsDir, 'transcripts', 'getting-started-build.json'), 'utf8'),
+    )
+    for (const entry of buildJson.transcript) {
+      check(
+        played.includes(entry.command),
+        `guide/getting-started: the played transcript is missing the command ${entry.command}`,
+      )
+      check(
+        entry.exit_code === 0,
+        `docs/transcripts: ${entry.command} is committed with exit ${entry.exit_code}`,
+      )
+      for (const line of entry.output.split('\n').filter(Boolean)) {
+        check(
+          played.includes(line),
+          `guide/getting-started: the played transcript is missing the output line "${line}"`,
+        )
+      }
+    }
+    const caption = await buildTerminal.locator('figcaption').textContent()
+    check(
+      caption.trim() === buildJson.caption,
+      `guide/getting-started: the caption is not the committed one: ${caption}`,
+    )
+    notes.push(`terminal demo: ${buildJson.transcript.length} commands, ${caption.trim()}`)
 
     // The router swaps the routed region in place, so the panel is torn down
     // and rebuilt without a page load. Both directions have to survive it.
