@@ -62,7 +62,7 @@ visual_board:
     status: live
     url: http://goalbuddy.localhost:41737/yuku-tsrx-docs-site/
     command: node /Users/jacksm5pro/.claude/skills/goal-prep/surfaces/local-goal-board/scripts/local-goal-board.mjs --goal docs/goals/yuku-tsrx-docs-site
-active_task: T012
+active_task: T014
 tasks:
   - id: T001
     type: scout
@@ -667,7 +667,7 @@ tasks:
   - id: T012
     type: judge
     assignee: Judge
-    status: active
+    status: done
     reasoning_hint: high
     objective: "Spec the interactivity tranche: a wasm build of the yuku-tsrx dialect (freestanding wasm32 entry mirroring yuku's src/parser/ffi/wasm/parser.zig plus analyze and generate exports, using the existing generated decode.js/decode-analyzer.js), an editable hero editor on the home page and a /playground page in the oxc-tsrx shape with tabs AST | Diagnostics | Generated code | Semantic, and Try-in-playground buttons on doc snippets; decide build.zig changes (allowed for this tranche), file contracts, verify commands, and package order."
     inputs:
@@ -680,7 +680,18 @@ tasks:
       - Do not implement.
     expected_output:
       - Worker packages T013.. with allowed_files, verify, stop_if
-    receipt: null
+    receipt:
+      result: done
+      harness: claude-code
+      decision: approved
+      full_outcome_complete: false
+      rationale: "Wasm feasible now: yuku compiles the same parser for wasm32-freestanding in CI and yuku-tsrx pins that checkout; src/dialect has no OS/thread/IO/napi surface; decode.js/decode-analyzer.js are browser-clean; transfer buffer is position independent. No src/dialect change needed. Three Worker packages (T014 wasm+smoke, T015 host+playground+hero+try buttons, T016 deploy+live proof) plus Judge audit T019, fully specced in notes/T012-interactivity-spec.md. Fallback of pre-computed outputs judged not worth shipping. T013 and T015 both edit docs/site.config.mjs: sequential only."
+      spawned_tasks:
+        - T014
+        - T015
+        - T016
+        - T019
+      note: notes/T012-interactivity-spec.md
   - id: T013
     type: worker
     assignee: Worker
@@ -742,15 +753,110 @@ tasks:
         - docs/goals/yuku-tsrx-docs-site/notes/T018-light.png
         - docs/goals/yuku-tsrx-docs-site/notes/T018-dark.png
       commands:
-        - cmd: "node docs/generate-assets.mjs; logo.svg byte-identical"
+        - cmd: node docs/generate-assets.mjs; logo.svg byte-identical
           status: pass
         - cmd: "hero-rays.svg carries #F59E0B/#B45309, no #78350F; .action-brand gradient with dark text in both themes; .band #D97706"
           status: pass
-        - cmd: "pnpm run docs:build; deploy --prod dpl_8yHBuZHgS5DHCdHesXzLxCZeVU9H"
+        - cmd: pnpm run docs:build; deploy --prod dpl_8yHBuZHgS5DHCdHesXzLxCZeVU9H
           status: pass
         - cmd: "PM reviewed T018-light.png and T018-dark.png: vivid gold band with rays, gradient button, mark unchanged"
           status: pass
       summary: "Owner feedback addressed: band is a saturated gold field (#F59E0B/#F4C014/#B45309) with 120 brighter streaks; hero glows strengthened; Get Started is a #FDE047/#F4C014/#F59E0B gradient with near-black text in both themes (contrast solved for real); mark untouched. Dark hero base was already neutral #1b1b1f, so no override needed. Ran concurrently with the read-only T012 Judge by owner direction; disjoint files."
+  - id: T014
+    type: worker
+    assignee: Worker
+    status: active
+    reasoning_hint: default
+    objective: "Add src/ffi/wasm.zig (freestanding wasm32 entry: alloc/free/parse/analyze/generate with the flag and opts packing in notes/T012-interactivity-spec.md section 2, std.heap.wasm_allocator, length-prefixed buffers decodable by npm/yuku-tsrx/decode.js and decode-analyzer.js; generate parses from source and returns [u32 total][u32 code_len][code][u32 err_count]{start,end,msg_len,msg}*) and a `wasm` step in build.zig (wasm32-freestanding + bulk_memory/nontrapping_fptoint/sign_ext/simd128, a second production module graph on that target, ReleaseSmall, entry disabled, rdynamic, installed to zig-out/wasm/yuku-tsrx.wasm). Add package.json scripts docs:wasm and docs:wasm-smoke. Write tools/wasm-smoke.mjs per section 6/T014."
+    allowed_files:
+      - build.zig
+      - src/ffi/wasm.zig
+      - tools/wasm-smoke.mjs
+      - package.json
+      - zig-out/**
+    verify:
+      - zig build wasm -Doptimize=ReleaseSmall && test -f zig-out/wasm/yuku-tsrx.wasm
+      - node tools/wasm-smoke.mjs
+      - test $(wc -c < zig-out/wasm/yuku-tsrx.wasm | tr -d ' ') -lt 4194304
+      - zig build && zig build test
+      - test -z "$(git status --porcelain -- src/dialect npm/yuku-tsrx)"
+    stop_if:
+      - "the wasm graph fails to compile for a reason inside src/dialect or ../yuku-minimal-seam that is not a one-line behaviour-neutral cast: report exact error, file:line and proposed diff, do not patch"
+      - wasm exceeds 4 MB
+      - "heroCode yields any error-severity diagnostic: report, do not edit docs/demo-sources.mjs"
+      - anything requires touching npm/yuku-tsrx generated files, src/dialect/transfer.zig, or the yuku checkout
+      - zig build test fails after the change
+    receipt: null
+  - id: T015
+    type: worker
+    assignee: Worker
+    status: queued
+    reasoning_hint: default
+    objective: "Browser host + playground + hero editor + try buttons per notes/T012-interactivity-spec.md sections 4-5: docs/assets/yuku-wasm.js, docs/assets/yuku-playground.js (rewrite of oxc playground.js keeping overlay editor, diagnostics underlines/tooltip, keys, share hash, scenario buttons; drop lint/format/api/completions), editable home hero with live status and an output panel with tabs AST | Diagnostics | Generated code | Semantic, renderPlaygroundPage in build.mjs in the oxc pg-panel shape with the named fixtures inlined, Try in playground buttons on tsrx fences (opt-out no-playground), build.mjs copies zig-out/wasm/yuku-tsrx.wasm + decode.js + decode-analyzer.js into assets/wasm/ and throws if missing, Playground nav item, /playground in sitemap, .wasm MIME in serve.mjs, style.css region opener so .pg-output rules ship to the home shell, docs/verify-playground.mjs headless-Chrome check failing on any console error."
+    allowed_files:
+      - docs/build.mjs
+      - docs/assets/yuku-wasm.js
+      - docs/assets/yuku-playground.js
+      - docs/assets/app.js
+      - docs/assets/style.css
+      - docs/site.config.mjs
+      - docs/serve.mjs
+      - docs/verify-playground.mjs
+      - docs/guide/*.md
+      - docs/architecture/*.md
+      - docs/reference/*.md
+      - package.json
+      - docs/dist/**
+    verify:
+      - pnpm run docs:wasm && node tools/wasm-smoke.mjs --fences
+      - pnpm run docs:build && test -f docs/dist/yuku-tsrx/playground.html && test -f docs/dist/yuku-tsrx/assets/wasm/yuku-tsrx.wasm && test -f docs/dist/yuku-tsrx/assets/wasm/decode.js && test -f docs/dist/yuku-tsrx/assets/wasm/decode-analyzer.js
+      - test $(grep -c 'role="tab"' docs/dist/yuku-tsrx/playground.html) -ge 4 && grep -q 'id="pg-tab-semantic"' docs/dist/yuku-tsrx/index.html
+      - test $(grep -c 'class="try-button"' docs/dist/yuku-tsrx/guide/tsrx-syntax.html) -ge 1
+      - grep -q '/playground' docs/dist/yuku-tsrx/sitemap.xml && grep -q 'Playground' docs/dist/yuku-tsrx/index.html
+      - node docs/verify-playground.mjs
+      - "! grep -rniE 'oxlint|oxfmt|formatter|linter' docs/dist/yuku-tsrx/playground.html"
+    stop_if:
+      - the wasm fails to instantiate in Chrome (report the error)
+      - any tab would need pre-computed or faked results
+      - a Try button fence does not parse clean and cannot simply be marked no-playground
+      - any change under src/, npm/, or build.zig
+      - SPA navigation into or out of /playground throws in the console
+    receipt: null
+  - id: T016
+    type: worker
+    assignee: Worker
+    status: queued
+    reasoning_hint: default
+    objective: "Rebuild (docs:wasm, docs:build), redeploy docs/dist to production, and prove the live interactive surfaces: 200 for /yuku-tsrx/playground and /yuku-tsrx/assets/wasm/yuku-tsrx.wasm with content-type application/wasm; node docs/verify-playground.mjs --url <production origin> passes; screenshots of the live playground (Diagnostics tab on the invalid fixture) and the home hero after an edit; record deployment id and URL in notes/T016-deploy.md."
+    allowed_files:
+      - docs/verify-playground.mjs
+      - docs/goals/yuku-tsrx-docs-site/notes/T016-deploy.md
+      - docs/goals/yuku-tsrx-docs-site/notes/T016-*.png
+      - docs/dist/**
+    verify:
+      - curl -sI https://yuku-tsrx-docs.vercel.app/yuku-tsrx/playground | head -1 | grep -q 200
+      - "curl -sI https://yuku-tsrx-docs.vercel.app/yuku-tsrx/assets/wasm/yuku-tsrx.wasm | grep -qi 'content-type: application/wasm'"
+      - node docs/verify-playground.mjs --url https://yuku-tsrx-docs.vercel.app
+    stop_if:
+      - Vercel rejects the deploy
+      - the live wasm 404s or is served with a non-wasm content-type
+      - live verify reports any console error
+    receipt: null
+  - id: T019
+    type: judge
+    assignee: Judge
+    status: queued
+    reasoning_hint: high
+    objective: "Judge audit on the production URL: hero editor is editable and its status changes with input; the four tabs show real wasm outputs (AST JSON containing a TSRX node type, diagnostics on the invalid fixture, generated code, semantic table); fixture buttons load committed fixture text; a Try in playground button from a guide page lands on /playground with the fence loaded; no lint/format claims; no COOP/COEP headers; wasm size and load time recorded; docs/verify-playground.mjs is the proof. Decide pass or name a fix package."
+    inputs:
+      - notes/T012-interactivity-spec.md
+      - T014..T016 receipts
+      - production URL
+    constraints:
+      - Do not implement.
+    expected_output:
+      - pass | defects with fix package
+    receipt: null
   - id: T999
     type: judge
     assignee: Judge
