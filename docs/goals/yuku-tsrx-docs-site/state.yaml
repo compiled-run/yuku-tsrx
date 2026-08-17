@@ -5,7 +5,7 @@ goal:
   slug: yuku-tsrx-docs-site
   kind: specific
   tranche: "continuous execution: scaffold the site from oxc-tsrx, re-skin the logo, write parser/analyzer/codegen content, trim the README, deploy to Vercel production, audit against oxc-tsrx"
-  status: active
+  status: done
   oracle:
     signal: A production Vercel URL for yuku-tsrx serves a docs site whose structure, components, and styling match compiled.run/oxc-tsrx, with a re-colored logo bearing the yuku-tsrx wordmark, whose guides cover the parser, analyzer, and codegen (not lint/format), and whose every stated fact is checkable in the yuku-tsrx repo; the local docs build passes; README.md is materially shorter than 143 lines with the same facts.
     cadence: after each Worker package and at final audit
@@ -62,7 +62,7 @@ visual_board:
     status: live
     url: http://goalbuddy.localhost:41737/yuku-tsrx-docs-site/
     command: node /Users/jacksm5pro/.claude/skills/goal-prep/surfaces/local-goal-board/scripts/local-goal-board.mjs --goal docs/goals/yuku-tsrx-docs-site
-active_task: T999
+active_task: null
 tasks:
   - id: T001
     type: scout
@@ -531,13 +531,13 @@ tasks:
         - docs/guide/codegen.md
         - docs/goals/yuku-tsrx-docs-site/notes/T009-footer-fix.md
       commands:
-        - cmd: "pnpm run docs:build; no MIT in dist index.html"
+        - cmd: pnpm run docs:build; no MIT in dist index.html
           status: pass
-        - cmd: "encoder.zig wording and codegen.Quotes caveat present; no forbidden words; no em dashes"
+        - cmd: encoder.zig wording and codegen.Quotes caveat present; no forbidden words; no em dashes
           status: pass
-        - cmd: "no LICENSE created; product files untouched"
+        - cmd: no LICENSE created; product files untouched
           status: pass
-        - cmd: "vercel link + vercel deploy --prod (dpl_8auutaHzYEWzakrBjp43ogZTqD8Y)"
+        - cmd: vercel link + vercel deploy --prod (dpl_8auutaHzYEWzakrBjp43ogZTqD8Y)
           status: pass
         - cmd: "PM: live home has 0 'MIT'; 13 pages 200"
           status: pass
@@ -546,7 +546,7 @@ tasks:
   - id: T999
     type: judge
     assignee: Judge
-    status: active
+    status: done
     reasoning_hint: high
     objective: "Final audit: map receipts and verification back to the original outcome (site cloned and re-skinned, parser/analyzer/codegen focus, README trimmed, production deploy live) and record full_outcome_complete."
     inputs:
@@ -563,10 +563,30 @@ tasks:
       - "full_outcome_complete: true | false"
       - missing evidence
       - next task if not complete
-    receipt: null
+    receipt:
+      result: done
+      task_id: T999
+      harness: claude-code
+      decision: complete
+      full_outcome_complete: true
+      rationale: "Original request fully mapped: README trimmed to 88 lines with same facts (T006); logo cloned and re-colored to a teal ramp with the yuku-tsrx wordmark (T004); site built from the oxc-tsrx generator with matching nav, hero, code panel, metric cards, feature grid, sidebar, outline, footer (T003/T008); content is parser/analyzer/codegen with lint/format/editor only as negatives on Limitations (T005/T009); production Vercel deploy live (T007/T009). Judge re-ran all 10 oracle items independently: docs:build exit 0; 15 paths 200 and root 307; vercel inspect production Ready; zero em dashes/attribution/oxlint/oxfmt/fake install/MIT; logo and CSS token checks pass; five facts match index.d.ts, m6-baseline.json, fixtures, build.zig.zon, npm package.json; tree clean and src/build.zig/npm/test untouched; live HTML byte-identical to a fresh HEAD build."
+      missing_evidence: []
+      owner_followups:
+        - LICENSE choice (footer copyright left empty until one exists)
+        - compiled.run/yuku-tsrx rewrite pair in oxc-tsrx docs/build.mjs pointing at https://yuku-tsrx-docs.vercel.app/yuku-tsrx
+        - codegen Quotes enum (preserve/double/single) vs index.d.ts 'shortest'/minify:true product bug
+        - abi.zig Hook enum 19 members vs 20 hook fns in parser_extension.zig
+        - "cosmetic: unused style-playground.css; benchmarks 'alternates' wording"
+      note: notes/T999-final-audit.md
 checks:
-  dirty_fingerprint: unknown
+  dirty_fingerprint: clean at 01a9c97 plus T999 note
   last_verification:
-    result: unknown
-    task: null
-    commands: []
+    result: pass
+    task: T999
+    commands:
+      - pnpm run docs:build
+      - 15 live paths 200 + root 307
+      - vercel inspect production Ready
+      - forbidden-word and em-dash sweep
+      - README/logo/style token checks
+      - git diff f7cbafc..HEAD -- src build.zig npm test empty
