@@ -213,16 +213,17 @@ fn transformForBody(comptime Host: type, parser: anytype, node: Host.NodeIndex) 
     return switch (Host.data(parser, node)) {
         .for_of_statement => |data| blk: {
             const body = try transformParsedBlock(Host, parser, data.body) orelse return null;
-            // The `for_of` overlay only exists when the header carried an
+            // The source overlay only exists when the header carried an
             // `; index`/`; key` tail, which is the sole trigger for the
-            // `for_of_tail` hook.  A plain `@for (const x of xs)` header has no
-            // overlay to carry forward, and that is not a parse failure.
-            var carried = false;
-            var carried_index: abi.OptionalNodeRef = undefined;
-            var carried_key: abi.OptionalNodeRef = undefined;
+            // `for_of_tail` hook.  A plain `@for (const x of xs)` header has
+            // none to carry forward, and that is not a parse failure, but the
+            // replacement is a TSRX for-of either way and always gets an
+            // overlay so `index`/`key` decode as `null` rather than vanishing.
+            const none = abi.OptionalNodeRef.init(@intFromEnum(Host.NodeIndex.null));
+            var carried_index = none;
+            var carried_key = none;
             if (Host.overlayRecord(parser, node)) |source_overlay| switch (source_overlay) {
                 .for_of => |record| {
-                    carried = true;
                     carried_index = record.index;
                     carried_key = record.key;
                 },
@@ -235,14 +236,12 @@ fn transformForBody(comptime Host: type, parser: anytype, node: Host.NodeIndex) 
                 .await = data.await,
             } }, span);
             if (comptime @hasDecl(Host, "addRecord")) {
-                if (carried) {
-                    const old_record = try Host.addRecord(parser, schema.Record{ .for_of = .{
-                        .host_node = abi.OverlayHost.init(@intFromEnum(replacement)),
-                        .index = carried_index,
-                        .key = carried_key,
-                    } });
-                    try Host.addOverlay(parser, replacement, old_record);
-                }
+                const record = try Host.addRecord(parser, schema.Record{ .for_of = .{
+                    .host_node = abi.OverlayHost.init(@intFromEnum(replacement)),
+                    .index = carried_index,
+                    .key = carried_key,
+                } });
+                try Host.addOverlay(parser, replacement, record);
             }
             break :blk replacement;
         },
