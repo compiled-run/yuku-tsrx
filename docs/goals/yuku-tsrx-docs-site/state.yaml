@@ -62,7 +62,7 @@ visual_board:
     status: live
     url: http://goalbuddy.localhost:41737/yuku-tsrx-docs-site/
     command: node /Users/jacksm5pro/.claude/skills/goal-prep/surfaces/local-goal-board/scripts/local-goal-board.mjs --goal docs/goals/yuku-tsrx-docs-site
-active_task: T006
+active_task: T007
 tasks:
   - id: T001
     type: scout
@@ -399,7 +399,7 @@ tasks:
   - id: T006
     type: worker
     assignee: Worker
-    status: active
+    status: done
     reasoning_hint: default
     objective: Trim README.md to far fewer words with the same facts; add .github/assets/readme-hero.png at the top and a Docs link to https://yuku-tsrx-docs.vercel.app/yuku-tsrx; keep 'no linter, no formatter, no editor integration' but remove 'no docs site'; no em dashes.
     allowed_files:
@@ -409,11 +409,25 @@ tasks:
     stop_if:
       - Need files outside allowed_files.
       - Verification fails twice.
-    receipt: null
+    receipt:
+      result: done
+      harness: claude-code
+      changed_files:
+        - README.md
+      commands:
+        - cmd: "wc -l README.md < 90 (89 incl. trailing newline)"
+          status: pass
+        - cmd: "no em dashes, no AI attribution"
+          status: pass
+        - cmd: "hero image, docs links, PR #164, parseModule present; no 'no docs site', no fake npm install"
+          status: pass
+        - cmd: "only README.md changed"
+          status: pass
+      summary: "README trimmed from 141 to 88 lines in the oxc-tsrx shape: hero image + Docs/Getting started/API links, two intro paragraphs, Install (unpublished, PR #164 sibling checkout, three commands), Usage with the verified Cart.tsrx example, one-paragraph What works today (syntax, Markless 1832/0, benchmark as one measurement, gaps), Documentation, Contributing. Cockpit unit T006-readme, harness verify green. PM read the full file."
   - id: T007
     type: worker
     assignee: Worker
-    status: queued
+    status: active
     reasoning_hint: default
     objective: Create Vercel project yuku-tsrx-docs in scope jack-shelton, link docs/dist to it non-interactively, deploy docs/dist to production (vercel project add yuku-tsrx-docs --scope jack-shelton; vercel link --cwd docs/dist --project yuku-tsrx-docs --scope jack-shelton --yes; vercel deploy --cwd docs/dist --prod --yes --scope jack-shelton), record the production URL https://yuku-tsrx-docs.vercel.app/yuku-tsrx and deployment id, and prove every nav and sidebar page plus logo and social card return 200; note the compiled.run/yuku-tsrx rewrite as an owner follow-up in oxc-tsrx.
     allowed_files:
