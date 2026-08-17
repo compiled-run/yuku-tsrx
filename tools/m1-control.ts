@@ -4,6 +4,7 @@ import { cp, mkdtemp, mkdir, open, readFile, rm, writeFile } from "node:fs/promi
 import { tmpdir } from "node:os";
 import { basename, join, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
+import { gitChildEnvironment } from "./m1-git-environment.ts";
 import { hasInternalReceiptEnvironment, recordInternalPhaseFromEnvironment } from "./m1-receipt.ts";
 
 type Mode = "none" | "sentinel";
@@ -23,7 +24,7 @@ type CommandResult = {
 };
 
 const expectedRef = "eb2adcb4c17da16e7ade1a0517192d81d469e67f";
-const expectedSeamHead = "3a89a91f4dfb68d9a08d4dc2795433eb861ba10b";
+const expectedSeamHead = "872758e8ea30ecd3e423ae266cf5c7cf586c8820";
 const expectedPriorArt = "bf03e146d97ae2f0c2d4c4ec90456e1e544d2760";
 const excludedNames = new Set([".git", ".zig-cache", "node_modules", "zig-cache", "zig-out"]);
 
@@ -34,11 +35,17 @@ function fail(message: string): never {
 const execute = (
 	command: string,
 	args: string[],
-	options: { cwd?: string; input?: Buffer; allowFailure?: boolean } = {},
+	options: {
+		cwd?: string;
+		input?: Buffer;
+		allowFailure?: boolean;
+		environment?: NodeJS.ProcessEnv;
+	} = {},
 ): CommandResult => {
 	const result = spawnSync(command, args, {
 		cwd: options.cwd,
 		encoding: "buffer",
+		env: options.environment,
 		input: options.input,
 		maxBuffer: 256 * 1024 * 1024,
 	});
@@ -131,7 +138,7 @@ const currentHookNames = async (seamYuku: string): Promise<string[]> => {
 };
 
 const gitOutput = (repo: string, args: string[]): string =>
-	execute("git", ["-C", repo, ...args]).output.trim();
+	execute("git", ["-C", repo, ...args], { environment: gitChildEnvironment() }).output.trim();
 
 const verifyWorktrees = (args: Arguments): void => {
 	if (gitOutput(args.seamYuku, ["symbolic-ref", "--short", "HEAD"]) !== "seam/dialect") {
@@ -152,7 +159,7 @@ const verifyWorktrees = (args: Arguments): void => {
 	const tracking = execute(
 		"git",
 		["-C", args.controlYuku, "config", "--get", "branch.seam/dialect.remote"],
-		{ allowFailure: true },
+		{ allowFailure: true, environment: gitChildEnvironment() },
 	);
 	if (tracking.status === 0) fail("seam/dialect must not have a tracking remote");
 	if (args.compareRef !== expectedRef) fail(`compare ref must be exact ${expectedRef}`);
@@ -182,7 +189,9 @@ const seamAllowed = new Set([
 ]);
 
 const verifyScope = (args: Arguments): void => {
-	const status = execute("git", ["-C", args.seamYuku, "status", "--porcelain=v1"]).output.trimEnd();
+	const status = execute("git", ["-C", args.seamYuku, "status", "--porcelain=v1"], {
+		environment: gitChildEnvironment(),
+	}).output.trimEnd();
 	for (const line of status.split("\n").filter(Boolean)) {
 		const path = line.slice(3).replace(/\/$/, "");
 		if (path === "src/parser/dialect") continue;
@@ -248,7 +257,11 @@ const prepareControlProject = async (
 	const rawArchive = spawnSync(
 		"git",
 		["-C", args.controlYuku, "archive", "--format=tar", args.compareRef],
-		{ encoding: "buffer", maxBuffer: 256 * 1024 * 1024 },
+		{
+			encoding: "buffer",
+			env: gitChildEnvironment(),
+			maxBuffer: 256 * 1024 * 1024,
+		},
 	);
 	if (
 		rawArchive.status !== 0 ||
@@ -768,12 +781,11 @@ const verifyNone = async (args: Arguments): Promise<Record<string, unknown>> => 
 				`disabled layout/wire differs from control: ${JSON.stringify({ seamLayout, upstreamLayout })}`,
 			);
 		}
-		const controlAst = execute("git", [
-			"-C",
-			args.controlYuku,
-			"show",
-			`${args.compareRef}:src/parser/ast.zig`,
-		]).output;
+		const controlAst = execute(
+			"git",
+			["-C", args.controlYuku, "show", `${args.compareRef}:src/parser/ast.zig`],
+			{ environment: gitChildEnvironment() },
+		).output;
 		const seamAst = await readFile(join(args.seamYuku, "src/parser/ast.zig"), "utf8");
 		const controlTags = parseNodeVariants(controlAst);
 		const seamTags = parseNodeVariants(seamAst);
@@ -787,20 +799,18 @@ const verifyNone = async (args: Arguments): Promise<Record<string, unknown>> => 
 		const decoder = await readFile(join(args.seamYuku, "zig-out/decode.js"));
 		const encoder = await readFile(join(args.seamYuku, "zig-out/encode.js"));
 		const controlDecoder = Buffer.from(
-			execute("git", [
-				"-C",
-				args.controlYuku,
-				"show",
-				`${args.compareRef}:npm/yuku-parser/decode.js`,
-			]).output,
+			execute(
+				"git",
+				["-C", args.controlYuku, "show", `${args.compareRef}:npm/yuku-parser/decode.js`],
+				{ environment: gitChildEnvironment() },
+			).output,
 		);
 		const controlEncoder = Buffer.from(
-			execute("git", [
-				"-C",
-				args.controlYuku,
-				"show",
-				`${args.compareRef}:npm/yuku-codegen/encode.js`,
-			]).output,
+			execute(
+				"git",
+				["-C", args.controlYuku, "show", `${args.compareRef}:npm/yuku-codegen/encode.js`],
+				{ environment: gitChildEnvironment() },
+			).output,
 		);
 		if (!decoder.equals(controlDecoder)) fail("disabled decoder bytes changed");
 		if (!encoder.equals(controlEncoder)) fail("disabled encoder bytes changed");
@@ -1003,7 +1013,11 @@ const verifyMatchedFuzz = async (args: Arguments): Promise<void> => {
 		const archive = spawnSync(
 			"git",
 			["-C", args.controlYuku, "archive", "--format=tar", args.compareRef],
-			{ encoding: "buffer", maxBuffer: 256 * 1024 * 1024 },
+			{
+				encoding: "buffer",
+				env: gitChildEnvironment(),
+				maxBuffer: 256 * 1024 * 1024,
+			},
 		);
 		if (archive.status !== 0 || !Buffer.isBuffer(archive.stdout))
 			fail("fuzz control archive failed");

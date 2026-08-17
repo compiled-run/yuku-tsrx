@@ -4,7 +4,8 @@
 
 Execute the repository-root [`goal.md`](../../../goal.md) continuously until `.tsrx` has a
 production Zig parser, analyzer, code generator, and generated TypeScript consumption surface built
-as a dialect adapter over path-linked Yuku, with every item in its nine-part Goal Oracle proven.
+as a dialect adapter over path-linked Yuku, with every binding item in its owner-amended Goal Oracle
+proven.
 
 ## Original Request
 
@@ -20,9 +21,11 @@ binding input to every task on this board.
 - Audience: Markless, Frameless, and future Versionless and Guessless consumers
 - Authority: `requested`
 - Proof type: `test`, `artifact`, and `metric`
-- Completion proof: all nine root-charter oracle items have current command-backed evidence, including
+- Completion proof: all eight binding root-charter oracle items have current command-backed evidence,
+  including
   an unmodified Markless drop-in test run and a minimal, review-ready Yuku dialect-seam branch.
-- Goal oracle: the full nine-item `Goal Oracle` in the root `goal.md`.
+- Goal oracle: the owner-amended eight-item binding set in the root `goal.md`, retaining historical
+  numbering 1–3 and 5–9; item 4 is explicitly non-blocking.
 - Likely misfire: shipping a second parser, a fork, a text projection, a hand-written decoder, or a
   parser-only milestone while calling the broader production toolchain complete.
 - Blind spots considered: the recorded Yuku commit identities may have moved since intake; Zig 0.16
@@ -30,14 +33,15 @@ binding input to every task on this board.
   authority must be proved rather than inferred.
 - Existing plan facts: preserve owner rulings; execute M0 through M5 in order; develop through a local
   path-linked Yuku checkout; keep downstream repositories read-only; do not open or publish the Yuku
-  PR without separate approval after oracle items 1 through 8 are green.
+  PR without separate approval after all binding pre-publication items are green.
 
 ## Goal Oracle
 
-The oracle is the nine-part checklist under `## Goal Oracle` in the root [`goal.md`](../../../goal.md):
-behaviour parity, no TSRX knowledge in Yuku, free absent and present seams, parser/analyzer/codegen,
-generated zero-copy TypeScript consumption, the unmodified Markless drop-in test, measured performance,
-and a minimal PR-ready Yuku branch.
+The oracle is the eight-item binding checklist under `## Goal Oracle` in the root
+[`goal.md`](../../../goal.md), with historical numbering 1–3 and 5–9: behaviour parity, no TSRX
+knowledge in Yuku, a free absent seam, parser/analyzer/codegen, generated zero-copy TypeScript
+consumption, the Markless integration proof, measured `@tsrx/core` performance, and a minimal PR-ready
+Yuku branch. Historical item 4 is retained as provenance only and does not gate completion.
 
 The PM must map every final claim to current receipts and command output. Planning, scaffold health,
 fixture parity alone, or one green milestone is not completion.
@@ -51,7 +55,7 @@ fixture parity alone, or one green milestone is not completion.
 Continuous execution of the full owner outcome. Start by validating current environment reality and
 standing up M0. After each verified milestone, immediately select the largest safe next package toward
 M1 through M5. Stop only at a true approval/authority boundary with no safe local work remaining or
-after a final audit proves the complete nine-part oracle.
+after a final audit proves the complete eight-item binding oracle.
 
 ## Non-Negotiable Constraints
 

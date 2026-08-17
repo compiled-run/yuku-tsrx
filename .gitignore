@@ -6,3 +6,7 @@ zig-out/
 zig-pkg/
 coverage/
 docs/goals/**/.goalbuddy-board/
+
+# harness state and generated goal boards
+.fable-opus/
+docs/goals/*/.goalbuddy-board/

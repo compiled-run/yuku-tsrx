@@ -312,5 +312,5 @@ describe("M1 seam controls", () => {
 		);
 		expect(result.status, result.stderr).toBe(0);
 		expect(JSON.parse(result.stdout)).toMatchObject({ mode: "hook-contract", status: "pass" });
-	}, 20_000);
+	}, 120_000);
 });

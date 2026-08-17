@@ -1,6 +1,6 @@
 const std = @import("std");
 const abi = @import("dialect_abi");
-const schema = @import("schema.zig");
+const schema = @import("dialect_schema");
 
 pub fn afterOpen(comptime Host: type, parser: anytype, opening: Host.NodeIndex, comptime context: anytype) Host.ErrorType!abi.Decision(?Host.NodeIndex) {
     const opening_data = switch (Host.data(parser, opening)) {

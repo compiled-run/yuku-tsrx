@@ -85,42 +85,98 @@ pub fn build(b: *std.Build) void {
     const profile_step = b.step("profile", "Measure dialect-free parser controls");
     profile_step.dependOn(&profile_run.step);
 
-    if (yuku.builder.modules.get("dialect-abi")) |dialect_abi_module| {
+    {
+        const dialect_abi_module = b.createModule(.{
+            .root_source_file = b.path("src/dialect/abi.zig"),
+            .target = target,
+            .optimize = optimize,
+        });
+        const production_schema_module = b.createModule(.{
+            .root_source_file = b.path("src/dialect/schema.zig"),
+            .target = target,
+            .optimize = optimize,
+        });
+        production_schema_module.addImport("dialect_abi", dialect_abi_module);
         const production_dialect_module = b.createModule(.{
-            .root_source_file = b.path("src/dialect/root.zig"),
+            .root_source_file = b.path("src/dialect/parser_extension.zig"),
             .target = target,
             .optimize = optimize,
         });
         production_dialect_module.addImport("dialect_abi", dialect_abi_module);
-        const dialect_parser_template = yuku.module("parser-dialect");
-        const production_parser_module = cloneModule(
+        production_dialect_module.addImport("dialect_schema", production_schema_module);
+        const production_parser_base = cloneModule(
             b,
-            dialect_parser_template,
+            yuku.module("parser"),
             yuku.path("src/parser/root.zig"),
             target,
             optimize,
         );
-        production_parser_module.addImport("dialect", production_dialect_module);
-        const production_transfer_module = b.createModule(.{
+        production_parser_base.addImport("parser_extension", production_dialect_module);
+        const production_parser_module = b.createModule(.{
+            .root_source_file = b.path("src/dialect/root.zig"),
+            .target = target,
+            .optimize = optimize,
+        });
+        production_parser_module.addImport("yuku", production_parser_base);
+        production_parser_module.addImport("parser_extension", production_dialect_module);
+        production_parser_module.addImport("dialect_abi", dialect_abi_module);
+        const production_util_module = production_parser_base.import_table.get("util").?;
+        const production_codegen_options = production_parser_base.import_table.get(
+            "codegen_options",
+        ).?;
+        production_parser_module.addImport("util", production_util_module);
+        production_parser_module.addImport(
+            "codegen_options",
+            production_codegen_options,
+        );
+        const production_base_transfer_module = b.createModule(.{
             .root_source_file = yuku.path("src/parser/ffi/transfer/root.zig"),
             .target = target,
             .optimize = optimize,
         });
+        production_base_transfer_module.addImport("parser", production_parser_base);
+        const production_transfer_module = b.createModule(.{
+            .root_source_file = b.path("src/dialect/transfer.zig"),
+            .target = target,
+            .optimize = optimize,
+        });
         production_transfer_module.addImport("parser", production_parser_module);
+        production_transfer_module.addImport("base_transfer", production_base_transfer_module);
 
         const napi_dep = b.dependency("napi_zig", .{});
         napi_zig.addLib(b, napi_dep, .{
             .name = "yuku-tsrx",
-            .root = yuku.path("src/parser/ffi/parser.zig"),
+            .root = b.path("src/ffi/root.zig"),
             .target = target,
             .optimize = optimize,
-            .imports = &.{.{ .name = "parser", .module = production_parser_module }},
+            .imports = &.{
+                .{ .name = "parser", .module = production_parser_module },
+                .{ .name = "transfer", .module = production_transfer_module },
+            },
             .npm = .{
                 .scope = "@yuku-tsrx",
                 .description = "Native TSRX parser bindings",
                 .dts = .auto,
             },
         });
+        installNpmHostWrapper(b);
+        installNpmHostAddon(b, "yuku-tsrx", "@yuku-tsrx", target);
+
+        napi_zig.addLib(b, napi_dep, .{
+            .name = "yuku-tsrx-performance",
+            .root = b.path("src/ffi/performance.zig"),
+            .target = target,
+            .optimize = optimize,
+            .imports = &.{
+                .{ .name = "parser", .module = production_parser_module },
+            },
+            .npm = null,
+        });
+        const performance_step = b.step(
+            "performance-addon",
+            "Build the private production-parser performance probe",
+        );
+        performance_step.dependOn(b.getInstallStep());
 
         addEstreeGenerator(b, yuku, production_parser_module, production_transfer_module, .{
             .step = "gen-parser-decoder",
@@ -149,10 +205,43 @@ pub fn build(b: *std.Build) void {
             .optimize = optimize,
         });
         sentinel_dialect_module.addImport("dialect_abi", dialect_abi_module);
-        const sentinel_parser_module = dialect_parser_template;
-        sentinel_parser_module.addImport("dialect", sentinel_dialect_module);
-        const sentinel_transfer_module = yuku.module("transfer-dialect");
+        const sentinel_adapter_module = b.createModule(.{
+            .root_source_file = b.path("src/dialect/parser_extension.zig"),
+            .target = target,
+            .optimize = optimize,
+        });
+        sentinel_adapter_module.addImport("dialect_abi", dialect_abi_module);
+        sentinel_adapter_module.addImport("dialect_schema", dialect_abi_module);
+        sentinel_dialect_module.addImport("parser_adapter", sentinel_adapter_module);
+        const sentinel_parser_base = cloneModule(
+            b,
+            yuku.module("parser"),
+            yuku.path("src/parser/root.zig"),
+            target,
+            optimize,
+        );
+        sentinel_parser_base.addImport("parser_extension", sentinel_dialect_module);
+        const sentinel_parser_module = b.createModule(.{
+            .root_source_file = b.path("src/dialect/root.zig"),
+            .target = target,
+            .optimize = optimize,
+        });
+        sentinel_parser_module.addImport("yuku", sentinel_parser_base);
+        sentinel_parser_module.addImport("parser_extension", sentinel_dialect_module);
+        sentinel_parser_module.addImport("dialect_abi", dialect_abi_module);
+        const sentinel_base_transfer_module = b.createModule(.{
+            .root_source_file = yuku.path("src/parser/ffi/transfer/root.zig"),
+            .target = target,
+            .optimize = optimize,
+        });
+        sentinel_base_transfer_module.addImport("parser", sentinel_parser_base);
+        const sentinel_transfer_module = b.createModule(.{
+            .root_source_file = b.path("src/dialect/transfer.zig"),
+            .target = target,
+            .optimize = optimize,
+        });
         sentinel_transfer_module.addImport("parser", sentinel_parser_module);
+        sentinel_transfer_module.addImport("base_transfer", sentinel_base_transfer_module);
         const production_contract_source = std.Io.Dir.cwd().readFileAlloc(
             b.graph.io,
             "src/dialect/root.zig",
@@ -185,6 +274,16 @@ pub fn build(b: *std.Build) void {
             "Compile the dependency-free dialect module graph",
         );
         dialect_cycle_step.dependOn(&dialect_tests.step);
+
+        const m4_test_module = b.createModule(.{
+            .root_source_file = b.path("src/testing/m4.zig"),
+            .target = target,
+            .optimize = optimize,
+        });
+        m4_test_module.addImport("parser", production_parser_module);
+        const m4_tests = b.addRunArtifact(b.addTest(.{ .root_module = m4_test_module }));
+        const m4_step = b.step("test-m4-surfaces", "Test TSRX semantic and codegen surfaces");
+        m4_step.dependOn(&m4_tests.step);
 
         const m1_fixture_module = b.createModule(.{
             .root_source_file = b.path("src/testing/m1_reflected_transfer_fixture.zig"),
@@ -222,7 +321,7 @@ pub fn build(b: *std.Build) void {
             },
         }) |cfg| {
             const generator_module = b.createModule(.{
-                .root_source_file = yuku.path(cfg.root),
+                .root_source_file = b.path(cfg.root),
                 .target = b.graph.host,
                 .optimize = optimize,
             });
@@ -314,7 +413,7 @@ pub fn build(b: *std.Build) void {
         );
 
         const fixture_decoder_module = b.createModule(.{
-            .root_source_file = yuku.path("tools/gen_parser_decoder.zig"),
+            .root_source_file = b.path("tools/gen_parser_decoder.zig"),
             .target = b.graph.host,
             .optimize = optimize,
         });
@@ -328,6 +427,36 @@ pub fn build(b: *std.Build) void {
         const fixture_decoder_install = b.addInstallFile(
             fixture_decoder_output,
             "dialect-decode.js",
+        );
+        const fixture_plain_decoder_module = b.createModule(.{
+            .root_source_file = b.path("tools/gen_parser_decoder.zig"),
+            .target = b.graph.host,
+            .optimize = optimize,
+        });
+        const fixture_plain_meta = b.createModule(.{
+            .root_source_file = yuku.path("tools/estree/meta.zig"),
+            .target = b.graph.host,
+            .optimize = optimize,
+        });
+        fixture_plain_meta.addImport("parser", yuku.module("parser"));
+        const fixture_plain_base = b.createModule(.{
+            .root_source_file = yuku.path("tools/estree/decoder.zig"),
+            .target = b.graph.host,
+            .optimize = optimize,
+        });
+        fixture_plain_base.addImport("parser", yuku.module("parser"));
+        fixture_plain_base.addImport("transfer", plain_transfer_module);
+        fixture_plain_base.addImport("meta", fixture_plain_meta);
+        fixture_plain_decoder_module.addImport("parser", yuku.module("parser"));
+        fixture_plain_decoder_module.addImport("transfer", plain_transfer_module);
+        fixture_plain_decoder_module.addImport("decoder", fixture_plain_base);
+        const fixture_plain_decoder = b.addExecutable(.{
+            .name = "gen-m2-fixture-plain-decoder",
+            .root_module = fixture_plain_decoder_module,
+        });
+        const fixture_plain_decoder_install = b.addInstallFile(
+            b.addRunArtifact(fixture_plain_decoder).captureStdOut(.{}),
+            "dialect-free-fixture-decode.js",
         );
 
         const fixture_oracle = b.addSystemCommand(&.{
@@ -343,12 +472,95 @@ pub fn build(b: *std.Build) void {
         fixture_oracle.step.dependOn(&dialect_fixture_install.step);
         fixture_oracle.step.dependOn(&plain_fixture_install.step);
         fixture_oracle.step.dependOn(&fixture_decoder_install.step);
+        fixture_oracle.step.dependOn(&fixture_plain_decoder_install.step);
         const fixture_step = b.step(
             "test-m2-fixtures",
             "Compare production TSRX trees and diagnostics with the immutable oracle",
         );
         fixture_step.dependOn(&fixture_oracle.step);
     }
+}
+
+fn installNpmHostWrapper(b: *std.Build) void {
+    const install_step = b.getInstallStep();
+    const generated_steps = b.allocator.dupe(
+        *std.Build.Step,
+        install_step.dependencies.items,
+    ) catch @panic("unable to snapshot npm install dependencies");
+    inline for ([_][]const u8{
+        "index.js",
+        "index.d.ts",
+        "package.json",
+        "decode.js",
+        "decode-analyzer.js",
+        "encode.js",
+        "walk.js",
+    }) |name| {
+        const overlay = b.addInstallFile(
+            b.path(b.fmt("npm/yuku-tsrx/{s}", .{name})),
+            b.fmt("npm/yuku-tsrx/{s}", .{name}),
+        );
+        for (generated_steps) |generated| overlay.step.dependOn(generated);
+        install_step.dependOn(&overlay.step);
+    }
+    const host_binding = b.addWriteFiles().add("binding.js",
+        \\import { createRequire } from "node:module";
+        \\import { fileURLToPath } from "node:url";
+        \\const require = createRequire(import.meta.url);
+        \\const report = process.platform === "linux" && process.report?.getReport?.();
+        \\const header = typeof report === "string" ? JSON.parse(report).header : report?.header;
+        \\const libc = process.platform === "linux" ? (header?.glibcVersionRuntime ? "-gnu" : "-musl") : "";
+        \\const suffix = `${process.platform}-${process.arch}${libc}`;
+        \\const local = fileURLToPath(new URL(`./@yuku-tsrx/binding-${suffix}/yuku-tsrx.node`, import.meta.url));
+        \\let binding;
+        \\try { binding = require(local); }
+        \\catch (localError) {
+        \\  try { binding = require(`@yuku-tsrx/binding-${suffix}/yuku-tsrx.node`); }
+        \\  catch (packageError) {
+        \\    throw new Error(`Failed to load @yuku-tsrx native binding for ${suffix}`, {
+        \\      cause: new AggregateError([localError, packageError]),
+        \\    });
+        \\  }
+        \\}
+        \\export default binding;
+        \\
+    );
+    const binding_overlay = b.addInstallFile(host_binding, "npm/yuku-tsrx/binding.js");
+    for (generated_steps) |generated| binding_overlay.step.dependOn(generated);
+    install_step.dependOn(&binding_overlay.step);
+}
+
+fn installNpmHostAddon(
+    b: *std.Build,
+    name: []const u8,
+    scope: []const u8,
+    target: std.Build.ResolvedTarget,
+) void {
+    if (npmReleaseRequested(b)) return;
+    const platform = napi_zig.Platform.fromTarget(target.result) orelse return;
+    const install_step = b.getInstallStep();
+    const addon = for (install_step.dependencies.items) |dependency| {
+        const artifact = dependency.cast(std.Build.Step.InstallArtifact) orelse continue;
+        if (!std.mem.eql(u8, artifact.artifact.name, name)) continue;
+        switch (artifact.dest_dir orelse continue) {
+            .lib => break artifact.artifact.getEmittedBin(),
+            else => continue,
+        }
+    } else return;
+    const addon_install = b.addInstallFile(addon, b.fmt(
+        "npm/{s}/{s}/binding-{s}/{s}.node",
+        .{ name, scope, platform.suffix(), name },
+    ));
+    install_step.dependOn(&addon_install.step);
+}
+
+fn npmReleaseRequested(b: *std.Build) bool {
+    const option = b.user_input_options.getPtr("npm") orelse return false;
+    return switch (option.value) {
+        .flag => true,
+        .scalar => |value| std.mem.eql(u8, value, "true"),
+        else => false,
+    };
 }
 
 fn cloneModule(
@@ -413,6 +625,18 @@ fn addEstreeGenerator(
     transfer_module: *std.Build.Module,
     config: EstreeGenerator,
 ) void {
+    if (std.mem.eql(u8, config.step, "gen-dialect-free-parser-decoder")) {
+        const control = b.addSystemCommand(&.{
+            "git",
+            "-C",
+            "../yuku",
+            "show",
+            "eb2adcb4c17da16e7ade1a0517192d81d469e67f:npm/yuku-parser/decode.js",
+        });
+        const step = b.step(config.step, config.description);
+        step.dependOn(&b.addInstallFile(control.captureStdOut(.{}), config.output).step);
+        return;
+    }
     const meta_module = b.createModule(.{
         .root_source_file = yuku.path("tools/estree/meta.zig"),
         .target = b.graph.host,
@@ -432,13 +656,6 @@ fn addEstreeGenerator(
     shared_module.addImport("transfer", transfer_module);
     shared_module.addImport("meta", meta_module);
 
-    const emit_module = b.createModule(.{
-        .root_source_file = yuku.path("tools/estree/emit.zig"),
-        .target = b.graph.host,
-        .optimize = .Debug,
-    });
-    emit_module.addImport("parser", parser_module);
-
     const root_module = b.createModule(.{
         .root_source_file = b.path(config.root),
         .target = b.graph.host,
@@ -449,7 +666,8 @@ fn addEstreeGenerator(
         .encoder => "encoder",
     }, shared_module);
     root_module.addImport("meta", meta_module);
-    root_module.addImport("emit", emit_module);
+    root_module.addImport("parser", parser_module);
+    root_module.addImport("transfer", transfer_module);
 
     const executable = b.addExecutable(.{ .name = config.step, .root_module = root_module });
     const output = b.addRunArtifact(executable).captureStdOut(.{});

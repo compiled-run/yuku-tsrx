@@ -526,8 +526,10 @@ pnpm vp test            # vitest
 
 ## Goal Oracle
 
-The goal is complete when **all** of the following hold, each backed by a command
-whose output is recorded:
+The goal is complete when **all binding items** below hold, each backed by a
+command whose output is recorded. Historical numbering is retained for durable
+receipts. By owner decision on 2026-08-11, item 4 is removed from the completion
+contract; the binding set is items 1–3 and 5–9.
 
 1. **Behaviour parity, both spaces.** `yuku-tsrx` reproduces all 12 snapshot
    JSONs from `bf03e146`; emits equivalent diagnostics for the 3 invalid `.tsrx`
@@ -541,9 +543,10 @@ whose output is recorded:
    equivalent to pre-seam Yuku — by identical emitted binary, or by benchmark
    parity within a stated tolerance on Yuku's own `profiler/`, measured on one
    machine, plus the surviving `@sizeOf(Node) == 52` assertion.
-4. **The seam is free when used.** TSRX parse throughput is measured and reported
-   against parsing the equivalent TSX, on the same machine and corpus. Any
-   overhead is attributed to work genuinely unique to TSRX.
+4. **Removed — non-blocking historical benchmark.** The owner removed the
+   TSRX-versus-equivalent-TSX comparison from the completion contract after the
+   same-corpus `yuku-tsrx` versus `@tsrx/core` benchmark was completed. Existing
+   benchmark artifacts remain provenance only and do not gate completion.
 5. **The three surfaces work.** Parser, analyzer (semantic/scope binding over
    TSRX nodes), and codegen (a `.tsrx` round-trip that reparses to an equivalent
    tree) all function through the adapter.
@@ -570,7 +573,8 @@ whose output is recorded:
    replacement has not made its case.
 9. **The PR is ready and minimal.** The Yuku-side diff is a reviewable branch
    whose every hunk is justified as necessary for *any* dialect, not for TSRX
-   specifically. It is not opened upstream until 1–8 are green.
+   specifically. It is not opened upstream until all preceding binding items are
+   green.
 
 A passing parser, a green fixture run, or a clean-looking board is not
 completion. Completion is the oracle above, audited claim by claim.
@@ -584,8 +588,8 @@ Ordered. Each ends in something runnable; none is a design document.
   vite-plus workspace on the pinned versions. `yuku-tsrx` builds against
   path-linked `../yuku` at `upstream/main`, and all seven verification commands
   run. Record baseline `profiler/` numbers, the dialect-free binary hash, and an
-  `@tsrx/core` parse-time baseline. These are the controls for oracle items 3, 4
-  and 8.
+  `@tsrx/core` parse-time baseline. These are the controls for oracle items 3 and
+  8.
 - **M1 — Seam.** Design and land the comptime dialect parameter on the local
   Yuku branch, with a trivial no-op dialect proving zero cost. Resolve open
   design problem 1. No TSRX yet.

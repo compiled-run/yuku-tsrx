@@ -47,6 +47,56 @@ test "sentinel requires transformed string storage" {
     try std.testing.expectEqualStrings("\"ABB&<>'&unknown;", firstJsxText(&tree));
 }
 
+test "loose JSX recovers only an ancestor close transactionally" {
+    // leave the ancestor close for the parent while retaining child text and comments
+    const source = "const x = <div>{/* kept */}<span>text</div>;";
+    var strict = try parser.parse(std.testing.allocator, source, .{ .lang = .tsx });
+    defer strict.deinit();
+    try std.testing.expect(strict.hasErrors());
+
+    var loose = try parser.parse(std.testing.allocator, source, .{ .lang = .tsx, .loose = true });
+    defer loose.deinit();
+    try std.testing.expect(!loose.hasErrors());
+    try std.testing.expectEqual(@as(usize, 1), loose.tree.comments.len);
+    try std.testing.expectEqual(@as(usize, 0), loose.dialect_store.records.items.len);
+    try std.testing.expectEqual(@as(usize, 0), loose.dialect_store.associations.items.len);
+    try std.testing.expectEqual(@as(usize, 0), loose.dialect_store.overlays.items.len);
+
+    const child_start: u32 = @intCast(std.mem.indexOf(u8, source, "<span>").?);
+    const ancestor_close: u32 = @intCast(std.mem.indexOf(u8, source, "</div>").?);
+    const child = findNodeWithSpan(&loose, .jsx_element, child_start, ancestor_close) orelse
+        return error.MissingRecoveredChild;
+    try std.testing.expectEqual(parser.ast.NodeIndex.null, loose.data(child).jsx_element.closing_element);
+
+    var closing_count: u32 = 0;
+    var closing_start: u32 = 0;
+    for (loose.tree.nodes.items(.data), loose.tree.nodes.items(.span)) |data, span| switch (data) {
+        .jsx_closing_element => {
+            closing_count += 1;
+            closing_start = span.start;
+        },
+        else => {},
+    };
+    try std.testing.expectEqual(@as(u32, 1), closing_count);
+    try std.testing.expectEqual(ancestor_close, closing_start);
+
+    var unrelated = try parser.parse(
+        std.testing.allocator,
+        "const x = <div><span></aside></div>;",
+        .{ .lang = .tsx, .loose = true },
+    );
+    defer unrelated.deinit();
+    try std.testing.expect(unrelated.hasErrors());
+
+    var eof = try parser.parse(
+        std.testing.allocator,
+        "const x = <div><span>text",
+        .{ .lang = .tsx, .loose = true },
+    );
+    defer eof.deinit();
+    try std.testing.expect(eof.hasErrors());
+}
+
 test "sentinel splits code block render and creates dialect nodes" {
     for ([_][]const u8{
         "const x = @{ const value = 1; <A /> };",
@@ -59,14 +109,33 @@ test "sentinel splits code block render and creates dialect nodes" {
         try std.testing.expect(!tree.hasErrors());
         try std.testing.expectEqual(@as(u32, 1), dialect.capability_body_len);
         try std.testing.expect(dialect.capability_render != std.math.maxInt(u32));
-        const node = findNode(&tree, .dialect_node) orelse return error.MissingCapabilityDialectNode;
-        const record = tree.dialect_store.records.items[tree.data(node).dialect_node.record_index].node;
+        const node = findDialectNode(&tree) orelse return error.MissingCapabilityDialectNode;
+        const record = tree.dialect_store.records.items[tree.dialectRecord(@intFromEnum(node)).?].node;
         try std.testing.expectEqual(dialect.capability_render, record.value.raw);
     }
 }
 
+test "reflected dialect node references are traversed" {
+    // The sentinel record points at a JSX subtree whose identifier must resolve.
+    dialect.resetHooks();
+    dialect.capability_mode = .block_split;
+    var tree = try parser.parse(
+        std.testing.allocator,
+        "const outer = 1; const view = @{ outer };",
+        .{ .lang = .tsx },
+    );
+    defer tree.deinit();
+    try std.testing.expect(!tree.hasErrors());
+    const semantic = try parser.semantic.analyze(&tree);
+    var resolved: u32 = 0;
+    for (semantic.references) |reference| {
+        if (reference.symbol != .none) resolved += 1;
+    }
+    try std.testing.expectEqual(@as(u32, 1), resolved);
+}
+
 test "sentinel splits a JSX-child code block and resumes the element" {
-    const source = "<A>@{ const value = 1; <B /> }</A>";
+    const source = "<A>{@{ const value = 1; value }}</A>";
     dialect.resetHooks();
     dialect.capability_mode = .block_split;
     dialect.marker_boundary = true;
@@ -76,13 +145,13 @@ test "sentinel splits a JSX-child code block and resumes the element" {
     try std.testing.expect(!tree.hasErrors());
     try std.testing.expectEqual(@as(u32, 1), dialect.capability_split_count);
     try std.testing.expectEqual(@as(u32, 1), dialect.capability_body_len);
-    const block = findNode(&tree, .dialect_node) orelse return error.MissingCapabilityDialectNode;
+    const block = findDialectNode(&tree) orelse return error.MissingCapabilityDialectNode;
     const close = std.mem.lastIndexOfScalar(u8, source, '}').? + 1;
-    try std.testing.expectEqual(@as(u32, 3), tree.span(block).start);
-    try std.testing.expectEqual(@as(u32, @intCast(close)), tree.span(block).end);
-    const record = tree.dialect_store.records.items[tree.data(block).dialect_node.record_index].node;
+    try std.testing.expectEqual(@as(u32, @intCast(std.mem.indexOfScalar(u8, source, '@').?)), tree.span(block).start);
+    try std.testing.expectEqual(@as(u32, @intCast(close - 1)), tree.span(block).end);
+    const record = tree.dialect_store.records.items[tree.dialectRecord(@intFromEnum(block)).?].node;
     try std.testing.expectEqual(dialect.capability_render, record.value.raw);
-    try std.testing.expectEqual(.jsx_element, std.meta.activeTag(tree.data(@enumFromInt(record.value.raw))));
+    try std.testing.expectEqual(.identifier_reference, std.meta.activeTag(tree.data(@enumFromInt(record.value.raw))));
     const outer = findNodeWithSpan(&tree, .jsx_element, 0, @intCast(source.len)) orelse
         return error.MissingContinuedOuterElement;
     try std.testing.expectEqual(@as(u32, @intCast(source.len)), tree.span(outer).end);
@@ -100,12 +169,12 @@ test "sentinel splits nested statement code blocks and resumes both blocks" {
     try std.testing.expectEqual(@as(u32, 1), dialect.capability_body_len);
     const inner_start = std.mem.indexOfPos(u8, source, 1, "@{").?;
     const inner_end = std.mem.indexOfPos(u8, source, inner_start, " } }").? + 2;
-    const inner = findNodeWithSpan(&tree, .dialect_node, @intCast(inner_start), @intCast(inner_end)) orelse
+    const inner = findDialectNodeWithSpan(&tree, @intCast(inner_start), @intCast(inner_end)) orelse
         return error.MissingInnerCapabilityDialectNode;
-    const outer = findNodeWithSpan(&tree, .dialect_node, 0, @intCast(source.len)) orelse
+    const outer = findDialectNodeWithSpan(&tree, 0, @intCast(source.len)) orelse
         return error.MissingOuterCapabilityDialectNode;
-    const inner_record = tree.dialect_store.records.items[tree.data(inner).dialect_node.record_index].node;
-    const outer_record = tree.dialect_store.records.items[tree.data(outer).dialect_node.record_index].node;
+    const inner_record = tree.dialect_store.records.items[tree.dialectRecord(@intFromEnum(inner)).?].node;
+    const outer_record = tree.dialect_store.records.items[tree.dialectRecord(@intFromEnum(outer)).?].node;
     try std.testing.expectEqual(.jsx_element, std.meta.activeTag(tree.data(@enumFromInt(inner_record.value.raw))));
     try std.testing.expectEqual(@intFromEnum(inner), outer_record.value.raw);
     try std.testing.expectEqual(@as(u32, @intCast(source.len)), tree.span(outer).end);
@@ -123,7 +192,7 @@ test "sentinel resumes after raw spans and diagnoses unclosed input" {
         defer tree.deinit();
         try std.testing.expect(!tree.hasErrors());
         try std.testing.expectEqual(@as(u32, 1), dialect.capability_raw_children);
-        try std.testing.expect(findNode(&tree, .dialect_node) != null);
+        try std.testing.expect(findDialectNode(&tree) != null);
     }
     dialect.resetHooks();
     dialect.capability_mode = .raw_resume;
@@ -141,7 +210,7 @@ test "every site-specific hook executes handled and unhandled control flow" {
         diagnostics: usize,
         overlays: usize,
 
-        fn of(tree: *const parser.ast.Tree) @This() {
+        fn of(tree: anytype) @This() {
             return .{
                 .nodes = tree.nodes.len,
                 .extras = tree.extras.items.len,
@@ -171,8 +240,8 @@ test "every site-specific hook executes handled and unhandled control flow" {
         .{ .hook = .jsx_names_match, .source = "const x = <A></B>;", .lang = .tsx },
         .{ .hook = .jsx_text_boundary, .source = "const x = <A>left@right</A>;", .lang = .tsx },
         .{ .hook = .jsx_text_value, .source = "const x = <A>text</A>;", .lang = .tsx },
-        .{ .hook = .jsx_child_at_code_block, .source = "const x = <A>@{value}</A>;", .lang = .tsx },
-        .{ .hook = .jsx_child_at_control_flow, .source = "const x = <A>@{value}</A>;", .lang = .tsx },
+        .{ .hook = .jsx_child_at_code_block, .source = "const x = <A>{@{value}}</A>;", .lang = .tsx },
+        .{ .hook = .jsx_child_at_control_flow, .source = "const x = <A>{@{value}}</A>;", .lang = .tsx },
         .{ .hook = .jsx_element_name, .source = "const x = <{value}></{value}>;", .lang = .tsx },
         .{ .hook = .validate_jsx_element_name, .source = "const x = <A />;", .lang = .tsx },
     };
@@ -255,7 +324,8 @@ test "every site-specific hook executes handled and unhandled control flow" {
             .jsx_element_after_open => {
                 const node = findNode(&handled_tree, .jsx_element) orelse
                     return error.MissingFinishedElement;
-                try std.testing.expect(handled_tree.dialectOverlay(@intFromEnum(node)) != null);
+                const opening = handled_tree.data(node).jsx_element.opening_element;
+                try std.testing.expect(handled_tree.dialectOverlay(@intFromEnum(opening)) != null);
             },
             .validate_jsx_element_name => {
                 try std.testing.expect(!unhandled_tree.hasErrors());
@@ -265,8 +335,8 @@ test "every site-specific hook executes handled and unhandled control flow" {
                 const child = findNode(&handled_tree, .jsx_expression_container) orelse
                     return error.MissingMarkerChild;
                 const span = handled_tree.span(child);
-                try std.testing.expectEqual(@as(u32, 14), span.start);
-                try std.testing.expectEqual(@as(u32, 21), span.end);
+                try std.testing.expectEqual(@as(u32, 15), span.start);
+                try std.testing.expectEqual(@as(u32, 22), span.end);
                 const expression = handled_tree.data(child).jsx_expression_container.expression;
                 try std.testing.expectEqual(.identifier_reference, std.meta.activeTag(handled_tree.data(expression)));
             },
@@ -382,7 +452,7 @@ test "binding start routing admits lazy let patterns without broadening let ambi
     }
 }
 
-fn firstJsxText(tree: *const parser.ast.Tree) []const u8 {
+fn firstJsxText(tree: anytype) []const u8 {
     var index: u32 = 0;
     while (index < tree.nodes.len) : (index += 1) {
         switch (tree.data(@enumFromInt(index))) {
@@ -393,7 +463,7 @@ fn firstJsxText(tree: *const parser.ast.Tree) []const u8 {
     return "<missing>";
 }
 
-fn findNode(tree: *const parser.ast.Tree, tag: std.meta.Tag(parser.ast.NodeData)) ?parser.ast.NodeIndex {
+fn findNode(tree: anytype, tag: std.meta.Tag(parser.ast.NodeData)) ?parser.ast.NodeIndex {
     var index: u32 = 0;
     while (index < tree.nodes.len) : (index += 1) {
         const node: parser.ast.NodeIndex = @enumFromInt(index);
@@ -403,7 +473,7 @@ fn findNode(tree: *const parser.ast.Tree, tag: std.meta.Tag(parser.ast.NodeData)
 }
 
 fn findNodeWithSpan(
-    tree: *const parser.ast.Tree,
+    tree: anytype,
     comptime tag: std.meta.Tag(parser.ast.NodeData),
     start: u32,
     end: u32,
@@ -412,6 +482,20 @@ fn findNodeWithSpan(
     while (index < tree.nodes.len) : (index += 1) {
         const node: parser.ast.NodeIndex = @enumFromInt(index);
         if (std.meta.activeTag(tree.data(node)) != tag) continue;
+        const span = tree.span(node);
+        if (span.start == start and span.end == end) return node;
+    }
+    return null;
+}
+
+fn findDialectNode(tree: anytype) ?parser.ast.NodeIndex {
+    if (tree.dialect_store.associations.items.len == 0) return null;
+    return @enumFromInt(tree.dialect_store.associations.items[0].anchor);
+}
+
+fn findDialectNodeWithSpan(tree: anytype, start: u32, end: u32) ?parser.ast.NodeIndex {
+    for (tree.dialect_store.associations.items) |association| {
+        const node: parser.ast.NodeIndex = @enumFromInt(association.anchor);
         const span = tree.span(node);
         if (span.start == start and span.end == end) return node;
     }
@@ -485,7 +569,7 @@ test "statement and expression control reports retain null help through transfer
     try expectTransferredDiagnostic(&helped, "Sentinel control-flow help");
 }
 
-fn expectTransferredDiagnostic(tree: *const parser.ast.Tree, expected_help: ?[]const u8) !void {
+fn expectTransferredDiagnostic(tree: anytype, expected_help: ?[]const u8) !void {
     const bytes = try std.testing.allocator.alignedAlloc(u8, .@"4", transfer.bufferSize(tree));
     defer std.testing.allocator.free(bytes);
     _ = transfer.serializeInto(tree, bytes);
@@ -519,7 +603,7 @@ fn expectTransferredDiagnostic(tree: *const parser.ast.Tree, expected_help: ?[]c
 
 test "sentinel records round trip and sparse overlays stay bounded" {
     // exercise every reflected record and reject tags outside the derived schema window
-    var tree = parser.ast.Tree.initEmpty(std.testing.allocator);
+    var tree = parser.ParseResult.init(parser.ast.Tree.initEmpty(std.testing.allocator), .{});
     defer tree.deinit();
 
     const records = [_]dialect.Record{
@@ -537,11 +621,12 @@ test "sentinel records round trip and sparse overlays stay bounded" {
         try std.testing.expectEqualDeep(record, unpacked);
         if (index > 0) try tree.addDialectOverlay(@intCast(index), record_index);
     }
-    _ = try tree.addNode(.{ .dialect_node = .{ .record_index = 0 } }, .{ .start = 0, .end = 0 });
+    _ = try tree.tree.addNode(.{ .empty_statement = .{} }, .{ .start = 0, .end = 0 });
+    try tree.dialect_store.addAssociation(tree.allocator(), 0, 0);
     try std.testing.expectEqual(@as(?u32, 1), tree.dialectOverlay(1));
     try std.testing.expectEqual(@as(?u32, null), tree.dialectOverlay(99));
-    try std.testing.expectError(error.OverlayOrderInvalid, tree.addDialectOverlay(1, 1));
-    try std.testing.expectError(error.InvalidRecordIndex, tree.addDialectOverlay(5, 99));
+    try std.testing.expectError(error.OutOfMemory, tree.addDialectOverlay(1, 1));
+    try std.testing.expectError(error.OutOfMemory, tree.addDialectOverlay(5, 99));
 
     var malformed = std.mem.zeroes(transfer.PackedNode);
     malformed.tag = transfer.dialectNodeTag();
@@ -625,7 +710,7 @@ test "reflected transfer eagerly rejects invalid unused records and dangling dir
 
     var dangling = try std.testing.allocator.dupe(u8, bytes);
     defer std.testing.allocator.free(dangling);
-    const direct = findNode(&tree, .dialect_node) orelse return error.MissingCapabilityDialectNode;
+    const direct = findDialectNode(&tree) orelse return error.MissingCapabilityDialectNode;
     std.mem.writeInt(u32, dangling[transfer.HEADER_SIZE + @intFromEnum(direct) * transfer.NODE_SIZE + 8 ..][0..4], 0xffff_ffff, .little);
     try std.testing.expectError(error.InvalidBuffer, transfer.deserializeFromBuf(std.testing.allocator, dangling, tree.source));
 

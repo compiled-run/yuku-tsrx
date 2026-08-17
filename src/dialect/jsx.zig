@@ -51,7 +51,12 @@ fn validExpression(comptime Host: type, parser: anytype, node: Host.NodeIndex, d
         .string_literal => true,
         .template_literal => |data| data.expressions.len == 0,
         .member_expression => |data| validExpression(Host, parser, data.object, depth + 1) and
-            validExpression(Host, parser, data.property, depth + 1),
+            (if (data.computed)
+                validExpression(Host, parser, data.property, depth + 1)
+            else switch (Host.data(parser, data.property)) {
+                .identifier_name => true,
+                else => validExpression(Host, parser, data.property, depth + 1),
+            }),
         .conditional_expression => |data| validExpression(Host, parser, data.@"test", depth + 1) and
             validExpression(Host, parser, data.consequent, depth + 1) and
             validExpression(Host, parser, data.alternate, depth + 1),
