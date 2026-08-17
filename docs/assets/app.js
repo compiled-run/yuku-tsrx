@@ -686,11 +686,49 @@ function initPage() {
   initFacetTabs()
   initCliBuilder()
   collectOutline()
+  // The hero panel and the /playground workbench are the same component. It
+  // pulls in the WebAssembly build of the dialect, so it is only fetched on a
+  // page that actually has one, and its timers are cleared when an SPA
+  // navigation takes the panel away.
+  const demo = document.getElementById('hero-demo')
+  if (demo && !demo.dataset.ready) {
+    demo.dataset.ready = '1'
+    let dispose = null
+    let disposed = false
+    import(new URL('./yuku-playground.js', import.meta.url))
+      .then((module) => module.initDemo(demo))
+      .then((cleanup) => {
+        dispose = cleanup
+        if (disposed) dispose?.()
+      })
+      .catch(() => {})
+    pageCleanupCallbacks.push(() => {
+      disposed = true
+      dispose?.()
+    })
+  }
 }
 initPage()
 
 // ---------- delegated one-time handlers (survive SPA content swaps) ----------
+// "Try in playground" hands a documentation fence to the live parser, so the
+// source travels in the URL fragment and never leaves the browser.
+const playgroundHref = () =>
+  document.querySelector('.top-nav a[href$="/playground"]')?.getAttribute('href') ?? '/playground'
+
+const toBase64Url = (text) => {
+  const bytes = new TextEncoder().encode(text)
+  let binary = ''
+  for (const byte of bytes) binary += String.fromCharCode(byte)
+  return btoa(binary).replaceAll('+', '-').replaceAll('/', '_').replace(/=+$/, '')
+}
+
 document.addEventListener('click', async (event) => {
+  const tryButton = event.target.closest('.try-button')
+  if (tryButton) {
+    location.assign(`${playgroundHref()}#code=${toBase64Url(tryButton.dataset.code)}`)
+    return
+  }
   const copyMd = event.target.closest('.copy-md-button')
   if (copyMd) {
     const label = copyMd.dataset.label ?? (copyMd.dataset.label = copyMd.textContent)

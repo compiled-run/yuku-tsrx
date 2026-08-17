@@ -35,6 +35,10 @@ const types = {
   '.xml': 'application/xml; charset=utf-8',
   '.woff2': 'font/woff2',
   '.map': 'application/json',
+  // WebAssembly.instantiateStreaming refuses anything else, so serving the
+  // dialect module as octet-stream would silently drop the playground onto its
+  // slower fallback path here but not in production.
+  '.wasm': 'application/wasm',
 }
 
 function reject(response, status, message) {

@@ -318,10 +318,19 @@ function createMarked(slugger, headings) {
         return `<h${depth} id="${id}">${html}${anchor}</h${depth}>\n`
       },
       code({ text, lang }) {
-        const [language] = (lang || 'text').split(/\s+/)
+        const [language, ...flags] = (lang || 'text').split(/\s+/)
+        // The button hands the fence to the real parser in the reader's tab, so
+        // it is only honest on a fence the parser accepts. A sample that is not
+        // a whole file, or that shows what invalid TSRX looks like, opts out
+        // with ```tsrx no-playground; `node tools/wasm-smoke.mjs --fences`
+        // proves every fence that keeps the button still parses clean.
+        const tryButton =
+          language === 'tsrx' && !flags.includes('no-playground')
+            ? `<button type="button" class="try-button" data-code="${escapeHtml(text)}">Try in playground</button>`
+            : ''
         let body = highlightHtml(text, language)
         if (language === 'tsrx') body = addTsrxHovers(body)
-        return `<div class="code-block" data-lang="${escapeHtml(language)}">${body}</div>\n`
+        return `<div class="code-block" data-lang="${escapeHtml(language)}">${body}${tryButton}</div>\n`
       },
       link({ href, title, tokens }) {
         const text = this.parser.parseInline(tokens)
@@ -773,6 +782,165 @@ function homeBenchCards() {
     .join('')}</div>`
 }
 
+// ---------- the in-browser dialect (wasm) ----------
+// The module is built by `pnpm run docs:wasm`; this build never invokes zig, it
+// only ships what is already there. The two decoders travel with it, because
+// the wire format between them and the module is only guaranteed within one
+// tree.
+const wasmPath = process.env.YUKU_TSRX_WASM
+  ? path.resolve(process.env.YUKU_TSRX_WASM)
+  : path.join(repoRoot, 'zig-out', 'wasm', 'yuku-tsrx.wasm')
+
+async function copyWasmAssets() {
+  const outWasmDir = path.join(siteDir, 'assets', 'wasm')
+  await mkdir(outWasmDir, { recursive: true })
+  let wasm
+  try {
+    wasm = await readFile(wasmPath)
+  } catch {
+    throw new Error(
+      `missing ${path.relative(repoRoot, wasmPath)}: run pnpm docs:wasm first`,
+    )
+  }
+  await writeFile(path.join(outWasmDir, 'yuku-tsrx.wasm'), wasm)
+  for (const name of ['decode.js', 'decode-analyzer.js']) {
+    await cp(path.join(repoRoot, 'npm', 'yuku-tsrx', name), path.join(outWasmDir, name))
+  }
+  return wasm.length
+}
+
+// The playground's example buttons carry committed parser fixtures, inlined
+// here so the page needs no second request to show one. A missing fixture is a
+// build failure rather than a button that does nothing.
+const FIXTURES = [
+  { id: 'code-block', label: 'Code block', file: 'code-block.module.tsrx' },
+  { id: 'control-flow-if', label: 'If / else', file: 'control-flow-if.module.tsrx' },
+  { id: 'control-flow-for', label: 'For', file: 'control-flow-for.module.tsrx' },
+  { id: 'control-flow-switch', label: 'Switch', file: 'control-flow-switch.module.tsrx' },
+  { id: 'dynamic-tag', label: 'Dynamic tag', file: 'dynamic-tag.module.tsrx' },
+  { id: 'style-element', label: 'Style element', file: 'style-element.module.tsrx' },
+  {
+    id: 'control-flow-switch-invalid',
+    label: 'Invalid switch',
+    file: 'control-flow-switch-invalid.module.tsrx',
+  },
+]
+
+async function readFixtures() {
+  const dir = path.join(repoRoot, 'test', 'parser', 'misc', 'tsrx')
+  const entries = {}
+  for (const fixture of FIXTURES) {
+    const file = path.join(dir, fixture.file)
+    let source
+    try {
+      source = await readFile(file, 'utf8')
+    } catch {
+      throw new Error(`missing playground fixture ${path.relative(repoRoot, file)}`)
+    }
+    entries[fixture.id] = {
+      source,
+      note: `test/parser/misc/tsrx/${fixture.file}, parsed here by the same dialect the test suite uses.`,
+    }
+  }
+  return entries
+}
+
+const PLAYGROUND_IDLE_NOTE =
+  'Pick a committed parser fixture, or type your own TSRX. Everything below is produced in this tab.'
+
+// The four output tabs. app.js already carries the delegated `[data-explorer]`
+// tab handling, so the markup is all the wiring they need.
+function outputPanelHtml() {
+  const tabs = [
+    ['ast', 'AST', 'The decoded program, as JSON. TSRX nodes keep their own names: JSXCodeBlock, TSRXExpression, JSXStyleElement.'],
+    ['diagnostics', 'Diagnostics', 'Everything the parser reported for the current source, including the semantic early errors.'],
+    ['generated', 'Generated code', 'What the code generator prints for the current program.'],
+    ['semantic', 'Semantic', 'Scopes, symbols, references and the module record from the analyzer.'],
+  ]
+  return `<div class="code-panel pg-output" id="pg-output" data-explorer>
+        <div class="code-panel-bar pg-output-tabs" role="tablist" aria-label="Parser output">
+          <span class="pg-pane-label" aria-hidden="true">Output</span>
+          ${tabs
+            .map(
+              ([id, label], index) =>
+                `<button type="button" role="tab" id="pg-tab-${id}" aria-controls="pg-panel-${id}" aria-selected="${index === 0}"${
+                  index === 0 ? '' : ' tabindex="-1"'
+                }>${label}</button>`,
+            )
+            .join('\n          ')}
+        </div>
+        <div class="pg-output-body">
+          ${tabs
+            .map(
+              ([id, label, note], index) =>
+                `<div role="tabpanel" id="pg-panel-${id}" aria-labelledby="pg-tab-${id}"${
+                  index === 0 ? '' : ' hidden'
+                }><p class="pg-note pg-output-note">${note}</p><div class="pg-output-code" id="pg-${id}"></div></div>`,
+            )
+            .join('\n          ')}
+        </div>
+        <div class="code-panel-status"><span id="pg-output-status">the parser starts when this page loads</span></div>
+      </div>`
+}
+
+function renderPlaygroundPage(fixtures) {
+  const buttons = FIXTURES.map(
+    (fixture) =>
+      `<button type="button" class="demo-button" id="pg-scenario-${fixture.id}" data-scenario="${fixture.id}">${escapeHtml(fixture.label)}</button>`,
+  ).join('\n          ')
+  // Inlined as JSON rather than as attributes: the fixtures are whole files,
+  // and `<` is escaped so the payload can never close its own script element.
+  const fixturesJson = JSON.stringify(fixtures).replaceAll('<', '\\u003c')
+  const main = `
+<main id="main-content" class="home playground-page">
+  <section class="pg" aria-label="Playground">
+    <header class="pg-topbar">
+      <h1 class="pg-title">TSRX Playground</h1>
+      <p class="pg-tagline">Real yuku-tsrx, compiled to WebAssembly, running in this tab: parse, analyze, generate.</p>
+    </header>
+    <div class="pg-toolbar pg-examples-bar" id="pg-side">
+      <div class="pg-examples" role="group" aria-label="Committed parser fixtures">
+        <span class="pg-examples-label" id="pg-engine-label">Examples</span>
+        ${buttons}
+      </div>
+      <p class="pg-note" id="pg-scenario-note" role="status" data-idle="${escapeHtml(PLAYGROUND_IDLE_NOTE)}">${escapeHtml(PLAYGROUND_IDLE_NOTE)}</p>
+    </div>
+    <div class="pg-panes">
+      <div class="code-panel pg-panel" id="hero-demo">
+        <div class="code-panel-bar">
+          <span class="code-panel-dots" aria-hidden="true"><i></i><i></i><i></i></span>
+          <span class="code-panel-file">playground.tsrx</span>
+          <span class="code-panel-hint" id="demo-hint"></span>
+          <span class="code-panel-actions" id="demo-actions" hidden>
+            <button type="button" class="demo-button" id="demo-share">Share</button>
+            <button type="button" class="demo-button" id="demo-reset">Reset</button>
+          </span>
+        </div>
+        <div class="code-panel-editor" id="demo-editor">
+          ${addTsrxHovers(highlightHtml(heroCode, 'tsrx'))}
+        </div>
+        <div class="code-panel-status">
+          <span id="demo-status" aria-live="polite">a TSRX component, highlighted with the TSRX grammar</span>
+          <span id="demo-meta">tsx · module</span>
+        </div>
+      </div>
+      ${outputPanelHtml()}
+    </div>
+  </section>
+  <script type="application/json" id="pg-fixtures">${fixturesJson}</script>
+</main>`
+  return pageShell({
+    title: 'Playground',
+    description:
+      'Edit TSRX and watch the real yuku-tsrx parser, analyzer and code generator answer in your browser, compiled to WebAssembly.',
+    pathname: '/playground',
+    shell: 'playground',
+    bodyClass: 'home-page',
+    header: headerHtml(),
+    main,
+  })
+}
+
 async function renderHomePage({ description }) {
   const hero = config.hero
   const main = `
@@ -796,14 +964,21 @@ async function renderHomePage({ description }) {
       <div class="code-panel-bar">
         <span class="code-panel-dots" aria-hidden="true"><i></i><i></i><i></i></span>
         <span class="code-panel-file">src/Cart.tsrx</span>
+        <span class="code-panel-hint" id="demo-hint"></span>
+        <span class="code-panel-actions" id="demo-actions" hidden>
+          <button type="button" class="demo-button" id="demo-reset">Reset</button>
+          <button type="button" class="demo-button" id="demo-open">Open in playground</button>
+        </span>
       </div>
       <div class="code-panel-editor" id="demo-editor">
         ${addTsrxHovers(highlightHtml(heroCode, 'tsrx'))}
       </div>
       <div class="code-panel-status">
-        <span id="demo-status">a TSRX component, highlighted with the TSRX grammar</span>
+        <span id="demo-status" aria-live="polite">a TSRX component, highlighted with the TSRX grammar</span>
+        <span id="demo-meta">tsx · module</span>
       </div>
     </div>
+    ${outputPanelHtml()}
   </section>
   <section class="home-bench" aria-label="Measured parse time">
     <h2>Measured, not claimed</h2>
@@ -937,8 +1112,13 @@ async function build() {
     path.join(siteDir, 'index.html'),
     dedupeBrandIcons(await renderHomePage({ description: home.data.description })),
   )
+  await writeFile(
+    path.join(siteDir, 'playground.html'),
+    dedupeBrandIcons(renderPlaygroundPage(await readFixtures())),
+  )
 
   await cp(path.join(docsDir, 'assets'), path.join(siteDir, 'assets'), { recursive: true })
+  const wasmBytes = await copyWasmAssets()
   // Ship one stylesheet per page shell, without comments (the source keeps
   // them). Every byte here is on the critical path of the page that links it,
   // so a page gets the rules it can match and nothing else.
@@ -982,7 +1162,7 @@ async function build() {
     })}\n`,
   )
 
-  const publicPaths = ['/', ...pages.map(({ link }) => link)]
+  const publicPaths = ['/', '/playground', ...pages.map(({ link }) => link)]
   await writeFile(
     path.join(outDir, 'robots.txt'),
     `User-agent: *\nAllow: ${base}\nSitemap: ${canonicalUrl('/sitemap.xml')}\n`,
@@ -994,7 +1174,10 @@ async function build() {
       .join('\n')}\n</urlset>\n`,
   )
 
-  console.log(`built ${publicPaths.length} pages, ${searchDocs.length} search sections -> ${outDir}`)
+  console.log(
+    `built ${publicPaths.length} pages, ${searchDocs.length} search sections, ` +
+      `${(wasmBytes / 1024).toFixed(0)} KiB of wasm -> ${outDir}`,
+  )
 }
 
 await build()

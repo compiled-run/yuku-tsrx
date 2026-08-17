@@ -11,6 +11,7 @@ export default {
     { text: 'Guide', link: '/guide/introduction' },
     { text: 'Architecture', link: '/architecture/yuku-dialect' },
     { text: 'Reference', link: '/reference/api' },
+    { text: 'Playground', link: '/playground' },
     { text: 'GitHub', link: 'https://github.com/compiled-run/yuku-tsrx' },
   ],
   sidebar: [

@@ -62,7 +62,7 @@ visual_board:
     status: live
     url: http://goalbuddy.localhost:41737/yuku-tsrx-docs-site/
     command: node /Users/jacksm5pro/.claude/skills/goal-prep/surfaces/local-goal-board/scripts/local-goal-board.mjs --goal docs/goals/yuku-tsrx-docs-site
-active_task: T015
+active_task: T016
 tasks:
   - id: T001
     type: scout
@@ -813,7 +813,7 @@ tasks:
   - id: T015
     type: worker
     assignee: Worker
-    status: active
+    status: done
     reasoning_hint: default
     objective: "Browser host + playground + hero editor + try buttons per notes/T012-interactivity-spec.md sections 4-5: docs/assets/yuku-wasm.js, docs/assets/yuku-playground.js (rewrite of oxc playground.js keeping overlay editor, diagnostics underlines/tooltip, keys, share hash, scenario buttons; drop lint/format/api/completions), editable home hero with live status and an output panel with tabs AST | Diagnostics | Generated code | Semantic, renderPlaygroundPage in build.mjs in the oxc pg-panel shape with the named fixtures inlined, Try in playground buttons on tsrx fences (opt-out no-playground), build.mjs copies zig-out/wasm/yuku-tsrx.wasm + decode.js + decode-analyzer.js into assets/wasm/ and throws if missing, Playground nav item, /playground in sitemap, .wasm MIME in serve.mjs, style.css region opener so .pg-output rules ship to the home shell, docs/verify-playground.mjs headless-Chrome check failing on any console error."
     allowed_files:
@@ -844,11 +844,35 @@ tasks:
       - a Try button fence does not parse clean and cannot simply be marked no-playground
       - any change under src/, npm/, or build.zig
       - SPA navigation into or out of /playground throws in the console
-    receipt: null
+    receipt:
+      result: done
+      harness: claude-code
+      changed_files:
+        - docs/assets/yuku-wasm.js
+        - docs/assets/yuku-playground.js
+        - docs/assets/app.js
+        - docs/assets/style.css
+        - docs/build.mjs
+        - docs/serve.mjs
+        - docs/site.config.mjs
+        - docs/verify-playground.mjs
+        - package.json
+      commands:
+        - cmd: "pnpm run docs:wasm && node tools/wasm-smoke.mjs --fences"
+          status: pass
+        - cmd: "pnpm run docs:build; playground.html, assets/wasm/{yuku-tsrx.wasm,decode.js,decode-analyzer.js}, yuku-wasm.js, yuku-playground.js in dist"
+          status: pass
+        - cmd: "4 tabs on playground and home; try-button on tsrx-syntax; /playground in sitemap; no COOP/COEP"
+          status: pass
+        - cmd: "node docs/verify-playground.mjs (PM re-ran: hero, playground, 4 tabs, try button, SPA round trip, 0 console errors)"
+          status: pass
+        - cmd: "PM screenshots: playground Diagnostics tab on invalid fixture shows 2 real errors with underlines; home Generated code tab shows real codegen output"
+          status: pass
+      summary: "Real interactivity: browser wasm host (214 lines), editor engine rewritten from oxc playground.js (708 lines), editable hero with live status and AST/Diagnostics/Generated code/Semantic tabs, /playground page with seven fixtures inlined at build (invalid switch shows real diagnostics), Try in playground buttons on tsrx fences, wasm+decoders copied into dist, Playground nav, .wasm MIME, one-line CSS region change, headless-Chrome verifier failing on any console error. Degraded mode tested (wasm hidden): read-only with honest message, never faked. Cockpit unit T015-playground, harness verify green, no scope events."
   - id: T016
     type: worker
     assignee: Worker
-    status: queued
+    status: active
     reasoning_hint: default
     objective: "Rebuild (docs:wasm, docs:build), redeploy docs/dist to production, and prove the live interactive surfaces: 200 for /yuku-tsrx/playground and /yuku-tsrx/assets/wasm/yuku-tsrx.wasm with content-type application/wasm; node docs/verify-playground.mjs --url <production origin> passes; screenshots of the live playground (Diagnostics tab on the invalid fixture) and the home hero after an edit; record deployment id and URL in notes/T016-deploy.md."
     allowed_files:
