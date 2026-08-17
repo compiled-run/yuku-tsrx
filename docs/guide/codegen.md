@@ -56,6 +56,15 @@ export interface GenerateOptions {
 | `quotes` | `preserve` keeps each literal's original quote style, `double` and `single` force one, `shortest` picks the one that needs fewer escapes. |
 | `comments` | Which comments survive. |
 
+One current limitation: `quotes: "shortest"` and `minify: true` are declared in
+`npm/yuku-tsrx/index.d.ts` but fail at the native boundary today, because the
+`Quotes` enum in `src/dialect/codegen.zig` has only `preserve`, `double`, and
+`single`, so the addon rejects the request with
+`invalid enum value for codegen.Quotes: 'shortest'`. `minify: true` hits the
+same wall because its `quotes` mode sets `shortest`. Until the enum gains the
+value, use `preserve`, `double`, or `single`, and ask for
+`minify: { whitespace: true, syntax: true }` instead of `minify: true`.
+
 ### `comments`
 
 `none` drops all comments, `all` emits every one, `line` emits only `// ...`,

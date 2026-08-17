@@ -16,5 +16,4 @@ export const heroCode = `export function Cart({ items }): unknown @{
     }
     <style>.cart { display: grid; }</style>
   </section>
-}
-`
+}`

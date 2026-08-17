@@ -92,6 +92,8 @@ export default {
   ],
   footer: {
     disclaimer: 'An independent project, not affiliated with the Yuku team.',
-    copyright: 'MIT Licensed',
+    // No license has been chosen for this repository, so the footer states none.
+    // Leave empty until a LICENSE file exists; build.mjs omits the badge when empty.
+    copyright: '',
   },
 }

@@ -62,7 +62,7 @@ visual_board:
     status: live
     url: http://goalbuddy.localhost:41737/yuku-tsrx-docs-site/
     command: node /Users/jacksm5pro/.claude/skills/goal-prep/surfaces/local-goal-board/scripts/local-goal-board.mjs --goal docs/goals/yuku-tsrx-docs-site
-active_task: T009
+active_task: T999
 tasks:
   - id: T001
     type: scout
@@ -495,7 +495,7 @@ tasks:
   - id: T009
     type: worker
     assignee: Worker
-    status: active
+    status: done
     reasoning_hint: default
     objective: Remove the unverifiable 'MIT Licensed' claim from the home footer (docs/site.config.mjs footer.copyright; drop it or make build.mjs skip an empty footer-badge), fix the encode.js header wording in docs/architecture/yuku-dialect.md ('encoder.zig' for encode.js), add one caveat sentence to docs/guide/codegen.md that quotes 'shortest' and minify:true currently fail at the native boundary with 'invalid enum value for codegen.Quotes' (codegen.zig Quotes enum has preserve/double/single), trim the trailing newline from heroCode in docs/demo-sources.mjs, rebuild, redeploy docs/dist to production, and prove the live home footer no longer contains 'MIT'.
     allowed_files:
@@ -520,11 +520,33 @@ tasks:
       - "Need files outside allowed_files (in particular any LICENSE file, package.json license field, or src/npm code: adding a license is an owner decision)."
       - vercel link or deploy offers or targets any project other than yuku-tsrx-docs in scope jack-shelton, or prompts for auth that --yes --scope does not satisfy; record the exact prompt.
       - Verification fails twice.
-    receipt: null
+    receipt:
+      result: done
+      harness: claude-code
+      changed_files:
+        - docs/site.config.mjs
+        - docs/build.mjs
+        - docs/demo-sources.mjs
+        - docs/architecture/yuku-dialect.md
+        - docs/guide/codegen.md
+        - docs/goals/yuku-tsrx-docs-site/notes/T009-footer-fix.md
+      commands:
+        - cmd: "pnpm run docs:build; no MIT in dist index.html"
+          status: pass
+        - cmd: "encoder.zig wording and codegen.Quotes caveat present; no forbidden words; no em dashes"
+          status: pass
+        - cmd: "no LICENSE created; product files untouched"
+          status: pass
+        - cmd: "vercel link + vercel deploy --prod (dpl_8auutaHzYEWzakrBjp43ogZTqD8Y)"
+          status: pass
+        - cmd: "PM: live home has 0 'MIT'; 13 pages 200"
+          status: pass
+      summary: "Blocking defect B1 fixed: footer no longer claims MIT (copyright empty; build.mjs omits the badge when empty). Cosmetic C1-C3 fixed: encode.js header wording, codegen.md limitation paragraph for quotes shortest / minify true, hero code panel ends on the closing brace. Redeployed to production; live verified by PM. Whether to add a LICENSE remains an owner decision."
+      note: notes/T009-footer-fix.md
   - id: T999
     type: judge
     assignee: Judge
-    status: queued
+    status: active
     reasoning_hint: high
     objective: "Final audit: map receipts and verification back to the original outcome (site cloned and re-skinned, parser/analyzer/codegen focus, README trimmed, production deploy live) and record full_outcome_complete."
     inputs:

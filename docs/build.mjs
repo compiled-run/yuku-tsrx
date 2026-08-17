@@ -833,8 +833,7 @@ async function renderHomePage({ description }) {
   </section>
   <footer class="home-footer">
     <p class="footer-links"><a href="${config.repository}" target="_blank" rel="noreferrer">GitHub<span class="visually-hidden"> (opens in new tab)</span></a></p>
-    <p class="footer-badge">${escapeHtml(config.footer.copyright)}</p>
-    <p class="footer-disclaimer">${config.footer.disclaimer}</p>
+${config.footer.copyright ? `    <p class="footer-badge">${escapeHtml(config.footer.copyright)}</p>\n` : ''}    <p class="footer-disclaimer">${config.footer.disclaimer}</p>
   </footer>
 </main>`
   return pageShell({
