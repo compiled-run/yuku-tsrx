@@ -5,7 +5,7 @@ import { fileURLToPath } from 'node:url'
 
 const assetsDir = path.join(path.dirname(fileURLToPath(import.meta.url)), 'assets')
 
-// ---------- hero band: teal field with radiating light streaks ----------
+// ---------- hero band: gold field with radiating light streaks ----------
 // Deterministic pseudo-random from a fixed seed so regeneration is stable.
 function mulberry32(seed) {
   let a = seed
@@ -34,10 +34,10 @@ for (let i = 0; i < 88; i++) {
   const y1 = cy + Math.sin(angle) * inner * 0.62
   const x2 = cx + Math.cos(angle) * (inner + length)
   const y2 = cy + Math.sin(angle) * (inner + length) * 0.62
-  // A minority of streaks run warm amber so they stay visible against the
-  // teal field; the rest are the pale teal tint of the brand ramp.
+  // A minority of streaks run cool sky so they stay visible against the
+  // gold field; the rest are the pale cream tint of the brand ramp.
   const warm = rand() < 0.22
-  const color = warm ? '#fde68a' : '#ccfbf1'
+  const color = warm ? '#BAE6FD' : '#FEF3C7'
   const opacity = (warm ? 0.1 : 0.07) + rand() * 0.1
   streaks += `<line x1="${x1.toFixed(1)}" y1="${y1.toFixed(1)}" x2="${x2.toFixed(1)}" y2="${y2.toFixed(1)}" stroke="${color}" stroke-width="${spread.toFixed(2)}" stroke-linecap="round" opacity="${opacity.toFixed(3)}"/>`
 }
@@ -45,14 +45,14 @@ for (let i = 0; i < 88; i++) {
 const rays = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${width} ${height}" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
   <defs>
     <linearGradient id="base" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0" stop-color="#134e4a"/>
-      <stop offset="0.5" stop-color="#115e59"/>
-      <stop offset="1" stop-color="#042f2e"/>
+      <stop offset="0" stop-color="#78350F"/>
+      <stop offset="0.5" stop-color="#854D0E"/>
+      <stop offset="1" stop-color="#451A03"/>
     </linearGradient>
     <radialGradient id="glow" cx="0.5" cy="0.62" r="0.75">
-      <stop offset="0" stop-color="#2dd4bf" stop-opacity="0.55"/>
-      <stop offset="0.45" stop-color="#0d9488" stop-opacity="0.22"/>
-      <stop offset="1" stop-color="#0d9488" stop-opacity="0"/>
+      <stop offset="0" stop-color="#FBBF24" stop-opacity="0.55"/>
+      <stop offset="0.45" stop-color="#D9A00A" stop-opacity="0.22"/>
+      <stop offset="1" stop-color="#D9A00A" stop-opacity="0"/>
     </radialGradient>
     <filter id="soften" x="-10%" y="-10%" width="120%" height="120%">
       <feGaussianBlur stdDeviation="1.4"/>
@@ -64,11 +64,11 @@ const rays = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${width} ${he
 </svg>
 `
 
-// ---------- site logo: an at-mark on the teal brand gradient ----------
+// ---------- site logo: an at-mark on the gold brand gradient ----------
 const GRAD = `<linearGradient id="g" x1="0" y1="0" x2="1" y2="1">
-  <stop offset="0" stop-color="#14b8a6"/>
-  <stop offset="0.55" stop-color="#0d9488"/>
-  <stop offset="1" stop-color="#115e59"/>
+  <stop offset="0" stop-color="#F4C014"/>
+  <stop offset="0.55" stop-color="#D9A00A"/>
+  <stop offset="1" stop-color="#854D0E"/>
 </linearGradient>`
 
 // Path-drawn @ centered on (32,32): inner ring, tail, open outer arc.

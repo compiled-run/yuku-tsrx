@@ -68,7 +68,7 @@ const html = `<!doctype html>
     position: relative;
     width: 1200px;
     height: 630px;
-    background: #0b1413;
+    background: #141005;
     font-family: 'Inter', sans-serif;
     overflow: hidden;
   }
@@ -76,16 +76,16 @@ const html = `<!doctype html>
     position: absolute;
     inset: 0;
     background:
-      radial-gradient(760px 520px at 50% 42%, rgba(13, 148, 136, 0.28), transparent 70%),
-      radial-gradient(560px 400px at 6% 4%, rgba(17, 94, 89, 0.20), transparent 70%),
-      radial-gradient(560px 400px at 96% 96%, rgba(17, 94, 89, 0.20), transparent 70%);
+      radial-gradient(760px 520px at 50% 42%, rgba(217, 160, 10, 0.28), transparent 70%),
+      radial-gradient(560px 400px at 6% 4%, rgba(133, 77, 14, 0.20), transparent 70%),
+      radial-gradient(560px 400px at 96% 96%, rgba(133, 77, 14, 0.20), transparent 70%);
   }
   .grid {
     position: absolute;
     inset: 0;
     background-image:
-      linear-gradient(rgba(94, 234, 212, 0.05) 1px, transparent 1px),
-      linear-gradient(90deg, rgba(94, 234, 212, 0.05) 1px, transparent 1px);
+      linear-gradient(rgba(252, 211, 77, 0.05) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(252, 211, 77, 0.05) 1px, transparent 1px);
     background-size: 52px 52px;
     mask-image: radial-gradient(760px 560px at 50% 50%, transparent 34%, #000 78%);
     -webkit-mask-image: radial-gradient(760px 560px at 50% 50%, transparent 34%, #000 78%);
@@ -93,7 +93,7 @@ const html = `<!doctype html>
   .tokens span {
     position: absolute;
     font-family: ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
-    color: #5eead4;
+    color: #FCD34D;
   }
   .center {
     position: absolute;
@@ -108,7 +108,7 @@ const html = `<!doctype html>
   .center svg {
     width: 128px;
     height: 128px;
-    filter: drop-shadow(0 16px 48px rgba(13, 148, 136, 0.55));
+    filter: drop-shadow(0 16px 48px rgba(217, 160, 10, 0.55));
   }
   .name {
     font-family: 'Space Grotesk', 'Inter', sans-serif;
@@ -116,7 +116,7 @@ const html = `<!doctype html>
     font-size: 104px;
     line-height: 1;
     letter-spacing: -0.03em;
-    background: linear-gradient(115deg, #5eead4 15%, #ccfbf1 50%, #2dd4bf 90%);
+    background: linear-gradient(115deg, #FCD34D 15%, #FFF5DC 50%, #F4C014 90%);
     background-clip: text;
     -webkit-background-clip: text;
     color: transparent;
@@ -126,7 +126,7 @@ const html = `<!doctype html>
     font-weight: 500;
     color: #b5b5ad;
   }
-  .tagline b { color: #ccfbf1; font-weight: 600; }
+  .tagline b { color: #FEF3C7; font-weight: 600; }
 </style>
 <div class="card">
   <div class="glow"></div>

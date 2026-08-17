@@ -4,8 +4,8 @@ goal:
   title: yuku-tsrx docs site and logo, cloned from oxc-tsrx, deployed to Vercel
   slug: yuku-tsrx-docs-site
   kind: specific
-  tranche: "continuous execution: scaffold the site from oxc-tsrx, re-skin the logo, write parser/analyzer/codegen content, trim the README, deploy to Vercel production, audit against oxc-tsrx"
-  status: done
+  tranche: "tranche 2 (owner follow-up 2026-08-17): re-color to Yuku gold; serve at compiled.run/yuku-tsrx with a link from the compiled.run home; add real interactivity (editable hero editor and playground backed by a wasm build of the dialect); final audit"
+  status: active
   oracle:
     signal: A production Vercel URL for yuku-tsrx serves a docs site whose structure, components, and styling match compiled.run/oxc-tsrx, with a re-colored logo bearing the yuku-tsrx wordmark, whose guides cover the parser, analyzer, and codegen (not lint/format), and whose every stated fact is checkable in the yuku-tsrx repo; the local docs build passes; README.md is materially shorter than 143 lines with the same facts.
     cadence: after each Worker package and at final audit
@@ -62,7 +62,7 @@ visual_board:
     status: live
     url: http://goalbuddy.localhost:41737/yuku-tsrx-docs-site/
     command: node /Users/jacksm5pro/.claude/skills/goal-prep/surfaces/local-goal-board/scripts/local-goal-board.mjs --goal docs/goals/yuku-tsrx-docs-site
-active_task: null
+active_task: T010
 tasks:
   - id: T001
     type: scout
@@ -543,10 +543,104 @@ tasks:
           status: pass
       summary: "Blocking defect B1 fixed: footer no longer claims MIT (copyright empty; build.mjs omits the badge when empty). Cosmetic C1-C3 fixed: encode.js header wording, codegen.md limitation paragraph for quotes shortest / minify true, hero code panel ends on the closing brace. Redeployed to production; live verified by PM. Whether to add a LICENSE remains an owner decision."
       note: notes/T009-footer-fix.md
+  - id: T010
+    type: worker
+    assignee: Worker
+    status: active
+    reasoning_hint: default
+    objective: "Re-color the site from the teal ramp to Yuku gold (Yuku brand #F4C014 on cream #FFF5DC): apply the ordered substitution table in this card to docs/generate-assets.mjs, docs/generate-social-card.mjs, docs/assets/style.css; regenerate logo.svg, hero-rays.svg, social-card.png, .github/assets/readme-hero.png; rebuild; redeploy to production; prove no teal token survives and the live site is gold."
+    inputs:
+      - "#fde68a -> #BAE6FD  (the amber contrast streak on the teal band becomes a cool sky streak on the gold band (apply FIRST, before anything maps to #FDE68A))"
+      - "#14b8a6 -> #F4C014  (GRAD start = Yuku gold)"
+      - "#0d9488 -> #D9A00A  (GRAD mid, glow)"
+      - "#115e59 -> #854D0E  (GRAD end, brand-hover light)"
+      - "#0f766e -> #A16207  (brand light (contrast-safe amber on white))"
+      - "#5eead4 -> #FCD34D  (brand dark, social title start, mono)"
+      - "#99f6e4 -> #FDE68A  (brand-hover dark)"
+      - "#2dd4bf -> #FBBF24  (glow start, social gradient end)"
+      - "#ccfbf1 -> #FEF3C7  (warm streak, social gradient mid, tagline b)"
+      - "#134e4a -> #78350F  (band stop 0, .hero background)"
+      - "#042f2e -> #451A03  (band stop 1)"
+      - 20, 184, 166 -> 244, 192, 20  (soft/selection tints and .hero::before glow (rgba))
+      - 15, 118, 110 -> 161, 98, 7  (hero glow rgba (brand light))
+      - "#0b1413 -> #141005  (social card background)"
+      - "#0f1a19 -> #1A1508  (code panel background)"
+      - "#0d1615 -> #171206  (code panel bar background)"
+      - 4, 47, 46 -> 69, 26, 3  (code panel shadow rgba)
+      - "#9fd8cf -> #DCCB98  (code panel file label text)"
+      - "#7fb3ab -> #B0A070  (muted panel text)"
+      - "#cfe8e3 -> #EFE6C8  (code panel pre text)"
+    constraints:
+      - "Social card title gradient becomes linear-gradient(115deg, #FCD34D 15%, #FFF5DC 50%, #F4C014 90%)."
+      - Apply the first row before any other so the sky streak does not get re-mapped.
+      - Case-insensitive on hex; keep mulberry32 seed 20260716.
+      - No LICENSE, no README.md, no src/, no page markdown changes.
+    allowed_files:
+      - docs/generate-assets.mjs
+      - docs/generate-social-card.mjs
+      - docs/assets/logo.svg
+      - docs/assets/hero-rays.svg
+      - docs/assets/social-card.png
+      - docs/assets/style.css
+      - .github/assets/readme-hero.png
+      - docs/dist/**
+      - docs/goals/yuku-tsrx-docs-site/notes/T010-gold.md
+    verify:
+      - node docs/generate-assets.mjs && node docs/generate-social-card.mjs
+      - grep -qi 'F4C014' docs/assets/logo.svg && grep -qi 'D9A00A' docs/assets/logo.svg && grep -qi '854D0E' docs/assets/logo.svg
+      - "! grep -qi -e '#14b8a6' -e '#0d9488' -e '#115e59' -e '#0f766e' -e '#5eead4' -e '#99f6e4' -e '#2dd4bf' -e '#ccfbf1' -e '#134e4a' -e '#042f2e' -e '20, 184, 166' -e '15, 118, 110' -e '#0b1413' -e '#0f1a19' -e '#0d1615' -e '4, 47, 46' -e '#9fd8cf' -e '#7fb3ab' -e '#cfe8e3' docs/assets/style.css docs/generate-assets.mjs docs/generate-social-card.mjs docs/assets/logo.svg docs/assets/hero-rays.svg"
+      - grep -qi 'A16207' docs/assets/style.css && grep -qi 'FCD34D' docs/assets/style.css && grep -qi 'BAE6FD' docs/assets/style.css
+      - magick identify docs/assets/social-card.png | grep -q '1200x630' && test -s .github/assets/readme-hero.png
+      - pnpm run docs:build && grep -qi 'A16207' docs/dist/yuku-tsrx/assets/style-home.css && ! grep -rIl -e '—' docs --exclude-dir=goals --exclude-dir=node_modules --exclude-dir=dist
+      - vercel link --cwd docs/dist --project yuku-tsrx-docs --scope jack-shelton --yes && vercel deploy --cwd docs/dist --prod --yes --scope jack-shelton
+      - sleep 8; curl -s https://yuku-tsrx-docs.vercel.app/yuku-tsrx/assets/logo.svg | grep -qi 'F4C014' && ! curl -s https://yuku-tsrx-docs.vercel.app/yuku-tsrx/assets/logo.svg | grep -qi '14b8a6'
+      - test -z "$(git status --porcelain -- src build.zig npm test README.md package.json docs/build.mjs docs/site.config.mjs docs/guide docs/architecture docs/reference)"
+    stop_if:
+      - Need files outside allowed_files.
+      - Chrome or magick fail to produce a 1200x630 PNG after one retry.
+      - Vercel prompts for auth or offers any project other than yuku-tsrx-docs.
+      - Verification fails twice.
+    receipt: null
+  - id: T011
+    type: worker
+    assignee: Worker
+    status: queued
+    reasoning_hint: default
+    objective: "Serve the site at https://compiled.run/yuku-tsrx: add a rewrite pair in oxc-tsrx docs/build.mjs (same shape as its /guessless rewrite) pointing at https://yuku-tsrx-docs.vercel.app/yuku-tsrx, add a link to yuku-tsrx from the compiled.run home page (oxc-tsrx home, next to wherever guessless is linked), rebuild and redeploy oxc-tsrx docs to production, prove https://compiled.run/yuku-tsrx and one subpage return 200; then switch yuku-tsrx site.config origin to https://compiled.run, rebuild, redeploy yuku-tsrx, and update the README docs links to compiled.run/yuku-tsrx."
+    allowed_files:
+      - /Users/jacksm5pro/dev/open-source/oxc-tsrx/docs/build.mjs
+      - /Users/jacksm5pro/dev/open-source/oxc-tsrx/docs/site.config.mjs
+      - /Users/jacksm5pro/dev/open-source/oxc-tsrx/docs/dist/**
+      - docs/site.config.mjs
+      - docs/dist/**
+      - README.md
+      - docs/goals/yuku-tsrx-docs-site/notes/T011-compiled-run.md
+    verify: []
+    stop_if:
+      - Judge/PM must confirm how oxc-tsrx docs deploy locally (workflow uses vercel@57 with org/project ids) before this runs.
+      - Verification fails twice.
+    receipt: null
+  - id: T012
+    type: judge
+    assignee: Judge
+    status: queued
+    reasoning_hint: high
+    objective: "Spec the interactivity tranche: a wasm build of the yuku-tsrx dialect (freestanding wasm32 entry mirroring yuku's src/parser/ffi/wasm/parser.zig plus analyze and generate exports, using the existing generated decode.js/decode-analyzer.js), an editable hero editor on the home page and a /playground page in the oxc-tsrx shape with tabs AST | Diagnostics | Generated code | Semantic, and Try-in-playground buttons on doc snippets; decide build.zig changes (allowed for this tranche), file contracts, verify commands, and package order."
+    inputs:
+      - yuku-minimal-seam/src/parser/ffi/wasm/*.zig and build.zig wasm step
+      - yuku-minimal-seam/npm/yuku-parser-wasm/index.js
+      - yuku-tsrx build.zig, src/ffi/root.zig, npm/yuku-tsrx/decode.js
+      - oxc-tsrx docs/assets/playground.js, demo-wasm-backend.js, build.mjs hero-demo and try-button code
+    constraints:
+      - Read-only.
+      - Do not implement.
+    expected_output:
+      - Worker packages T013.. with allowed_files, verify, stop_if
+    receipt: null
   - id: T999
     type: judge
     assignee: Judge
-    status: done
+    status: queued
     reasoning_hint: high
     objective: "Final audit: map receipts and verification back to the original outcome (site cloned and re-skinned, parser/analyzer/codegen focus, README trimmed, production deploy live) and record full_outcome_complete."
     inputs:
@@ -563,21 +657,7 @@ tasks:
       - "full_outcome_complete: true | false"
       - missing evidence
       - next task if not complete
-    receipt:
-      result: done
-      task_id: T999
-      harness: claude-code
-      decision: complete
-      full_outcome_complete: true
-      rationale: "Original request fully mapped: README trimmed to 88 lines with same facts (T006); logo cloned and re-colored to a teal ramp with the yuku-tsrx wordmark (T004); site built from the oxc-tsrx generator with matching nav, hero, code panel, metric cards, feature grid, sidebar, outline, footer (T003/T008); content is parser/analyzer/codegen with lint/format/editor only as negatives on Limitations (T005/T009); production Vercel deploy live (T007/T009). Judge re-ran all 10 oracle items independently: docs:build exit 0; 15 paths 200 and root 307; vercel inspect production Ready; zero em dashes/attribution/oxlint/oxfmt/fake install/MIT; logo and CSS token checks pass; five facts match index.d.ts, m6-baseline.json, fixtures, build.zig.zon, npm package.json; tree clean and src/build.zig/npm/test untouched; live HTML byte-identical to a fresh HEAD build."
-      missing_evidence: []
-      owner_followups:
-        - LICENSE choice (footer copyright left empty until one exists)
-        - compiled.run/yuku-tsrx rewrite pair in oxc-tsrx docs/build.mjs pointing at https://yuku-tsrx-docs.vercel.app/yuku-tsrx
-        - codegen Quotes enum (preserve/double/single) vs index.d.ts 'shortest'/minify:true product bug
-        - abi.zig Hook enum 19 members vs 20 hook fns in parser_extension.zig
-        - "cosmetic: unused style-playground.css; benchmarks 'alternates' wording"
-      note: notes/T999-final-audit.md
+    receipt: null
 checks:
   dirty_fingerprint: clean at 01a9c97 plus T999 note
   last_verification:
