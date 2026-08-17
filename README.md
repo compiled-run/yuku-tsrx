@@ -1,9 +1,9 @@
 <p align="center">
-  <a href="https://yuku-tsrx-docs.vercel.app/yuku-tsrx"><img alt="yuku-tsrx" width="600" src=".github/assets/readme-hero.png"></a>
+  <a href="https://compiled.run/yuku-tsrx"><img alt="yuku-tsrx" width="600" src=".github/assets/readme-hero.png"></a>
 </p>
 
 <p align="center">
-  <a href="https://yuku-tsrx-docs.vercel.app/yuku-tsrx"><b>Docs</b></a> &nbsp;·&nbsp; <a href="https://yuku-tsrx-docs.vercel.app/yuku-tsrx/guide/getting-started"><b>Getting started</b></a> &nbsp;·&nbsp; <a href="https://yuku-tsrx-docs.vercel.app/yuku-tsrx/reference/api"><b>API</b></a>
+  <a href="https://compiled.run/yuku-tsrx"><b>Docs</b></a> &nbsp;·&nbsp; <a href="https://compiled.run/yuku-tsrx/guide/getting-started"><b>Getting started</b></a> &nbsp;·&nbsp; <a href="https://compiled.run/yuku-tsrx/reference/api"><b>API</b></a>
 </p>
 
 A `.tsrx` file is TypeScript with HTML-like markup in it, plus blocks like `@if` and `@for` for showing
@@ -20,7 +20,7 @@ There is no npm package yet: the name is `yuku-tsrx`, the version is `0.0.0`, no
 Building needs a checkout of the Yuku branch in
 [yuku-toolchain/yuku#164](https://github.com/yuku-toolchain/yuku/pull/164) in a sibling directory named
 `yuku-minimal-seam`, plus Zig 0.16 and pnpm. [Getting
-started](https://yuku-tsrx-docs.vercel.app/yuku-tsrx/guide/getting-started) has the rest.
+started](https://compiled.run/yuku-tsrx/guide/getting-started) has the rest.
 
 ```sh
 zig build            # writes the package to zig-out/npm/yuku-tsrx/
@@ -77,9 +77,9 @@ integration.
 
 ## Documentation
 
-- [Guide](https://yuku-tsrx-docs.vercel.app/yuku-tsrx/guide/introduction): what this is, the supported syntax, and the parser, analyzer, and code generator.
-- [Architecture](https://yuku-tsrx-docs.vercel.app/yuku-tsrx/architecture/yuku-dialect): the seam, the 20 extension points, and upstreaming to Yuku.
-- [Reference](https://yuku-tsrx-docs.vercel.app/yuku-tsrx/reference/api): every export and node type, plus benchmarks, platform support, and limitations.
+- [Guide](https://compiled.run/yuku-tsrx/guide/introduction): what this is, the supported syntax, and the parser, analyzer, and code generator.
+- [Architecture](https://compiled.run/yuku-tsrx/architecture/yuku-dialect): the seam, the 20 extension points, and upstreaming to Yuku.
+- [Reference](https://compiled.run/yuku-tsrx/reference/api): every export and node type, plus benchmarks, platform support, and limitations.
 - [`goal.md`](./goal.md): the design document, the open design problems, and the oracle that defines done.
 
 ## Contributing

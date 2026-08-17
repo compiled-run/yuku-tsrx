@@ -59,7 +59,7 @@ visual_board:
     status: starting
     url: null
     command: node /Users/jacksm5pro/.claude/skills/goal-prep/surfaces/local-goal-board/scripts/local-goal-board.mjs --goal docs/goals/compiled-run-website
-active_task: T003
+active_task: T004
 tasks:
   - id: T001
     type: worker
@@ -123,23 +123,33 @@ tasks:
   - id: T003
     type: pm
     assignee: PM
-    status: active
+    status: done
     reasoning_hint: default
     objective: "Cutover: attach compiled.run to the compiled-run-website production deployment (vercel alias / domain move within scope jack-shelton), verify the route table on compiled.run itself including crossOriginIsolated on /oxc-tsrx/playground, and record before/after."
     allowed_files:
       - docs/goals/compiled-run-website/notes/T003-*.md
     receipt:
-      result: blocked
+      result: done
       harness: claude-code
-      blocked_reason: Classifier denies vercel domains add --force from this session; the owner must run it. Workflow route check fixed and pushed (c37e50d) meanwhile.
-      waiting_for_user_approval: true
-      required_reply: "! vercel domains add compiled.run compiled-run-website --force --scope jack-shelton"
-      summary: "Cutover staged: pre-cutover audit approved, before-table recorded; domain move awaits owner command."
+      changed_files:
+        - docs/goals/compiled-run-website/notes/T003-cutover.md
+        - docs/goals/compiled-run-website/notes/T003-before.txt
+        - docs/goals/compiled-run-website/notes/T003-after.txt
+      commands:
+        - cmd: "owner: vercel domains add compiled.run compiled-run-website --force"
+          status: pass
+        - cmd: "curl route table on compiled.run: 9 paths 200; landing links yuku-tsrx; COOP/COEP only on oxc"
+          status: pass
+        - cmd: "headless Chrome on compiled.run: oxc playground crossOriginIsolated true; yuku playground 92 nodes; 0 console errors"
+          status: pass
+        - cmd: "vercel domains inspect: compiled.run on compiled-run-website"
+          status: pass
+      summary: "compiled.run cut over to the neutral website project with no route regression; before/after tables recorded."
       note: notes/T003-cutover.md
   - id: T004
     type: worker
     assignee: Worker
-    status: queued
+    status: active
     reasoning_hint: default
     objective: "After cutover: close oxc-tsrx PR #24 with a comment pointing at compiled-run/website (owner merges nothing there); flip yuku-tsrx docs/site.config.mjs origin to https://compiled.run, rebuild, redeploy yuku-tsrx-docs, update README.md links to compiled.run/yuku-tsrx; open a small PR to compiled-run/website is not needed since the rewrite already exists; write the note."
     allowed_files:

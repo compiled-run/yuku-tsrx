@@ -60,7 +60,7 @@ button), plus `search-index.json`, `llms.txt`, `llms-full.txt` and
 ## Deploy
 
 The site is a static upload to the Vercel project `yuku-tsrx-docs` in scope
-`jack-shelton`, live at <https://yuku-tsrx-docs.vercel.app/yuku-tsrx>.
+`jack-shelton`, live at <https://compiled.run/yuku-tsrx> (proxied from the yuku-tsrx-docs Vercel project by compiled-run/website).
 
 ```sh
 pnpm run docs:build

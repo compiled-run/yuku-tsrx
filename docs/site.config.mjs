@@ -3,7 +3,7 @@ export default {
   title: 'yuku-tsrx',
   description:
     'A parser, analyzer, and code generator for .tsrx, written in Zig as a compile-time dialect on the Yuku toolchain. Not a fork.',
-  origin: 'https://yuku-tsrx-docs.vercel.app',
+  origin: 'https://compiled.run',
   // Root-absolute base path the site is served under, with trailing slash.
   base: '/yuku-tsrx/',
   repository: 'https://github.com/compiled-run/yuku-tsrx',
