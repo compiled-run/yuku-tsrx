@@ -1,0 +1,418 @@
+# GoalBuddy v2 state.yaml
+version: 2
+goal:
+  title: yuku-tsrx docs site and logo, cloned from oxc-tsrx, deployed to Vercel
+  slug: yuku-tsrx-docs-site
+  kind: specific
+  tranche: "continuous execution: scaffold the site from oxc-tsrx, re-skin the logo, write parser/analyzer/codegen content, trim the README, deploy to Vercel production, audit against oxc-tsrx"
+  status: active
+  oracle:
+    signal: A production Vercel URL for yuku-tsrx serves a docs site whose structure, components, and styling match compiled.run/oxc-tsrx, with a re-colored logo bearing the yuku-tsrx wordmark, whose guides cover the parser, analyzer, and codegen (not lint/format), and whose every stated fact is checkable in the yuku-tsrx repo; the local docs build passes; README.md is materially shorter than 143 lines with the same facts.
+    cadence: after each Worker package and at final audit
+    final_proof: Receipt with the production URL, HTTP 200 on every nav page, screenshots of home + one guide next to the oxc-tsrx equivalents, the local build command and its exit code, README line count before/after, and a Judge audit that no page mentions linting or formatting as a yuku-tsrx feature.
+  intake:
+    original_request: Make the README way less wording. Copy the oxc-tsrx logo (new color gradient, colors changed a little, yuku-tsrx wordmark) and the oxc-tsrx docs site style and components; focus on parser, analyzer, codegen instead of lint/format; full Vercel deploy. Use goal prep with fable opus cockpit and a 15m /loop.
+    interpreted_outcome: yuku-tsrx has a live docs site and logo that look like oxc-tsrx's but are re-colored and re-branded, whose content is about parsing/analysis/codegen, plus a shorter README.
+    input_shape: specific
+    audience: Developers evaluating or integrating yuku-tsrx (Markless/Frameless authors, Yuku maintainers).
+    authority: requested
+    proof_type: artifact
+    completion_proof: Live production Vercel URL + local build green + README trimmed + Judge visual/content audit passed.
+    likely_misfire: Copying oxc-tsrx so faithfully that the site advertises a linter/formatter/editor integration yuku-tsrx does not have, or inventing API/benchmark facts to fill pages; or shipping a docs site that builds locally but the Vercel deploy is a preview, not production; or re-skinning the logo so lightly it is still visually the oxc-tsrx mark.
+    blind_spots_considered:
+      - oxc-tsrx is served under compiled.run/oxc-tsrx, probably via a rewrite from a compiled.run Vercel project. Whether yuku-tsrx should live at compiled.run/yuku-tsrx or a *.vercel.app URL is an owner call; default is a new Vercel project on *.vercel.app and a receipt noting the domain step.
+      - "The docs site should say honestly that the npm package is unpublished and the Yuku seam is PR #164, or the Install page will lie."
+      - oxc-tsrx's playground demo runs a wasm engine in-browser; yuku-tsrx has a native addon and no wasm build. The playground page must be dropped or replaced, not copied broken.
+      - docs/goals/ already exists inside docs/; the site tooling must not swallow or format those files.
+      - No em dashes and no AI attribution anywhere in shipped prose, per owner preference.
+    existing_plan_facts:
+      - "Copy most of the oxc-tsrx docs site (~/dev/open-source/oxc-tsrx/docs): same build tooling, components, layout, styles."
+      - Copy the oxc-tsrx logo generation and change the gradient and colors a little; the wordmark reads yuku-tsrx.
+      - "Content focus: parser, analyzer, code generator. Not linting, not formatting."
+      - "README: same facts, far fewer words."
+      - Deploy to Vercel (production).
+      - "Execution: /goal PM dispatches Worker tasks through the fable-opus cockpit (opus-worker packets), under a 15-minute /loop."
+rules:
+  pm_owns_state: true
+  one_active_task: true
+  max_write_workers: 1
+  no_implementation_without_worker_or_pm_task: true
+  no_completion_without_judge_or_pm_audit: true
+  planning_is_not_completion: true
+  queued_required_worker_blocks_completion: true
+  continuous_until_full_outcome: true
+  missing_input_or_credentials_do_not_stop_goal: true
+  exact_human_approval_can_terminal_wait: true
+  preserve_and_validate_existing_plan: true
+  intake_misfire_must_be_audited: true
+  goal_pressure_requires_oracle: true
+  no_completion_on_weak_proof: true
+  slice_policy:
+    max_consecutive_tiny_tasks: 2
+    prefer_vertical_slices: true
+    judge_picks_largest_safe_slice: true
+    worker_completes_whole_slice: true
+agents:
+  scout: installed
+  worker: installed
+  judge: installed
+visual_board:
+  selected: local
+  local:
+    status: live
+    url: http://goalbuddy.localhost:41737/yuku-tsrx-docs-site/
+    command: node /Users/jacksm5pro/.claude/skills/goal-prep/surfaces/local-goal-board/scripts/local-goal-board.mjs --goal docs/goals/yuku-tsrx-docs-site
+active_task: T004
+tasks:
+  - id: T001
+    type: scout
+    assignee: Scout
+    status: done
+    reasoning_hint: default
+    objective: "Map the oxc-tsrx docs site and logo pipeline precisely enough to clone it: build tooling, page inventory, components, styles, asset generators, and how it deploys to compiled.run/oxc-tsrx; and map yuku-tsrx's real public surface (parser/analyzer/codegen API, options, node types, verified numbers) so pages can be written from facts."
+    inputs:
+      - /Users/jacksm5pro/dev/open-source/oxc-tsrx/docs (build.mjs, generate-assets.mjs, generate-social-card.mjs, demo-*.mjs, dist layout, any vercel.json/package scripts)
+      - /Users/jacksm5pro/dev/open-source/oxc-tsrx/.github/assets (readme-hero.png and its source)
+      - /Users/jacksm5pro/dev/open-source/oxc-tsrx/package.json scripts and vercel config
+      - npm/yuku-tsrx/index.d.ts, npm/yuku-tsrx/index.js
+      - src/dialect/ (control_flow, code_block, style, patterns, codegen, semantic)
+      - benchmarks/m6-baseline.json (valid ratios), README.md, goal.md
+      - test/parser/misc/tsrx/*.tsrx fixtures
+    constraints:
+      - Read-only. Do not edit any file.
+      - Report exact file paths, exact npm scripts, exact framework/tooling names and versions, and the exact page list with which pages are lint/format-specific (to drop) versus generic (to keep).
+      - Report how the logo is produced (hand-drawn SVG, generated by script, or a raster only) and where the color values live.
+      - "Report how oxc-tsrx deploys: vercel.json, project name, output dir, rewrites for the compiled.run path."
+      - "For yuku-tsrx, list only facts checkable in files: exports, option names, node type names, supported syntax, benchmark medians/ratios."
+    expected_output:
+      - "oxc-tsrx site map: tooling, page inventory with keep/drop/replace verdicts, component and style file list, asset pipeline, deploy config"
+      - "Logo pipeline: source files, color values, wordmark rendering"
+      - yuku-tsrx fact sheet for content pages
+      - "Risks: playground/wasm, docs/goals collision, unpublished npm"
+      - Candidate Worker packages
+    receipt:
+      result: done
+      harness: claude-code
+      summary: "oxc-tsrx docs are a vanilla static generator (docs/build.mjs + site.config.mjs; marked, minisearch, shiki, rolldown, playwright-core, ImageMagick) with pages driven by the sidebar config, not globs, so docs/goals/ does not collide. Logo is script-generated (generate-assets.mjs, at-mark on gradient #a855f7/#7c3aed/#5b21b6); wordmark is config.title in Space Grotesk 700. Deploy: build.mjs emits dist/vercel.json, workflow ships docs/dist via vercel@57 --prod to project prj_ErfsoKm2 (oxc-tsrx-docs.vercel.app); compiled.run apex belongs to that project, siblings reach it via rewrites in oxc-tsrx build.mjs. yuku-tsrx facts extracted: 11 exports, options, node types, 15 fixtures, m6 medians/ratios, build steps."
+      evidence:
+        - oxc-tsrx/docs/README.md, docs/build.mjs:2354-2364 (sidebar-driven pages), :2634-2675 (dist/vercel.json)
+        - oxc-tsrx/.github/workflows/site-artifact.yml (vercel@57 deploy --cwd dist --prod; org team_4TrBQsvIkFM0lYTqh08Fqxgd)
+        - "oxc-tsrx/docs/generate-assets.mjs (GRAD #a855f7/#7c3aed/#5b21b6, at-mark), docs/assets/style.css (--c-brand #6d28d9/#c4b5fd, .site-title Space Grotesk 700)"
+        - oxc-tsrx/docs/site.config.mjs (17 sidebar pages + playground)
+        - yuku-tsrx npm/yuku-tsrx/index.d.ts (11 exports), benchmarks/m6-baseline.json (valid; 29666 vs 103075 ns; ratios 0.2878 / 0.8541), 15 fixtures, README 141 lines
+      contradictions:
+        - Oracle says README shorter than 143 lines; README is 141 lines now. Use the T006 verify (under 90 lines) as the real bar.
+        - compiled.run/yuku-tsrx is not reachable from this repo alone (needs oxc-tsrx build.mjs rewrite + new Vercel project); a <project>.vercel.app URL is.
+      ambiguity_requiring_judge:
+        - "Site root: docs/ (matches oxc-tsrx; sidebar-driven so no collision; gitignore docs/dist) vs site/"
+        - "Production URL: compiled.run/yuku-tsrx vs <project>.vercel.app"
+        - "Playground: drop or static highlighted panel without wasm/COOP-COEP"
+        - How much of style.css (4005 lines) / app.js (1244 lines) to port verbatim vs prune
+      note: notes/T001-site-map.md
+  - id: T002
+    type: judge
+    assignee: Judge
+    status: done
+    reasoning_hint: high
+    objective: "Validate the copy plan against Scout evidence and spec the Worker packages: site location (default docs/ mirroring oxc-tsrx, coexisting with docs/goals/), exact files to copy verbatim vs adapt, page list for parser/analyzer/codegen, logo re-color spec (gradient stops and accent values, chosen so it is clearly not the oxc-tsrx mark), playground decision, deploy shape."
+    inputs:
+      - T001 receipt
+      - goal.md non-negotiables
+    constraints:
+      - Do not implement.
+      - Every Worker package must have allowed_files, verify commands that actually run in this repo, and stop_if.
+      - Reject any page plan that advertises lint, format, or editor features.
+      - Prefer few large vertical packages (scaffold+build, logo+assets, content, README, deploy) over many tiny ones.
+    expected_output:
+      - Decision on site path, tooling, and playground
+      - Ordered Worker packages T003..T00N with allowed_files, verify, stop_if
+      - Logo color spec
+      - "Deploy spec: project name, output dir, production command"
+    receipt:
+      result: done
+      harness: claude-code
+      decision: approved
+      full_outcome_complete: false
+      rationale: "Scout map verified. Site at docs/ (sidebar-driven; gitignore docs/dist and .vercel); vanilla generator with marked/minisearch/shiki/playwright-core as root devDependencies; build.mjs copied then pruned of benchmarks-data, rolldown, d2, wasm, projection/transcript json, adapter read, COOP/COEP; playground dropped, static hero code panel kept; style.css/app.js verbatim minus playground hooks. Base '/yuku-tsrx/' (deviation from '/', reversible in one line; sibling precedent and the compiled.run rewrite follow-up need it). Logo: teal ramp #14b8a6/#0d9488/#115e59, brand #0f766e light / #5eead4 dark. 13 pages specced with per-page sources. Deploy: new project yuku-tsrx-docs in scope jack-shelton, docs/dist, vercel link + deploy --prod. Sequential only: no two packages have disjoint allowed_files."
+      worker_package:
+        task_id: T003
+        objective: Copy the oxc-tsrx docs generator into docs/, retarget to yuku-tsrx (title 'yuku-tsrx', base '/yuku-tsrx/', origin 'https://yuku-tsrx-docs.vercel.app', repository 'https://github.com/compiled-run/yuku-tsrx'), prune every oxc-only coupling (benchmarks-data, demo-sources except heroCode, rolldown, d2/render-diagrams, wasm, playground page and assets, projection/transcript/type-error json, adapter lib.rs read, COOP/COEP headers, guessless rewrites, landing page; vercel.json gets a / -> /yuku-tsrx redirect), rewrite home page copy strings and replace the home-bench section with gate cards read from benchmarks/m6-baseline.json, write the 13 stub pages listed in notes/T002-package-spec.md section 4 with the nav/sidebar there, add docs:build/docs:serve scripts and marked/minisearch/shiki devDependencies, add docs/dist and .vercel to .gitignore, replace em dashes in copied comments, and get pnpm run docs:build and docs:serve green.
+        allowed_files:
+          - docs/build.mjs
+          - docs/site.config.mjs
+          - docs/highlight.mjs
+          - docs/tsrx.tmLanguage.json
+          - docs/serve.mjs
+          - docs/demo-sources.mjs
+          - docs/README.md
+          - docs/index.md
+          - docs/guide/*.md
+          - docs/architecture/*.md
+          - docs/reference/*.md
+          - docs/assets/style.css
+          - docs/assets/app.js
+          - docs/assets/fonts/*
+          - docs/assets/brands/*
+          - docs/assets/logo.svg
+          - docs/assets/hero-rays.svg
+          - package.json
+          - pnpm-lock.yaml
+          - .gitignore
+          - vite.config.ts
+        verify:
+          - pnpm install
+          - pnpm run docs:build
+          - test -f docs/dist/yuku-tsrx/index.html && test -f docs/dist/yuku-tsrx/guide/introduction.html && test -f docs/dist/yuku-tsrx/guide/parser.html && test -f docs/dist/yuku-tsrx/guide/analyzer.html && test -f docs/dist/yuku-tsrx/guide/codegen.html && test -f docs/dist/yuku-tsrx/reference/api.html && test -f docs/dist/yuku-tsrx/assets/style-doc.css && test -f docs/dist/yuku-tsrx/assets/style-home.css && test -f docs/dist/yuku-tsrx/search-index.json && test -f docs/dist/yuku-tsrx/llms.txt && test -f docs/dist/vercel.json && test -f docs/dist/robots.txt
+          - test ! -e docs/dist/yuku-tsrx/playground.html && test ! -e docs/dist/yuku-tsrx/assets/playground.js
+          - node -e 'const v=JSON.parse(require("fs").readFileSync("docs/dist/vercel.json","utf8")); if(!v.cleanUrls||JSON.stringify(v).includes("Cross-Origin")||JSON.stringify(v).includes("guessless")) process.exit(1)'
+          - "! grep -rIl -e 'OXC for TSRX' -e 'oxlint' -e 'oxfmt' -e 'Vite+' -e 'npm install yuku-tsrx' docs/dist/yuku-tsrx --include=*.html --include=*.md --include=*.txt"
+          - "! grep -rIl -e '—' docs --exclude-dir=goals --exclude-dir=node_modules --exclude-dir=dist"
+          - grep -q 'docs/dist' .gitignore && grep -q '.vercel' .gitignore
+          - pnpm vp lint
+          - (node docs/serve.mjs 4519 & pid=$!; sleep 2; curl -sf -o /dev/null http://127.0.0.1:4519/yuku-tsrx/guide/introduction && curl -sf -o /dev/null http://127.0.0.1:4519/yuku-tsrx/; rc=$?; kill $pid; exit $rc)
+          - git status --porcelain -- src build.zig npm test | wc -l | grep -qx 0
+        stop_if:
+          - Need files outside allowed_files.
+          - The pruned build still needs a package that is not marked, minisearch, shiki, or playwright-core, and no drop decision in notes/T002-package-spec.md covers it.
+          - Verification fails twice.
+      note: notes/T002-package-spec.md
+  - id: T003
+    type: worker
+    assignee: Worker
+    status: done
+    reasoning_hint: default
+    objective: Copy the oxc-tsrx docs generator into docs/, retarget to yuku-tsrx (title 'yuku-tsrx', base '/yuku-tsrx/', origin 'https://yuku-tsrx-docs.vercel.app', repository 'https://github.com/compiled-run/yuku-tsrx'), prune every oxc-only coupling (benchmarks-data, demo-sources except heroCode, rolldown, d2/render-diagrams, wasm, playground page and assets, projection/transcript/type-error json, adapter lib.rs read, COOP/COEP headers, guessless rewrites, landing page; vercel.json gets a / -> /yuku-tsrx redirect), rewrite home page copy strings and replace the home-bench section with gate cards read from benchmarks/m6-baseline.json, write the 13 stub pages listed in notes/T002-package-spec.md section 4 with the nav/sidebar there, add docs:build/docs:serve scripts and marked/minisearch/shiki devDependencies, add docs/dist and .vercel to .gitignore, replace em dashes in copied comments, and get pnpm run docs:build and docs:serve green.
+    allowed_files:
+      - docs/build.mjs
+      - docs/site.config.mjs
+      - docs/highlight.mjs
+      - docs/tsrx.tmLanguage.json
+      - docs/serve.mjs
+      - docs/demo-sources.mjs
+      - docs/README.md
+      - docs/index.md
+      - docs/guide/*.md
+      - docs/architecture/*.md
+      - docs/reference/*.md
+      - docs/assets/style.css
+      - docs/assets/app.js
+      - docs/assets/fonts/*
+      - docs/assets/brands/*
+      - docs/assets/logo.svg
+      - docs/assets/hero-rays.svg
+      - package.json
+      - pnpm-lock.yaml
+      - .gitignore
+      - vite.config.ts
+    verify:
+      - pnpm install
+      - pnpm run docs:build
+      - test -f docs/dist/yuku-tsrx/index.html && test -f docs/dist/yuku-tsrx/guide/introduction.html && test -f docs/dist/yuku-tsrx/guide/parser.html && test -f docs/dist/yuku-tsrx/guide/analyzer.html && test -f docs/dist/yuku-tsrx/guide/codegen.html && test -f docs/dist/yuku-tsrx/reference/api.html && test -f docs/dist/yuku-tsrx/assets/style-doc.css && test -f docs/dist/yuku-tsrx/assets/style-home.css && test -f docs/dist/yuku-tsrx/search-index.json && test -f docs/dist/yuku-tsrx/llms.txt && test -f docs/dist/vercel.json && test -f docs/dist/robots.txt
+      - test ! -e docs/dist/yuku-tsrx/playground.html && test ! -e docs/dist/yuku-tsrx/assets/playground.js
+      - node -e 'const v=JSON.parse(require("fs").readFileSync("docs/dist/vercel.json","utf8")); if(!v.cleanUrls||JSON.stringify(v).includes("Cross-Origin")||JSON.stringify(v).includes("guessless")) process.exit(1)'
+      - "! grep -rIl -e 'OXC for TSRX' -e 'oxlint' -e 'oxfmt' -e 'Vite+' -e 'npm install yuku-tsrx' docs/dist/yuku-tsrx --include=*.html --include=*.md --include=*.txt"
+      - "! grep -rIl -e '—' docs --exclude-dir=goals --exclude-dir=node_modules --exclude-dir=dist"
+      - grep -q 'docs/dist' .gitignore && grep -q '.vercel' .gitignore
+      - pnpm vp lint
+      - (node docs/serve.mjs 4519 & pid=$!; sleep 2; curl -sf -o /dev/null http://127.0.0.1:4519/yuku-tsrx/guide/introduction && curl -sf -o /dev/null http://127.0.0.1:4519/yuku-tsrx/; rc=$?; kill $pid; exit $rc)
+      - test -z "$(git status --porcelain -- src build.zig npm test)"
+    stop_if:
+      - Need files outside allowed_files.
+      - The pruned build still needs a package that is not marked, minisearch, shiki, or playwright-core, and no drop decision in notes/T002-package-spec.md covers it.
+      - Verification fails twice.
+    receipt:
+      result: done
+      harness: claude-code
+      changed_files:
+        - .gitignore
+        - package.json
+        - pnpm-lock.yaml
+        - docs/README.md
+        - docs/build.mjs
+        - docs/site.config.mjs
+        - docs/highlight.mjs
+        - docs/tsrx.tmLanguage.json
+        - docs/serve.mjs
+        - docs/demo-sources.mjs
+        - docs/index.md
+        - docs/guide/introduction.md
+        - docs/guide/getting-started.md
+        - docs/guide/tsrx-syntax.md
+        - docs/guide/parser.md
+        - docs/guide/analyzer.md
+        - docs/guide/codegen.md
+        - docs/architecture/yuku-dialect.md
+        - docs/architecture/upstreaming-to-yuku.md
+        - docs/reference/api.md
+        - docs/reference/benchmarks.md
+        - docs/reference/platform-support.md
+        - docs/reference/limitations.md
+        - docs/assets/style.css
+        - docs/assets/app.js
+        - docs/assets/logo.svg
+        - docs/assets/hero-rays.svg
+        - docs/assets/fonts/inter-latin.woff2
+        - docs/assets/fonts/space-grotesk-latin.woff2
+        - docs/assets/brands/tsrx.svg
+      commands:
+        - cmd: "pnpm install"
+          status: pass
+        - cmd: "pnpm run docs:build"
+          status: pass
+        - cmd: "dist page/asset presence checks (12 files)"
+          status: pass
+        - cmd: "no playground.html / playground.js"
+          status: pass
+        - cmd: "dist/vercel.json cleanUrls, no COOP/COEP, no guessless"
+          status: pass
+        - cmd: "no oxc/lint/format branding in dist"
+          status: pass
+        - cmd: "no em dashes under docs (excl goals/dist)"
+          status: pass
+        - cmd: ".gitignore has docs/dist and .vercel"
+          status: pass
+        - cmd: "pnpm vp lint"
+          status: pass
+        - cmd: "docs:serve serves / and /guide/introduction"
+          status: pass
+        - cmd: "test -z \"$(git status --porcelain -- src build.zig npm test)\""
+          status: pass
+      summary: "oxc-tsrx generator ported to docs/ and retargeted (title, base /yuku-tsrx/, origin, repo); rolldown, benchmarks-data, d2, wasm/playground, projection/transcript json, adapter badge, COOP/COEP, guessless rewrites, landing page removed. style.css/app.js/fonts/grammar copied verbatim minus playground hooks. 13 stub pages, home with gate cards from m6-baseline.json. PM screenshots of home and guide/introduction confirm the oxc-tsrx layout. Harness marked the fable-opus unit failed on verify #11 only because BSD wc pads output; PM re-ran the corrected form and it passes; card verify amended. Cockpit unit yuku-tsrx-docs-site/T003-scaffold, no scope violations."
+  - id: T004
+    type: worker
+    assignee: Worker
+    status: active
+    reasoning_hint: default
+    objective: Port generate-assets.mjs (at-mark candidate only) and generate-social-card.mjs with the section 3 teal color table and the yuku-tsrx wordmark; regenerate docs/assets/logo.svg, hero-rays.svg, social-card.png and .github/assets/readme-hero.png; apply the same color table to docs/assets/style.css (35 purple tokens); add docs:assets and docs:social-card scripts and playwright-core devDependency; rebuild.
+    allowed_files:
+      - docs/generate-assets.mjs
+      - docs/generate-social-card.mjs
+      - docs/assets/logo.svg
+      - docs/assets/hero-rays.svg
+      - docs/assets/social-card.png
+      - docs/assets/style.css
+      - docs/README.md
+      - .github/assets/readme-hero.png
+      - package.json
+      - pnpm-lock.yaml
+    verify:
+      - node docs/generate-assets.mjs && node docs/generate-social-card.mjs
+      - "grep -q '#14b8a6' docs/assets/logo.svg && grep -q '#0d9488' docs/assets/logo.svg && grep -q '#115e59' docs/assets/logo.svg && ! grep -qi -e '#a855f7' -e '#7c3aed' -e '#5b21b6' docs/assets/logo.svg docs/assets/hero-rays.svg"
+      - "! grep -qi -e '#a855f7' -e '#7c3aed' -e '#5b21b6' -e '#6d28d9' -e '#c4b5fd' -e '#a78bfa' -e '#ddd6fe' -e '#e9d5ff' -e '#4c1d95' -e '#3b0764' -e '139, 92, 246' -e '139,92,246' docs/assets/style.css docs/generate-assets.mjs docs/generate-social-card.mjs"
+      - grep -q '0f766e' docs/assets/style.css && grep -q '5eead4' docs/assets/style.css
+      - magick identify docs/assets/social-card.png | grep -q '1200x630' && test -s .github/assets/readme-hero.png
+      - grep -q 'yuku-tsrx' docs/generate-social-card.mjs && ! grep -q 'OXC' docs/generate-social-card.mjs docs/generate-assets.mjs
+      - pnpm run docs:build && ! grep -rIl -e '—' docs --exclude-dir=goals --exclude-dir=node_modules --exclude-dir=dist
+    stop_if:
+      - Need files outside allowed_files.
+      - magick or system Chrome missing and no fallback yields a 1200x630 PNG.
+      - Verification fails twice.
+    receipt: null
+  - id: T005
+    type: worker
+    assignee: Worker
+    status: queued
+    reasoning_hint: default
+    objective: "Replace every stub with real content per notes/T002-package-spec.md section 4 (introduction, getting-started, tsrx-syntax, parser, analyzer, codegen, yuku-dialect, upstreaming-to-yuku, api, benchmarks, platform-support, limitations, plus index.md/home strings); every fact traceable to npm/yuku-tsrx/index.d.ts, src/dialect file names, test/parser/misc/tsrx fixture names, benchmarks/m6-baseline.json, README.md, or goal.md; no lint/format/LSP/editor claims for yuku-tsrx; unpublished npm and PR #164 stated on Getting Started and Platform Support."
+    allowed_files:
+      - docs/index.md
+      - docs/guide/*.md
+      - docs/architecture/*.md
+      - docs/reference/*.md
+      - docs/site.config.mjs
+      - docs/build.mjs
+    verify:
+      - pnpm run docs:build
+      - for f in parse analyze generate parseWire parseModule isEventAttribute normalizeEventName walk decode decodeAnalyzer encode; do grep -q "$f" docs/reference/api.md || { echo "missing $f"; exit 1; }; done
+      - for o in lang sourceType preserveParens semanticErrors attachComments loose collect; do grep -q "$o" docs/guide/parser.md || exit 1; done && for o in strip minify format indent quotes comments; do grep -q "$o" docs/guide/codegen.md || exit 1; done && grep -q SemanticView docs/guide/analyzer.md
+      - (grep -q 29666 docs/reference/benchmarks.md || grep -q '29.7' docs/reference/benchmarks.md) && grep -q -e 0.2878 -e 0.288 docs/reference/benchmarks.md
+      - grep -q 'yuku/pull/164' docs/guide/getting-started.md && grep -qi -e 'not published' -e unpublished -e 'nothing has been published' docs/guide/getting-started.md
+      - "! grep -rIl -e 'This page is being written' -e TODO docs/guide docs/architecture docs/reference docs/index.md"
+      - "! grep -rIil -e 'npm install yuku-tsrx' -e oxlint -e oxfmt -e 'language server' -e 'VS Code extension' docs/guide docs/architecture docs/reference docs/index.md docs/site.config.mjs"
+      - "! grep -rIl -e '—' docs --exclude-dir=goals --exclude-dir=node_modules --exclude-dir=dist"
+      - for p in guide/introduction guide/getting-started guide/tsrx-syntax guide/parser guide/analyzer guide/codegen architecture/yuku-dialect architecture/upstreaming-to-yuku reference/api reference/benchmarks reference/platform-support reference/limitations index; do test -f docs/dist/yuku-tsrx/$p.html || exit 1; done
+    stop_if:
+      - Need files outside allowed_files.
+      - A page needs a fact that cannot be verified from the repo; omit the sentence rather than invent it, and stop if the page cannot stand without it.
+      - Verification fails twice.
+    receipt: null
+  - id: T006
+    type: worker
+    assignee: Worker
+    status: queued
+    reasoning_hint: default
+    objective: Trim README.md to far fewer words with the same facts; add .github/assets/readme-hero.png at the top and a Docs link to https://yuku-tsrx-docs.vercel.app/yuku-tsrx; keep 'no linter, no formatter, no editor integration' but remove 'no docs site'; no em dashes.
+    allowed_files:
+      - README.md
+    verify:
+      - test $(wc -l < README.md) -lt 90 && ! grep -q '—' README.md && ! grep -qi 'generated with' README.md && grep -q 'readme-hero.png' README.md && grep -q 'yuku-tsrx-docs.vercel.app' README.md && ! grep -qi 'no docs site' README.md
+    stop_if:
+      - Need files outside allowed_files.
+      - Verification fails twice.
+    receipt: null
+  - id: T007
+    type: worker
+    assignee: Worker
+    status: queued
+    reasoning_hint: default
+    objective: Create Vercel project yuku-tsrx-docs in scope jack-shelton, link docs/dist to it non-interactively, deploy docs/dist to production (vercel project add yuku-tsrx-docs --scope jack-shelton; vercel link --cwd docs/dist --project yuku-tsrx-docs --scope jack-shelton --yes; vercel deploy --cwd docs/dist --prod --yes --scope jack-shelton), record the production URL https://yuku-tsrx-docs.vercel.app/yuku-tsrx and deployment id, and prove every nav and sidebar page plus logo and social card return 200; note the compiled.run/yuku-tsrx rewrite as an owner follow-up in oxc-tsrx.
+    allowed_files:
+      - docs/dist/**
+      - docs/README.md
+      - docs/goals/yuku-tsrx-docs-site/notes/T007-deploy.md
+    verify:
+      - pnpm run docs:build
+      - vercel project ls --scope jack-shelton 2>/dev/null | grep -q yuku-tsrx-docs
+      - test -f docs/dist/.vercel/project.json && grep -q yuku-tsrx-docs docs/dist/.vercel/project.json
+      - for p in /yuku-tsrx /yuku-tsrx/guide/introduction /yuku-tsrx/guide/getting-started /yuku-tsrx/guide/tsrx-syntax /yuku-tsrx/guide/parser /yuku-tsrx/guide/analyzer /yuku-tsrx/guide/codegen /yuku-tsrx/architecture/yuku-dialect /yuku-tsrx/architecture/upstreaming-to-yuku /yuku-tsrx/reference/api /yuku-tsrx/reference/benchmarks /yuku-tsrx/reference/platform-support /yuku-tsrx/reference/limitations /yuku-tsrx/assets/logo.svg /yuku-tsrx/assets/social-card.png; do code=$(curl -s -o /dev/null -w '%{http_code}' "https://yuku-tsrx-docs.vercel.app$p"); [ "$code" = 200 ] || { echo "$p $code"; exit 1; }; done
+      - c=$(curl -s -o /dev/null -w '%{http_code}' https://yuku-tsrx-docs.vercel.app/); [ "$c" = 307 ] || [ "$c" = 308 ]
+      - vercel inspect https://yuku-tsrx-docs.vercel.app --scope jack-shelton 2>&1 | grep -qi -e production -e ready
+      - "! git status --porcelain | grep -q 'docs/dist'"
+    stop_if:
+      - Vercel prompts for login, scope selection, or team authorization that --yes --scope jack-shelton does not satisfy; record the exact prompt.
+      - yuku-tsrx-docs already exists with prior deployments not made by this task, or vercel link offers any project other than yuku-tsrx-docs.
+      - Verification fails twice.
+    receipt: null
+  - id: T008
+    type: judge
+    assignee: Judge
+    status: queued
+    reasoning_hint: high
+    objective: "Visual and content audit of the deployed site against compiled.run/oxc-tsrx: same structure and components, clearly re-colored logo with the yuku-tsrx wordmark, no lint/format/editor claims, no em dashes, no unverifiable facts, mobile layout, working nav and links."
+    inputs:
+      - T003..T007 receipts
+      - Production URL
+      - Screenshots of both sites
+    constraints:
+      - Do not implement.
+      - Name each defect with page and element; spec a Worker fix package if any.
+    expected_output:
+      - pass | defects with fix package
+    receipt: null
+  - id: T999
+    type: judge
+    assignee: Judge
+    status: queued
+    reasoning_hint: high
+    objective: "Final audit: map receipts and verification back to the original outcome (site cloned and re-skinned, parser/analyzer/codegen focus, README trimmed, production deploy live) and record full_outcome_complete."
+    inputs:
+      - All done task receipts
+      - Last verification
+      - Current dirty diff
+    constraints:
+      - Do not implement.
+      - Reject completion if required Worker work is still queued or active.
+      - Reject completion if the deploy is a preview and not production.
+      - Reject stopping only because a slice needs owner input, credentials, production access, destructive operations, or policy decisions.
+    expected_output:
+      - complete | not_complete
+      - "full_outcome_complete: true | false"
+      - missing evidence
+      - next task if not complete
+    receipt: null
+checks:
+  dirty_fingerprint: unknown
+  last_verification:
+    result: unknown
+    task: null
+    commands: []
