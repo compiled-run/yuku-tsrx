@@ -62,7 +62,7 @@ visual_board:
     status: live
     url: http://goalbuddy.localhost:41737/yuku-tsrx-docs-site/
     command: node /Users/jacksm5pro/.claude/skills/goal-prep/surfaces/local-goal-board/scripts/local-goal-board.mjs --goal docs/goals/yuku-tsrx-docs-site
-active_task: T016
+active_task: T019
 tasks:
   - id: T001
     type: scout
@@ -872,7 +872,7 @@ tasks:
   - id: T016
     type: worker
     assignee: Worker
-    status: active
+    status: done
     reasoning_hint: default
     objective: "Rebuild (docs:wasm, docs:build), redeploy docs/dist to production, and prove the live interactive surfaces: 200 for /yuku-tsrx/playground and /yuku-tsrx/assets/wasm/yuku-tsrx.wasm with content-type application/wasm; node docs/verify-playground.mjs --url <production origin> passes; screenshots of the live playground (Diagnostics tab on the invalid fixture) and the home hero after an edit; record deployment id and URL in notes/T016-deploy.md."
     allowed_files:
@@ -888,11 +888,28 @@ tasks:
       - Vercel rejects the deploy
       - the live wasm 404s or is served with a non-wasm content-type
       - live verify reports any console error
-    receipt: null
+    receipt:
+      result: done
+      harness: claude-code
+      changed_files:
+        - docs/goals/yuku-tsrx-docs-site/notes/T016-deploy.md
+        - docs/goals/yuku-tsrx-docs-site/notes/T016-playground-diagnostics.png
+        - docs/goals/yuku-tsrx-docs-site/notes/T016-home-generated.png
+      commands:
+        - cmd: "pnpm run docs:wasm && pnpm run docs:build"
+          status: pass
+        - cmd: "vercel link + deploy --prod (dpl_DdAXWkix1MvW4KvfkzEYiD9yqAkW)"
+          status: pass
+        - cmd: "curl: /playground 200; wasm 200 application/wasm; no COOP/COEP"
+          status: pass
+        - cmd: "node docs/verify-playground.mjs --url https://yuku-tsrx-docs.vercel.app"
+          status: pass
+      summary: "Interactive surfaces deployed to production and proven live by the headless verifier against the production origin. Executed by PM as Worker fallback within the card's allowed_files."
+      note: notes/T016-deploy.md
   - id: T019
     type: judge
     assignee: Judge
-    status: queued
+    status: active
     reasoning_hint: high
     objective: "Judge audit on the production URL: hero editor is editable and its status changes with input; the four tabs show real wasm outputs (AST JSON containing a TSRX node type, diagnostics on the invalid fixture, generated code, semantic table); fixture buttons load committed fixture text; a Try in playground button from a guide page lands on /playground with the fence loaded; no lint/format claims; no COOP/COEP headers; wasm size and load time recorded; docs/verify-playground.mjs is the proof. Decide pass or name a fix package."
     inputs:
