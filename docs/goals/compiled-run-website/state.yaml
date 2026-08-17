@@ -59,7 +59,7 @@ visual_board:
     status: starting
     url: null
     command: node /Users/jacksm5pro/.claude/skills/goal-prep/surfaces/local-goal-board/scripts/local-goal-board.mjs --goal docs/goals/compiled-run-website
-active_task: T002
+active_task: T003
 tasks:
   - id: T001
     type: worker
@@ -91,20 +91,20 @@ tasks:
         - /Users/jacksm5pro/dev/open-source/compiled-run-website/.gitignore
         - docs/goals/compiled-run-website/notes/T001-scaffold.md
       commands:
-        - cmd: "gh repo create compiled-run/website --public --push"
+        - cmd: gh repo create compiled-run/website --public --push
           status: pass
-        - cmd: "vercel project add compiled-run-website; link; deploy --prod (Ready)"
+        - cmd: vercel project add compiled-run-website; link; deploy --prod (Ready)
           status: pass
         - cmd: "curl route table: 8 paths 200; COOP/COEP only on /oxc-tsrx; wasm application/wasm"
           status: pass
         - cmd: "headless Chrome: /oxc-tsrx/playground crossOriginIsolated true; /yuku-tsrx/playground 92 nodes 0 errors"
           status: pass
-      summary: "Neutral repo and Vercel project created and deployed; every route proven on the project URL including cross-origin isolation for oxc's playground through the proxy. Domain untouched. PM did this as Worker fallback after two cockpit attempts died on API 500s."
+      summary: Neutral repo and Vercel project created and deployed; every route proven on the project URL including cross-origin isolation for oxc's playground through the proxy. Domain untouched. PM did this as Worker fallback after two cockpit attempts died on API 500s.
       note: notes/T001-scaffold.md
   - id: T002
     type: judge
     assignee: Judge
-    status: active
+    status: done
     reasoning_hint: high
     objective: "Pre-cutover audit on the website project URL: every route 200 with correct content (titles), assets under each base path resolve, /oxc-tsrx/playground crossOriginIsolated true, guessless page loads its fonts/icons, response headers sane, workflow file correct; then approve the domain move."
     inputs:
@@ -113,16 +113,29 @@ tasks:
       - Do not implement.
     expected_output:
       - approve cutover | defects
-    receipt: null
+    receipt:
+      result: done
+      harness: claude-code
+      decision: approve_cutover
+      full_outcome_complete: false
+      rationale: "Full parity between compiled.run and compiled-run-website.vercel.app on 26 paths (statuses, titles, 308 redirects, 404s, all 20 oxc sitemap URLs); headless Chrome 0 failed requests and 0 console errors on /oxc-tsrx, /guessless (fonts and icons load), /yuku-tsrx; /oxc-tsrx/playground crossOriginIsolated true with its wasm compiler running; /yuku-tsrx/playground 92 nodes; COOP/COEP scoped to /oxc-tsrx only (better than current). Non-blocking: workflow route check hit the SSO-protected deployment URL (PM fixed: now checks https://compiled.run); VERCEL_TOKEN secret not yet set on the repo (owner)."
+      note: notes/T002-audit.md
   - id: T003
     type: pm
     assignee: PM
-    status: queued
+    status: active
     reasoning_hint: default
     objective: "Cutover: attach compiled.run to the compiled-run-website production deployment (vercel alias / domain move within scope jack-shelton), verify the route table on compiled.run itself including crossOriginIsolated on /oxc-tsrx/playground, and record before/after."
     allowed_files:
       - docs/goals/compiled-run-website/notes/T003-*.md
-    receipt: null
+    receipt:
+      result: blocked
+      harness: claude-code
+      blocked_reason: Classifier denies vercel domains add --force from this session; the owner must run it. Workflow route check fixed and pushed (c37e50d) meanwhile.
+      waiting_for_user_approval: true
+      required_reply: "! vercel domains add compiled.run compiled-run-website --force --scope jack-shelton"
+      summary: "Cutover staged: pre-cutover audit approved, before-table recorded; domain move awaits owner command."
+      note: notes/T003-cutover.md
   - id: T004
     type: worker
     assignee: Worker
