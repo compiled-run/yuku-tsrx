@@ -4,7 +4,7 @@ goal:
   title: yuku-tsrx docs site and logo, cloned from oxc-tsrx, deployed to Vercel
   slug: yuku-tsrx-docs-site
   kind: specific
-  tranche: "tranche 2 (owner follow-up 2026-08-17): re-color to Yuku gold; serve at compiled.run/yuku-tsrx with a link from the compiled.run home; add real interactivity (editable hero editor and playground backed by a wasm build of the dialect); final audit"
+  tranche: "tranche 3 (owner 2026-08-17): interactive components inside the guide pages, oxc-tsrx-style but shaped for a parser/analyzer/codegen: how-it-works step-through, getting-started chooser + playable terminal transcripts, AST/source explorer, symbol explorer, codegen options walkthrough, syntax node-type chips computed at build, extension-point matrix, in-browser benchmark; then compiled.run switch (T013) and final audit"
   status: active
   oracle:
     signal: A production Vercel URL for yuku-tsrx serves a docs site whose structure, components, and styling match compiled.run/oxc-tsrx, with a re-colored logo bearing the yuku-tsrx wordmark, whose guides cover the parser, analyzer, and codegen (not lint/format), and whose every stated fact is checkable in the yuku-tsrx repo; the local docs build passes; README.md is materially shorter than 143 lines with the same facts.
@@ -62,7 +62,7 @@ visual_board:
     status: live
     url: http://goalbuddy.localhost:41737/yuku-tsrx-docs-site/
     command: node /Users/jacksm5pro/.claude/skills/goal-prep/surfaces/local-goal-board/scripts/local-goal-board.mjs --goal docs/goals/yuku-tsrx-docs-site
-active_task: T999
+active_task: T023
 tasks:
   - id: T001
     type: scout
@@ -1023,10 +1023,203 @@ tasks:
         - cmd: vercel deploy --prod
           status: pass
       summary: "Landing demo is now a two-column 460px band: editor left, output tabs right, both scrolling internally; screenshots reviewed by PM."
+  - id: T022
+    type: judge
+    assignee: Judge
+    status: done
+    reasoning_hint: high
+    objective: "Spec the guide-page interactivity tranche: for each proposed component decide keep/cut, the exact page and marker, data source (wasm in the browser via docs/assets/yuku-wasm.js, wasm run at build time in Node inside docs/build.mjs, or build-time reads of parser_extension.zig / captured transcripts), markup and CSS to reuse from oxc-tsrx (terminal-demo, how-it-works, chooser, matrix-filter, editor-replay in oxc-tsrx docs/build.mjs and assets/interactive.js), verify commands (headless-Chrome checks extending docs/verify-playground.mjs), and cut into 2 to 4 ordered Worker packages by value: codegen options walkthrough, symbol explorer, AST/source explorer, terminal transcripts + chooser + how-it-works, syntax node-type chips, extension-point matrix, in-browser benchmark."
+    inputs:
+      - oxc-tsrx docs/build.mjs (terminal-demo ~888, how-it-works, chooser, matrix-filter, editor-replay renderers), docs/assets/interactive.js, docs/assets/style.css regions for those components, guide/introduction.md, guide/getting-started.md, reference/cli.md markers
+      - yuku-tsrx docs/assets/yuku-wasm.js, yuku-playground.js, build.mjs, style.css; src/dialect/parser_extension.zig (hook names), tools/wasm-smoke.mjs (Node wasm usage), test/parser/misc/tsrx fixtures
+      - the T012 spec and T019 audit
+    constraints:
+      - Read-only.
+      - "No faked outputs: anything shown as engine output must come from the wasm at build or run time; transcripts must be real captured output labeled with the date and command."
+      - Reuse oxc CSS classes so the kept stylesheet applies; new CSS only where a component has none.
+      - "Every package: allowed_files, verify that runs here, stop_if."
+    expected_output:
+      - Keep/cut table with reasons
+      - Ordered Worker packages T023.. with full specs
+      - Judge audit task
+    receipt:
+      result: done
+      harness: claude-code
+      decision: approved
+      full_outcome_complete: false
+      rationale: "Kept eight of nine proposals (how-it-works reshaped to five steps, chooser, real captured transcripts, AST/source explorer, symbol explorer plus scope tree, codegen walkthrough with shortest/minify disabled honestly, build-time node-type chips, hook matrix validated against parser_extension.zig, in-tab benchmark under its own caveat) and cut inline runs on npm-API snippets and the home live figure. Home cards become four build-computed cards: 3.47x faster, 33,708 parses/s, 32.3 MB/s, 15% less peak memory. Feasibility confirmed against yuku-wasm.js, decode-analyzer.js spans, doc-shell CSS regions, and the 20 pub fn hooks. Packages: T027 explorers (renumbered from the Judge's T023 to avoid the in-flight home-polish unit), T024 chooser/transcripts/how-it-works, T025 chips/matrix/in-tab bench, T026 audit."
+      spawned_tasks:
+        - T027
+        - T024
+        - T025
+        - T026
+      note: notes/T022-guide-interactivity-spec.md
+  - id: T023
+    type: worker
+    assignee: Worker
+    status: active
+    reasoning_hint: default
+    objective: "Home polish per owner: (1) eye-catching benchmark cards computed from m6-baseline.json (3.5x faster, 33,708 parses/s vs 9,702, 0.85x peak RSS) plus the oxc-tsrx comp-chart race with the WebGL fuel plume (fuel.js brought back, two rows yuku-tsrx vs @tsrx/core, CSS fill fallback, reduced-motion respected); (2) cross-browser button text centering (inline-flex, align-items center) for .action, .demo-button, .try-button and other button classes; (3) demo/playground scrollbars styled like the doc code blocks (thin, divider-colored thumb, transparent track) instead of default browser scrollbars. Rebuild, verify, redeploy, screenshot."
+    allowed_files:
+      - docs/build.mjs
+      - docs/assets/fuel.js
+      - docs/assets/app.js
+      - docs/assets/style.css
+      - docs/site.config.mjs
+      - docs/dist/**
+      - docs/goals/yuku-tsrx-docs-site/notes/T023-home-polish.md
+      - docs/goals/yuku-tsrx-docs-site/notes/T023-*.png
+    verify:
+      - pnpm run docs:build && test -f docs/dist/yuku-tsrx/assets/fuel.js && grep -q 'comp-chart' docs/dist/yuku-tsrx/index.html && grep -q 'comp-row' docs/dist/yuku-tsrx/index.html
+      - grep -qE '3\.[0-9]x|3\.[0-9]&times;' docs/dist/yuku-tsrx/index.html && grep -q '33,708' docs/dist/yuku-tsrx/index.html
+      - node docs/verify-playground.mjs
+      - test -z "$(git status --porcelain -- src build.zig npm test README.md package.json docs/guide docs/architecture docs/reference docs/assets/yuku-wasm.js docs/assets/yuku-playground.js docs/generate-assets.mjs docs/generate-social-card.mjs)"
+      - vercel link --cwd docs/dist --project yuku-tsrx-docs --scope jack-shelton --yes && vercel deploy --cwd docs/dist --prod --yes --scope jack-shelton
+    stop_if:
+      - Need files outside allowed_files.
+      - fuel.js cannot be made to run without oxc-only dependencies (report).
+      - Verification fails twice.
+    receipt: null
+  - id: T027
+    type: worker
+    assignee: Worker
+    status: queued
+    reasoning_hint: default
+    objective: "Guide explorers (Judge spec T022 sections 2, 3.1-3.4): reconcile the home benchmark cards to four build-time-computed cards (3.47x faster, 33,708 parses/s, 32.3 MB/s, 15% less peak memory, each with its @tsrx/core comparison line; build throws if valid is not true; gate-grid 4 columns) on top of whatever T023 shipped; add docs/assets/yuku-explorers.js (lazy, viewport-gated import from app.js) and three guide figures: <!-- ast-explorer --> on guide/parser.md, <!-- symbol-explorer --> on guide/analyzer.md, <!-- codegen-walkthrough --> on guide/codegen.md, each with a shiki no-JS fallback, edit mode, honest unavailable state, small .ex-* CSS in the doc region; extend docs/verify-playground.mjs; rebuild, verify, redeploy, screenshot the three figures and the home cards."
+    allowed_files:
+      - docs/build.mjs
+      - docs/assets/app.js
+      - docs/assets/yuku-explorers.js
+      - docs/assets/yuku-shared.js
+      - docs/assets/yuku-playground.js
+      - docs/assets/style.css
+      - docs/guide/parser.md
+      - docs/guide/analyzer.md
+      - docs/guide/codegen.md
+      - docs/reference/benchmarks.md
+      - docs/index.md
+      - docs/verify-playground.mjs
+      - docs/dist/**
+      - docs/goals/yuku-tsrx-docs-site/notes/T027-*.md
+      - docs/goals/yuku-tsrx-docs-site/notes/T027-*.png
+    verify:
+      - pnpm run docs:wasm && node tools/wasm-smoke.mjs --fences
+      - pnpm run docs:build
+      - grep -q 'data-ast-explorer' docs/dist/yuku-tsrx/guide/parser.html && grep -q 'data-symbol-explorer' docs/dist/yuku-tsrx/guide/analyzer.html && grep -q 'data-codegen-walkthrough' docs/dist/yuku-tsrx/guide/codegen.html
+      - test "$(grep -o 'gate-card' docs/dist/yuku-tsrx/index.html | wc -l | tr -d ' ')" = 4 && grep -Eq '3\.47x' docs/dist/yuku-tsrx/index.html && grep -q '33,708' docs/dist/yuku-tsrx/index.html && ! grep -q '0.2878' docs/dist/yuku-tsrx/index.html
+      - grep -q 'yuku-explorers.js' docs/dist/yuku-tsrx/assets/app.js && test -f docs/dist/yuku-tsrx/assets/yuku-explorers.js
+      - node docs/verify-playground.mjs
+      - "! grep -rIl -e '—' docs --exclude-dir=goals --exclude-dir=node_modules --exclude-dir=dist"
+      - "! grep -rniE 'oxlint|oxfmt' docs/dist/yuku-tsrx/guide docs/dist/yuku-tsrx/index.html"
+      - test -z "$(git status --porcelain -- src build.zig npm test README.md)"
+      - vercel link --cwd docs/dist --project yuku-tsrx-docs --scope jack-shelton --yes && vercel deploy --cwd docs/dist --prod --yes --scope jack-shelton && node docs/verify-playground.mjs --url https://yuku-tsrx-docs.vercel.app
+    stop_if:
+      - Any figure would need pre-computed, hand-written, or approximated engine output.
+      - The analyzer view lacks a span the symbol explorer needs (report).
+      - A new sample fence does not parse clean and cannot be rewritten to parse clean.
+      - Any change is needed under src/, build.zig, npm/, or test/.
+      - The wasm fails to instantiate in Chrome, or docs/verify-playground.mjs fails twice after fixes.
+      - Vercel prompts for auth or offers a different project.
+    receipt: null
+  - id: T024
+    type: worker
+    assignee: Worker
+    status: queued
+    reasoning_hint: default
+    objective: "Getting-started chooser, real captured terminal transcripts, and the intro how-it-works (Judge spec T022 sections 3.5-3.8): tools/capture-transcripts.mjs (script docs:transcripts) runs getting-started-build (zig build; ls zig-out/npm/yuku-tsrx; zig build test --summary all; pnpm test) and getting-started-wasm (zig build wasm -Doptimize=ReleaseSmall; node tools/wasm-smoke.mjs) for real, strips colour, trims head/tail 15 lines with a labelled omitted marker, writes docs/transcripts/<name>.json with captured_at, platform, per-command exit codes; port terminalDemoHtml/terminalDemoMarkdown into build.mjs for <!-- terminal-demo:NAME --> (missing file is a build error) with dated caption and '# exit N'; port chooserHtml and add docs/assets/interactive.js (initChoosers + initMatrixFilters) with the lazy import restored in app.js; the 'Which route are you on' chooser (Consume from Node via link:, Run it in a browser via the wasm, Hack on the dialect) and both terminal demos on guide/getting-started.md;\
+      \ howItWorksHtml (five steps: source, hooks, tree, buffer, api; 20 hook chips read from src/dialect/parser_extension.zig with a hard count of 20; panels visible without JS) with <!-- how-it-works --> on guide/introduction.md and CSS for the new step ids; extend the verifier; rebuild, verify, redeploy, screenshot."
+    allowed_files:
+      - tools/capture-transcripts.mjs
+      - docs/transcripts/*.json
+      - package.json
+      - docs/build.mjs
+      - docs/assets/app.js
+      - docs/assets/interactive.js
+      - docs/assets/style.css
+      - docs/guide/getting-started.md
+      - docs/guide/introduction.md
+      - docs/verify-playground.mjs
+      - docs/dist/**
+      - docs/goals/yuku-tsrx-docs-site/notes/T024-*.md
+      - docs/goals/yuku-tsrx-docs-site/notes/T024-*.png
+    verify:
+      - "pnpm run docs:transcripts && node -e \"for (const f of require('fs').readdirSync('docs/transcripts')) { const j = JSON.parse(require('fs').readFileSync('docs/transcripts/'+f,'utf8')); if (!j.captured_at || Number.isNaN(Date.parse(j.captured_at))) throw new Error(f+': captured_at'); for (const e of j.transcript) if (e.exit_code !== 0) throw new Error(f+': '+e.command+' exit '+e.exit_code) }\""
+      - pnpm run docs:wasm && node tools/wasm-smoke.mjs --fences
+      - pnpm run docs:build
+      - test "$(grep -o 'data-hiw-step' docs/dist/yuku-tsrx/guide/introduction.html | wc -l | tr -d ' ')" -ge 5 && grep -q 'data-chooser' docs/dist/yuku-tsrx/guide/getting-started.html && test "$(grep -o 'data-terminal-demo' docs/dist/yuku-tsrx/guide/getting-started.html | wc -l | tr -d ' ')" -ge 2 && grep -q 'Captured on 2026-' docs/dist/yuku-tsrx/guide/getting-started.html
+      - test -f docs/dist/yuku-tsrx/assets/interactive.js && grep -q 'interactive.js' docs/dist/yuku-tsrx/assets/app.js
+      - node docs/verify-playground.mjs
+      - "! grep -rIl -e '—' docs --exclude-dir=goals --exclude-dir=node_modules --exclude-dir=dist"
+      - "! grep -rniE 'oxlint|oxfmt' docs/dist/yuku-tsrx/guide docs/dist/yuku-tsrx/index.html"
+      - test -z "$(git status --porcelain -- src build.zig npm test README.md)"
+      - vercel link --cwd docs/dist --project yuku-tsrx-docs --scope jack-shelton --yes && vercel deploy --cwd docs/dist --prod --yes --scope jack-shelton && node docs/verify-playground.mjs --url https://yuku-tsrx-docs.vercel.app
+    stop_if:
+      - Any captured command exits nonzero (fix the environment or drop that command; never publish a failing or edited transcript).
+      - The sibling ../yuku-minimal-seam checkout is missing, so zig build cannot run.
+      - The hook count read from parser_extension.zig is not 20.
+      - A chooser answer would state something not checkable in package.json, tools/, docs/assets, or src/dialect.
+      - Any change is needed under src/, build.zig, npm/, or test/.
+      - Vercel prompts for auth or offers a different project.
+    receipt: null
+  - id: T025
+    type: worker
+    assignee: Worker
+    status: queued
+    reasoning_hint: default
+    objective: "Build-time wasm chips, hook matrix, in-tab benchmark (Judge spec T022 sections 3.9-3.11): bootWasmForBuild() in docs/build.mjs (Node instantiation of zig-out/wasm/yuku-tsrx.wasm with npm/yuku-tsrx/decode.js, mirroring tools/wasm-smoke.mjs; failure is a build failure) and node-type chips under every tsrx fence on guide/tsrx-syntax.md (<!-- node-chips -->; TSRX node types the parser produced, ForOfStatement.index/.key when set; a real diagnostic-count chip for no-playground fences); the Area column on the twenty-hook table in architecture/yuku-dialect.md and the <!-- hook-matrix --> build step validating the 20 names against src/dialect/parser_extension.zig, appending 'Implemented in' derived from each hook body's callee module, area chips via the generalized matrix filter; the 'Measure in this tab' figure on reference/benchmarks.md (sample and iteration chips, median/p95/parses per second/MB per second from parse() timings, always-visible non-comparability caveat, never beside\
+      \ the committed table) via yuku-explorers.js; extend the verifier; rebuild, verify, redeploy, screenshot."
+    allowed_files:
+      - docs/build.mjs
+      - docs/assets/app.js
+      - docs/assets/interactive.js
+      - docs/assets/yuku-explorers.js
+      - docs/assets/yuku-shared.js
+      - docs/assets/style.css
+      - docs/guide/tsrx-syntax.md
+      - docs/architecture/yuku-dialect.md
+      - docs/reference/benchmarks.md
+      - docs/verify-playground.mjs
+      - docs/dist/**
+      - docs/goals/yuku-tsrx-docs-site/notes/T025-*.md
+      - docs/goals/yuku-tsrx-docs-site/notes/T025-*.png
+    verify:
+      - pnpm run docs:wasm && node tools/wasm-smoke.mjs --fences
+      - pnpm run docs:build
+      - test "$(grep -o 'node-chip' docs/dist/yuku-tsrx/guide/tsrx-syntax.html | wc -l | tr -d ' ')" -ge 10 && grep -q 'JSXCodeBlock' docs/dist/yuku-tsrx/guide/tsrx-syntax.html
+      - test "$(grep -o 'data-classification=' docs/dist/yuku-tsrx/architecture/yuku-dialect.html | wc -l | tr -d ' ')" = 20 && grep -q 'Implemented in' docs/dist/yuku-tsrx/architecture/yuku-dialect.html
+      - grep -q 'data-bench-live' docs/dist/yuku-tsrx/reference/benchmarks.html && grep -q 'not comparable' docs/dist/yuku-tsrx/reference/benchmarks.html
+      - node docs/verify-playground.mjs
+      - "! grep -rIl -e '—' docs --exclude-dir=goals --exclude-dir=node_modules --exclude-dir=dist"
+      - "! grep -rniE 'oxlint|oxfmt' docs/dist/yuku-tsrx/guide docs/dist/yuku-tsrx/architecture docs/dist/yuku-tsrx/reference docs/dist/yuku-tsrx/index.html"
+      - test -z "$(git status --porcelain -- src build.zig npm test README.md)"
+      - vercel link --cwd docs/dist --project yuku-tsrx-docs --scope jack-shelton --yes && vercel deploy --cwd docs/dist --prod --yes --scope jack-shelton && node docs/verify-playground.mjs --url https://yuku-tsrx-docs.vercel.app
+    stop_if:
+      - The wasm cannot be instantiated in Node inside build.mjs (report; do not fall back to hand-written chips).
+      - The twenty-hook table and parser_extension.zig disagree on a name (report; do not edit the zig).
+      - The in-tab benchmark would be presented next to, or in the same table as, the committed numbers.
+      - Any change is needed under src/, build.zig, npm/, or test/.
+      - Vercel prompts for auth or offers a different project.
+    receipt: null
+  - id: T026
+    type: judge
+    assignee: Judge
+    status: queued
+    reasoning_hint: high
+    objective: "On the production URL, prove each kept component against notes/T022-guide-interactivity-spec.md: home shows four computed cards matching a fresh read of benchmarks/m6-baseline.json (3.47x, 33,708, 32.3 MB/s, 15% less) with the one-machine caption and the fuel race; parser AST explorer hover highlights both ways; analyzer symbol click lights declaration and references and the scope tree exists; codegen toggles change real output and shortest is disabled with the reason; introduction how-it-works has five steps with 20 hook chips from the zig; getting-started chooser has three routes and both transcripts play, are dated, every entry exit 0 and matches docs/transcripts JSON; tsrx-syntax chips under every fence naming the right node types for at least three constructs; hook matrix 20 rows, filters by area, Implemented-in agrees with parser_extension.zig on a five-hook spot check; benchmarks Measure-in-this-tab runs with the caveat; buttons vertically centered in Safari-equivalent\
+      \ measurement (inline-flex); styled scrollbars on demo panes; no oxlint/oxfmt/linter/formatter claims; no em dashes; docs/verify-playground.mjs --url passes with 0 console errors; guide page weight before/after wasm fetch recorded. Decide pass or name a fix package; then hand to T013/T999."
+    inputs:
+      - notes/T022-guide-interactivity-spec.md
+      - T023, T027, T024, T025 receipts
+      - production URL
+    constraints:
+      - Do not implement.
+    expected_output:
+      - pass | defects with fix package
+    receipt: null
   - id: T999
     type: judge
     assignee: Judge
-    status: active
+    status: queued
     reasoning_hint: high
     objective: "Final audit: map receipts and verification back to the original outcome (site cloned and re-skinned, parser/analyzer/codegen focus, README trimmed, production deploy live) and record full_outcome_complete."
     inputs:
