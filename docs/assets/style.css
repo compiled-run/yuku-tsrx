@@ -1920,6 +1920,86 @@ html.dark .ex-source-plain span {
   }
 }
 
+/* ---------- node-type chips (guide/tsrx-syntax) ---------- */
+/* A row of small pills under a code example, naming what the parser produced
+   for it. They sit tight under the block they belong to, so the pairing is
+   read without a label saying so. */
+.doc .node-chips-note {
+  margin: 18px 0 0;
+  color: var(--c-text-2);
+  font-size: 14px;
+}
+.doc .node-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: -12px 0 22px;
+}
+.node-chip {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 9px;
+  border: 1px solid transparent;
+  border-radius: 999px;
+  background: var(--c-brand-soft);
+  color: var(--c-brand);
+  font-size: 12px;
+  font-weight: 600;
+  white-space: nowrap;
+  cursor: help;
+}
+.node-chip code {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font-size: 12px;
+}
+/* A rejected example is the odd one out on the page, so its chip does not
+   borrow the brand tint the accepted node types use. */
+.node-chip-diag,
+.node-chip-plain {
+  border-color: var(--c-divider);
+  background: var(--c-bg-alt);
+  color: var(--c-text-2);
+}
+
+/* ---------- measure in this tab (reference/benchmarks) ---------- */
+.bench-live .ex-controls {
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 10px;
+}
+.doc .bench-live-caveat {
+  margin: 0;
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--c-divider);
+  color: var(--c-text-2);
+  font-size: 13px;
+  line-height: 1.6;
+}
+.bench-live .ex-out {
+  border-top: 1px solid var(--c-divider);
+}
+.bench-live .ex-out th[scope="row"] {
+  font-weight: 600;
+  white-space: nowrap;
+}
+.bench-live .ex-out td {
+  font-variant-numeric: tabular-nums;
+}
+.ex-controls button.bench-run {
+  border-color: var(--c-brand);
+  background: var(--c-brand-soft);
+  color: var(--c-brand);
+  font-weight: 600;
+}
+.ex-controls button.bench-run[disabled] {
+  border-color: var(--c-divider);
+  background: none;
+  color: var(--c-text-3);
+}
+
 /* #css-pages-end */
 /* #css-pages: home */
 /* ---------- footer badge + disclaimer ---------- */
@@ -4217,6 +4297,24 @@ html.dark .explorer-panel .shiki span {
 .matrix-badge-adapt { --mb: 249, 115, 22; --mb-fg: #9A3412; }
 .matrix-badge-glue { --mb: 59, 130, 246; --mb-fg: #1d4ed8; }
 .matrix-badge-redesign { --mb: 249, 115, 22; --mb-fg: #C2410C; }
+/* The eight areas of the grammar the twenty extension points sit in
+   (architecture/yuku-dialect). Same tint recipe as the badges above. */
+.matrix-badge-statement { --mb: 139, 92, 246; --mb-fg: #5B21B6; }
+.matrix-badge-expression { --mb: 59, 130, 246; --mb-fg: #1D4ED8; }
+.matrix-badge-pattern { --mb: 16, 185, 129; --mb-fg: #065F46; }
+.matrix-badge-function { --mb: 245, 158, 11; --mb-fg: #92400E; }
+.matrix-badge-for-of { --mb: 244, 63, 94; --mb-fg: #9F1239; }
+.matrix-badge-module { --mb: 20, 184, 166; --mb-fg: #115E59; }
+.matrix-badge-jsx { --mb: 249, 115, 22; --mb-fg: #9A3412; }
+.matrix-badge-text { --mb: 100, 116, 139; --mb-fg: #334155; }
+html.dark .matrix-badge-statement { --mb-fg: #C4B5FD; }
+html.dark .matrix-badge-expression { --mb-fg: #93C5FD; }
+html.dark .matrix-badge-pattern { --mb-fg: #34D399; }
+html.dark .matrix-badge-function { --mb-fg: #FCD34D; }
+html.dark .matrix-badge-for-of { --mb-fg: #FDA4AF; }
+html.dark .matrix-badge-module { --mb-fg: #5EEAD4; }
+html.dark .matrix-badge-jsx { --mb-fg: #FB923C; }
+html.dark .matrix-badge-text { --mb-fg: #CBD5E1; }
 html.dark .matrix-badge-reuse { --mb-fg: #34d399; }
 html.dark .matrix-badge-adapt { --mb-fg: #FB923C; }
 html.dark .matrix-badge-glue { --mb-fg: #93c5fd; }

@@ -62,7 +62,7 @@ visual_board:
     status: live
     url: http://goalbuddy.localhost:41737/yuku-tsrx-docs-site/
     command: node /Users/jacksm5pro/.claude/skills/goal-prep/surfaces/local-goal-board/scripts/local-goal-board.mjs --goal docs/goals/yuku-tsrx-docs-site
-active_task: T025
+active_task: T026
 tasks:
   - id: T001
     type: scout
@@ -1246,7 +1246,7 @@ tasks:
   - id: T025
     type: worker
     assignee: Worker
-    status: active
+    status: done
     reasoning_hint: default
     objective: "Build-time wasm chips, hook matrix, in-tab benchmark (Judge spec T022 sections 3.9-3.11): bootWasmForBuild() in docs/build.mjs (Node instantiation of zig-out/wasm/yuku-tsrx.wasm with npm/yuku-tsrx/decode.js, mirroring tools/wasm-smoke.mjs; failure is a build failure) and node-type chips under every tsrx fence on guide/tsrx-syntax.md (<!-- node-chips -->; TSRX node types the parser produced, ForOfStatement.index/.key when set; a real diagnostic-count chip for no-playground fences); the Area column on the twenty-hook table in architecture/yuku-dialect.md and the <!-- hook-matrix --> build step validating the 20 names against src/dialect/parser_extension.zig, appending 'Implemented in' derived from each hook body's callee module, area chips via the generalized matrix filter; the 'Measure in this tab' figure on reference/benchmarks.md (sample and iteration chips, median/p95/parses per second/MB per second from parse() timings, always-visible non-comparability caveat, never beside\
       \ the committed table) via yuku-explorers.js; extend the verifier; rebuild, verify, redeploy, screenshot."
@@ -1281,11 +1281,36 @@ tasks:
       - The in-tab benchmark would be presented next to, or in the same table as, the committed numbers.
       - Any change is needed under src/, build.zig, npm/, or test/.
       - Vercel prompts for auth or offers a different project.
-    receipt: null
+    receipt:
+      result: done
+      harness: claude-code
+      changed_files:
+        - docs/build.mjs
+        - docs/assets/app.js
+        - docs/assets/yuku-explorers.js
+        - docs/assets/style.css
+        - docs/guide/tsrx-syntax.md
+        - docs/architecture/yuku-dialect.md
+        - docs/reference/benchmarks.md
+        - docs/verify-playground.mjs
+        - docs/goals/yuku-tsrx-docs-site/notes/T025-chips-matrix-bench.md
+        - docs/goals/yuku-tsrx-docs-site/notes/T025-syntax.png
+        - docs/goals/yuku-tsrx-docs-site/notes/T025-matrix.png
+        - docs/goals/yuku-tsrx-docs-site/notes/T025-bench.png
+      commands:
+        - cmd: "pnpm run docs:build with bootWasmForBuild (chips under 19 fences, real diagnostic counts on the 3 invalid ones); hook matrix 20 rows validated against parser_extension.zig"
+          status: pass
+        - cmd: "node docs/verify-playground.mjs local + --url production"
+          status: pass
+        - cmd: "deploy --prod"
+          status: pass
+        - cmd: "PM reviewed T025-matrix.png: filterable 20-hook matrix with Implemented-in from source"
+          status: pass
+      summary: "Node-type chips computed by running the wasm inside the static build under every syntax fence; the twenty-hook filterable matrix on Architecture with the implementing file derived from source; Measure-in-this-tab on Benchmarks in its own figure with the not-comparable caveat, batching parses because a browser clock cannot resolve one."
   - id: T026
     type: judge
     assignee: Judge
-    status: queued
+    status: active
     reasoning_hint: high
     objective: "On the production URL, prove each kept component against notes/T022-guide-interactivity-spec.md: home shows four computed cards matching a fresh read of benchmarks/m6-baseline.json (3.47x, 33,708, 32.3 MB/s, 15% less) with the one-machine caption and the fuel race; parser AST explorer hover highlights both ways; analyzer symbol click lights declaration and references and the scope tree exists; codegen toggles change real output and shortest is disabled with the reason; introduction how-it-works has five steps with 20 hook chips from the zig; getting-started chooser has three routes and both transcripts play, are dated, every entry exit 0 and matches docs/transcripts JSON; tsrx-syntax chips under every fence naming the right node types for at least three constructs; hook matrix 20 rows, filters by area, Implemented-in agrees with parser_extension.zig on a five-hook spot check; benchmarks Measure-in-this-tab runs with the caveat; buttons vertically centered in Safari-equivalent\
       \ measurement (inline-flex); styled scrollbars on demo panes; no oxlint/oxfmt/linter/formatter claims; no em dashes; docs/verify-playground.mjs --url passes with 0 console errors; guide page weight before/after wasm fetch recorded. Decide pass or name a fix package; then hand to T013/T999."

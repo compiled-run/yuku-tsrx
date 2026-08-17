@@ -1,7 +1,8 @@
 // The engine-backed figures on the guide pages.
 //
-// Three of them, one per page: the AST/source explorer on Parser, the symbol
-// explorer on Analyzer, the codegen options walkthrough on Code Generator.
+// Four of them, one per page: the AST/source explorer on Parser, the symbol
+// explorer on Analyzer, the codegen options walkthrough on Code Generator, and
+// the measure-in-this-tab figure on Benchmarks.
 // Every line any of them prints comes from docs/assets/yuku-wasm.js, which is
 // the real yuku-tsrx dialect compiled to WebAssembly and running in the
 // reader's tab. There is no pre-computed output in this file: if the module
@@ -687,9 +688,179 @@ async function runCodegen(figure, pane, state) {
   figure.dataset.exState = 'ready'
 }
 
+// ---------- 3.11 measure in this tab (reference/benchmarks) ----------
+// The figure times `parse()` calls in the reader's own tab and prints what it
+// measured. It measures the WebAssembly build, on one small sample, with the
+// decode into JavaScript objects inside the timed region, which is a different
+// thing from the report on the same page; the caveat above the numbers is part
+// of the figure and is on screen before a run and after it.
+
+const BENCH_WARMUP = 20
+// A browser clamps performance.now() to about a tenth of a millisecond, and one
+// parse of a guide-sized snippet is faster than that, so timing single parses
+// would print a column of zeroes and a made-up median. Parses are timed in
+// batches sized from the warm-up to take at least this long, and every number
+// below is a per-parse figure derived from a batch that the clock could
+// actually resolve. The table says so, because it changes what p95 means: it is
+// the p95 of the batches, not of individual parses.
+const BENCH_BATCH_TARGET_MS = 1
+const BENCH_MIN_BATCHES = 4
+// The first parses after the module boots are far slower than the steady state,
+// so the batch size is calibrated from a second short burst rather than from
+// the warm-up, which would size the batches off the cold numbers.
+const BENCH_CALIBRATION = 20
+// Long runs are handed back to the event loop between batches so the tab can
+// paint. The yield never sits inside a timed region.
+const BENCH_YIELD_MS = 40
+
+function percentileOf(sorted, fraction) {
+  if (sorted.length === 0) return 0
+  const index = Math.min(sorted.length - 1, Math.ceil(fraction * sorted.length) - 1)
+  return sorted[Math.max(index, 0)]
+}
+
+const integer = (value) => Math.round(value).toLocaleString('en-US')
+
+function browserLabel() {
+  const brands = navigator.userAgentData?.brands ?? []
+  const brand = brands.find((entry) => !/not.*brand/i.test(entry.brand))
+  if (brand) return `${brand.brand} ${brand.version}`
+  const match = /(Firefox|Edg|Chrome|Safari)\/(\d+)/.exec(navigator.userAgent ?? '')
+  return match ? `${match[1] === 'Edg' ? 'Edge' : match[1]} ${match[2]}` : 'your browser'
+}
+
+function benchState(figure) {
+  const script = figure.querySelector('[data-bench-samples]')
+  const samples = JSON.parse(script.textContent)
+  const first = figure.querySelector('[data-bench-sample][aria-pressed="true"]')
+  const iterations = figure.querySelector('[data-bench-iterations][aria-pressed="true"]')
+  return {
+    samples,
+    sample: first?.dataset.benchSample ?? Object.keys(samples)[0],
+    iterations: Number(iterations?.dataset.benchIterations ?? 500),
+    running: false,
+  }
+}
+
+async function runBench(figure, state) {
+  if (state.running) return
+  state.running = true
+  const out = figure.querySelector('[data-ex-out]')
+  const run = figure.querySelector('[data-bench-run]')
+  const sample = state.samples[state.sample]
+  const bytes = new TextEncoder().encode(sample.source).length
+  run.disabled = true
+  figure.dataset.benchState = 'running'
+  statusLine(figure, `parsing ${sample.label} ${state.iterations} times in this tab`)
+  out.innerHTML = `<p class="ex-note">running ${state.iterations} parses of ${escapeHtml(
+    sample.label,
+  )}</p>`
+  const timings = []
+  const started = performance.now()
+  let batchSize = 1
+  let batches = 0
+  try {
+    for (let i = 0; i < BENCH_WARMUP; i++) await parse(sample.source, PARSE_OPTIONS)
+    const calibrationStarted = performance.now()
+    for (let i = 0; i < BENCH_CALIBRATION; i++) await parse(sample.source, PARSE_OPTIONS)
+    const perParse = (performance.now() - calibrationStarted) / BENCH_CALIBRATION
+    // Big enough for the clock to resolve, small enough that a median and a
+    // p95 are taken over more than a couple of numbers.
+    batchSize = Math.max(
+      1,
+      Math.min(
+        state.iterations,
+        Math.ceil(BENCH_BATCH_TARGET_MS / Math.max(perParse, 0.001)),
+        Math.floor(state.iterations / BENCH_MIN_BATCHES) || 1,
+      ),
+    )
+    batches = Math.max(1, Math.floor(state.iterations / batchSize))
+    let painted = performance.now()
+    for (let batch = 0; batch < batches; batch++) {
+      const at = performance.now()
+      for (let i = 0; i < batchSize; i++) await parse(sample.source, PARSE_OPTIONS)
+      timings.push((performance.now() - at) / batchSize)
+      if (performance.now() - painted > BENCH_YIELD_MS) {
+        await new Promise((resolve) => setTimeout(resolve, 0))
+        painted = performance.now()
+      }
+    }
+  } catch (error) {
+    state.running = false
+    run.disabled = false
+    showError(figure, 'parse failed', error)
+    return
+  }
+  const wall = performance.now() - started
+  const parsed = batches * batchSize
+  const sorted = [...timings].sort((a, b) => a - b)
+  const medianMs = percentileOf(sorted, 0.5)
+  const p95Ms = percentileOf(sorted, 0.95)
+  const perSecond = medianMs > 0 ? 1000 / medianMs : 0
+  const megabytes = (bytes * perSecond) / 1e6
+  out.innerHTML = `<div class="table-wrap"><table>
+  <thead><tr><th scope="col">Measure</th><th scope="col">In this tab</th></tr></thead>
+  <tbody>
+    <tr><th scope="row">Sample</th><td>${escapeHtml(sample.label)}</td></tr>
+    <tr><th scope="row">Sample bytes</th><td>${integer(bytes)}</td></tr>
+    <tr><th scope="row">Parses timed</th><td>${integer(parsed)} of ${integer(state.iterations)} asked for, after ${BENCH_WARMUP + BENCH_CALIBRATION} warm-up and calibration parses</td></tr>
+    <tr><th scope="row">Timed in</th><td>${integer(batches)} batch${batches === 1 ? '' : 'es'} of ${integer(batchSize)}, because a browser clock cannot resolve one parse</td></tr>
+    <tr><th scope="row">Median ns per parse</th><td data-bench-median>${integer(medianMs * 1e6)}</td></tr>
+    <tr><th scope="row">p95 ns per parse, by batch</th><td data-bench-p95>${integer(p95Ms * 1e6)}</td></tr>
+    <tr><th scope="row">Parses per second</th><td data-bench-rate>${integer(perSecond)}</td></tr>
+    <tr><th scope="row">MB per second</th><td data-bench-throughput>${megabytes.toFixed(1)}</td></tr>
+  </tbody>
+</table></div>`
+  statusLine(
+    figure,
+    `your machine · ${browserLabel()} · ${integer(parsed)} parses in ${formatMs(wall)} ms`,
+  )
+  figure.dataset.benchState = 'ready'
+  state.running = false
+  run.disabled = false
+}
+
+function benchControls(figure, state) {
+  const press = (group, attribute, value) => {
+    for (const chip of figure.querySelectorAll(`[${attribute}]`)) {
+      chip.setAttribute('aria-pressed', String(chip.getAttribute(attribute) === value))
+    }
+  }
+  figure.addEventListener('click', (event) => {
+    const sample = event.target.closest('[data-bench-sample]')
+    if (sample) {
+      state.sample = sample.dataset.benchSample
+      press(figure, 'data-bench-sample', state.sample)
+      return
+    }
+    const iterations = event.target.closest('[data-bench-iterations]')
+    if (iterations) {
+      state.iterations = Number(iterations.dataset.benchIterations)
+      press(figure, 'data-bench-iterations', iterations.dataset.benchIterations)
+      return
+    }
+    if (event.target.closest('[data-bench-run]')) runBench(figure, state)
+  })
+}
+
 // ---------- boot ----------
 
 function bootFigure(figure, cleanupCallbacks) {
+  if (figure.hasAttribute('data-bench-live')) {
+    const state = benchState(figure)
+    benchControls(figure, state)
+    ready()
+      .then(() => {
+        figure.querySelector('[data-bench-run]').disabled = false
+        figure.dataset.benchState = 'idle'
+        statusLine(
+          figure,
+          `the parser is loaded and ready · your machine · ${browserLabel()} · nothing has been measured yet`,
+        )
+      })
+      .catch((error) => unavailable(figure, error))
+    return
+  }
   if (figure.hasAttribute('data-codegen-walkthrough')) {
     const state = { ...CODEGEN_DEFAULTS }
     const pane = createSourcePane(figure, {
@@ -721,7 +892,7 @@ function bootFigure(figure, cleanupCallbacks) {
 
 export function init(cleanupCallbacks = []) {
   const figures = document.querySelectorAll(
-    '[data-ast-explorer]:not([data-ex-ready]), [data-symbol-explorer]:not([data-ex-ready]), [data-codegen-walkthrough]:not([data-ex-ready])',
+    '[data-ast-explorer]:not([data-ex-ready]), [data-symbol-explorer]:not([data-ex-ready]), [data-codegen-walkthrough]:not([data-ex-ready]), [data-bench-live]:not([data-ex-ready])',
   )
   for (const figure of figures) {
     figure.dataset.exReady = '1'

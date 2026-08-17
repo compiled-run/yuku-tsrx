@@ -38,30 +38,35 @@ willing to take the seam.
 ## The twenty extension points
 
 `src/dialect/parser_extension.zig` declares the hooks Yuku calls. There are
-twenty, and they are the entire contact surface between the two projects.
+twenty, and they are the entire contact surface between the two projects. The
+"implemented in" column names the file in `src/dialect/` each hook hands the
+work to, and both it and the hook names are read out of the source when this
+page is built.
 
-| Hook | Where TSRX gets a say |
-| --- | --- |
-| `statement_at_code_block` | A statement may begin a `@{ }` block |
-| `statement_at_control_flow` | A statement may begin a `@if` / `@for` / `@switch` / `@try` directive |
-| `expression_at_code_block` | So may an expression |
-| `expression_at_control_flow` | So may an expression |
-| `jsx_child_at_code_block` | So may a JSX child |
-| `jsx_child_at_control_flow` | So may a JSX child |
-| `function_body_starts` | A function body may be a `@{ }` block rather than a brace block |
-| `function_body` | Parse that body |
-| `lazy_assignment_pattern` | `&{ }` and `&[ ]` in assignment position |
-| `binding_pattern` | `&{ }` and `&[ ]` in binding position |
-| `can_start_binding` | Whether a token can start one |
-| `for_of_tail` | The `; index` and `; key` clauses after a for-of head |
-| `module_specifier` | `import { x } from server`, a specifier that is not a string |
-| `jsx_element_name` | A tag name written `<{expr}>` |
-| `validate_jsx_element_name` | Whether that expression can name an element |
-| `jsx_names_match` | Whether an opening and closing dynamic tag are the same |
-| `jsx_element_after_open` | `<style>` is a raw-text element, so its body is not JSX |
-| `jsx_fragment_after_open` | The same decision for a fragment |
-| `jsx_text_boundary` | Text stops at `@` |
-| `jsx_text_value` | Entity decoding for the text it produced |
+<!-- hook-matrix -->
+
+| Hook | Area | Where TSRX gets a say |
+| --- | --- | --- |
+| `statement_at_code_block` | Statement | A statement may begin a `@{ }` block |
+| `statement_at_control_flow` | Statement | A statement may begin a `@if` / `@for` / `@switch` / `@try` directive |
+| `expression_at_code_block` | Expression | So may an expression |
+| `expression_at_control_flow` | Expression | So may an expression |
+| `lazy_assignment_pattern` | Pattern | `&{ }` and `&[ ]` in assignment position |
+| `function_body` | Function | Parse a `@{ }` function body |
+| `for_of_tail` | For-of | The `; index` and `; key` clauses after a for-of head |
+| `binding_pattern` | Pattern | `&{ }` and `&[ ]` in binding position |
+| `module_specifier` | Module | `import { x } from server`, a specifier that is not a string |
+| `jsx_child_at_code_block` | JSX | A JSX child may begin a `@{ }` block |
+| `jsx_child_at_control_flow` | JSX | A JSX child may begin a control-flow directive |
+| `jsx_element_name` | JSX | A tag name written `<{expr}>` |
+| `function_body_starts` | Function | A function body may be a `@{ }` block rather than a brace block |
+| `can_start_binding` | Pattern | Whether a token can start a lazy pattern |
+| `jsx_element_after_open` | JSX | `<style>` is a raw-text element, so its body is not JSX |
+| `jsx_fragment_after_open` | JSX | The same decision for a fragment |
+| `validate_jsx_element_name` | JSX | Whether a dynamic tag expression can name an element |
+| `jsx_names_match` | JSX | Whether an opening and closing dynamic tag are the same |
+| `jsx_text_boundary` | Text | Text stops at `@` |
+| `jsx_text_value` | Text | Entity decoding for the text it produced |
 
 Each hook returns a `Decision`, which is `unhandled` or `handled` with a result.
 `unhandled` means "this is not TSRX, carry on", and Yuku proceeds exactly as it

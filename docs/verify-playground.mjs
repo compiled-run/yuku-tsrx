@@ -471,6 +471,123 @@ async function main() {
     )
     notes.push(`terminal demo: ${buildJson.transcript.length} commands, ${caption.trim()}`)
 
+    // ---- T025: the node-type chips under every example on tsrx-syntax ----
+    const syntaxPage = await context.newPage()
+    watch(syntaxPage, 'guide/tsrx-syntax')
+    await syntaxPage.goto(`${origin}${basePath}/guide/tsrx-syntax`, { waitUntil: 'load' })
+    const chipRows = await syntaxPage.$$eval('.node-chips', (nodes) =>
+      nodes.map((node) =>
+        [...node.querySelectorAll('.node-chip')].map((chip) => chip.textContent.trim()),
+      ),
+    )
+    check(
+      chipRows.length >= 10,
+      `guide/tsrx-syntax: ${chipRows.length} chip rows, expected one under each of at least 10 examples`,
+    )
+    check(
+      (chipRows[0] ?? []).includes('JSXCodeBlock'),
+      `guide/tsrx-syntax: the first example's chips are ${(chipRows[0] ?? []).join(', ') || 'none'}, expected JSXCodeBlock`,
+    )
+    // Three constructs named by their real node type, not three chips: the
+    // page's claim is that the chips are what the parser produced.
+    const namedTypes = new Set(chipRows.flat().filter((chip) => /^[A-Z][A-Za-z]+/.test(chip)))
+    check(
+      namedTypes.size >= 3,
+      `guide/tsrx-syntax: the chips name ${namedTypes.size} distinct node types, expected 3 or more`,
+    )
+    const diagChips = await syntaxPage.$$eval('.node-chip-diag', (nodes) =>
+      nodes.map((node) => node.textContent.trim()),
+    )
+    check(
+      diagChips.length >= 1 && /^\d+ diagnostics?$/.test(diagChips[0] ?? ''),
+      `guide/tsrx-syntax: the rejected examples carry no diagnostic count chip (${diagChips.join(', ') || 'none'})`,
+    )
+    notes.push(
+      `node chips: ${chipRows.length} examples, ${namedTypes.size} distinct node types, ${diagChips.length} diagnostic chips`,
+    )
+
+    // ---- T025: the filterable extension-point matrix ----
+    const dialectPage = await context.newPage()
+    watch(dialectPage, 'architecture/yuku-dialect')
+    await dialectPage.goto(`${origin}${basePath}/architecture/yuku-dialect`, { waitUntil: 'load' })
+    await dialectPage.waitForSelector('[data-matrix-filter][data-ready]', { timeout: 30_000 })
+    const hookRows = dialectPage.locator('[data-matrix-filter] tr[data-classification]')
+    const hookRowCount = await hookRows.count()
+    check(hookRowCount === 20, `architecture/yuku-dialect: ${hookRowCount} hook rows, expected 20`)
+    const implemented = await dialectPage.$$eval('[data-matrix-filter] tr[data-classification]', (rows) =>
+      rows.map((row) => row.children[2]?.textContent?.trim() ?? ''),
+    )
+    check(
+      implemented.every((cell) => cell.endsWith('.zig')),
+      `architecture/yuku-dialect: an "Implemented in" cell does not name a zig file: ${implemented.join(' | ')}`,
+    )
+    await dialectPage.click('[data-matrix-filter] [data-matrix-chip="jsx"]')
+    const visibleRows = await dialectPage.$$eval('[data-matrix-filter] tr[data-classification]', (rows) =>
+      rows.filter((row) => !row.hidden).map((row) => row.dataset.classification),
+    )
+    check(
+      visibleRows.length === 7 && visibleRows.every((area) => area === 'jsx'),
+      `architecture/yuku-dialect: filtering by JSX left ${visibleRows.length} rows (${[...new Set(visibleRows)].join(', ')}), expected 7 JSX rows`,
+    )
+    const matrixStatus = (
+      await dialectPage.textContent('[data-matrix-filter] [data-matrix-status]')
+    ).trim()
+    check(
+      matrixStatus.includes('Showing 7 of 20 hooks'),
+      `architecture/yuku-dialect: the status line reads "${matrixStatus}"`,
+    )
+    notes.push(`hook matrix: ${hookRowCount} rows, ${matrixStatus}`)
+
+    // ---- T025: measure in this tab ----
+    const benchPage = await context.newPage()
+    watch(benchPage, 'reference/benchmarks')
+    await benchPage.goto(`${origin}${basePath}/reference/benchmarks`, { waitUntil: 'load' })
+    const benchFigure = benchPage.locator('[data-bench-live]')
+    check(
+      (await benchFigure.count()) === 1,
+      'reference/benchmarks: the measure-in-this-tab figure is not on the page',
+    )
+    // The caveat is the reason this figure is allowed to exist next to a
+    // committed report, so it is checked before anything is measured.
+    const caveat = benchPage.locator('[data-bench-live] .bench-live-caveat')
+    check(
+      await caveat.isVisible(),
+      'reference/benchmarks: the non-comparability caveat is not visible',
+    )
+    check(
+      (await caveat.textContent()).includes('not comparable'),
+      'reference/benchmarks: the caveat does not say the two are not comparable',
+    )
+    // Nothing in this figure may repeat a number from the committed table.
+    const figureText = await benchFigure.textContent()
+    for (const committed of ['29,666', '103,075', '33,708', '9,702', '0.2878']) {
+      check(
+        !figureText.includes(committed),
+        `reference/benchmarks: the in-tab figure repeats ${committed} from the committed table`,
+      )
+    }
+    await benchFigure.scrollIntoViewIfNeeded()
+    await benchPage.waitForSelector('[data-bench-live][data-bench-state="idle"]', { timeout: 30_000 })
+    await benchPage.click('[data-bench-live] [data-bench-iterations="100"]')
+    await benchPage.click('[data-bench-live] [data-bench-run]')
+    await benchPage.waitForSelector('[data-bench-live][data-bench-state="ready"]', { timeout: 60_000 })
+    const measured = await benchPage.$$eval(
+      '[data-bench-live] [data-bench-median], [data-bench-live] [data-bench-p95], [data-bench-live] [data-bench-rate], [data-bench-live] [data-bench-throughput]',
+      (nodes) => nodes.map((node) => node.textContent.trim()),
+    )
+    check(
+      measured.length === 4 && measured.every((value) => /^\d/.test(value)),
+      `reference/benchmarks: the results are ${measured.join(' | ') || 'missing'}`,
+    )
+    const benchStatus = (
+      await benchPage.textContent('[data-bench-live] [data-ex-status]')
+    ).trim()
+    check(
+      benchStatus.includes('your machine'),
+      `reference/benchmarks: the status line does not say where it ran: ${benchStatus}`,
+    )
+    notes.push(`bench live: median ${measured[0]} ns, ${measured[2]} parses/s, ${benchStatus}`)
+
     // The router swaps the routed region in place, so the panel is torn down
     // and rebuilt without a page load. Both directions have to survive it.
     const spa = await context.newPage()

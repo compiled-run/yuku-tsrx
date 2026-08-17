@@ -25,6 +25,8 @@ section so you can read the whole file and its snapshot.
 | Submodule imports | `submodule-import.module.tsrx` |
 | Text entities | `text-entities.module.tsrx` |
 
+<!-- node-chips -->
+
 ## Code blocks
 
 A code block is `@{ }`. It lets statements and markup sit next to each other.

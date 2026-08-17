@@ -4,7 +4,7 @@ import { createHash } from 'node:crypto'
 import { cp, lstat, mkdir, readFile, readdir, realpath, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
-import { fileURLToPath } from 'node:url'
+import { fileURLToPath, pathToFileURL } from 'node:url'
 import { Marked } from 'marked'
 import { getDocsHighlighter, highlightWith } from './highlight.mjs'
 import config from './site.config.mjs'
@@ -297,7 +297,7 @@ function addGlossary(article) {
   })
 }
 
-function createMarked(slugger, headings) {
+function createMarked(slugger, headings, nodeChips = null) {
   const marked = new Marked()
   marked.use({
     renderer: {
@@ -330,7 +330,17 @@ function createMarked(slugger, headings) {
             : ''
         let body = highlightHtml(text, language)
         if (language === 'tsrx') body = addTsrxHovers(body)
-        return `<div class="code-block" data-lang="${escapeHtml(language)}">${body}${tryButton}</div>\n`
+        // On a page carrying the node-chips marker, every tsrx fence was handed
+        // to the parser before this renderer ran. A fence with no entry means
+        // the two disagree about what the fences are, which is a build failure
+        // rather than a fence that quietly loses its chips.
+        let chips = ''
+        if (nodeChips && language === 'tsrx') {
+          const entry = nodeChips.get(text)
+          if (!entry) throw new Error(`node chips: no parse for a tsrx fence starting ${text.split('\n')[0]}`)
+          chips = nodeChipsHtml(entry)
+        }
+        return `<div class="code-block" data-lang="${escapeHtml(language)}">${body}${tryButton}</div>\n${chips}`
       },
       link({ href, title, tokens }) {
         const text = this.parser.parseInline(tokens)
@@ -964,12 +974,23 @@ const HOOK_AREAS = {
 
 const EXPECTED_HOOK_COUNT = 20
 
+// The dialect files a hook body can hand the work to. A hook that names none of
+// them does the work where it is declared.
+const HOOK_MODULES = ['code_block', 'control_flow', 'jsx', 'modules', 'patterns', 'style', 'text']
+// `hookNode` and `decisionNode` are the two comptime wrappers every hook goes
+// through to turn a `Decision` into a node; they parse nothing, so a hook that
+// calls one of them has not thereby been implemented in this file. Every other
+// top-level `fn` in parser_extension.zig does real work, and a hook that calls
+// one is implemented there as well as in whatever module it also calls.
+const HOOK_DISPATCH_HELPERS = new Set(['hookNode', 'decisionNode'])
+
 // Read once per build, not per page: the file is the source of truth for the
 // chips, and reading it twice would only give two chances to disagree.
 async function readHooks() {
   const file = path.join(repoRoot, 'src', 'dialect', 'parser_extension.zig')
   const source = await readFile(file, 'utf8')
-  const names = [...source.matchAll(/^pub fn ([a-z_]+)\(/gm)].map((match) => match[1])
+  const declarations = [...source.matchAll(/^pub fn ([a-z_]+)\(/gm)]
+  const names = declarations.map((match) => match[1])
   if (names.length !== EXPECTED_HOOK_COUNT) {
     throw new Error(
       `src/dialect/parser_extension.zig declares ${names.length} hooks, expected ${EXPECTED_HOOK_COUNT}`,
@@ -979,6 +1000,23 @@ async function readHooks() {
   if (unmapped.length > 0) {
     throw new Error(`docs/build.mjs has no area for hook(s): ${unmapped.join(', ')}`)
   }
+  const locals = [...source.matchAll(/^fn ([A-Za-z_][A-Za-z0-9_]*)\(/gm)]
+    .map((match) => match[1])
+    .filter((name) => !HOOK_DISPATCH_HELPERS.has(name))
+  // A hook declaration runs to the next top-level `pub`, which is the next hook
+  // or the trailing `pub const`.
+  const boundaries = [...source.matchAll(/^pub /gm)].map((match) => match.index)
+  const hooks = declarations.map((declaration, index) => {
+    const start = declaration.index
+    const end = boundaries.find((offset) => offset > start) ?? source.length
+    const body = source.slice(start, end)
+    const files = HOOK_MODULES.filter((module) =>
+      new RegExp(`\\b${module}\\.[A-Za-z]`).test(body),
+    ).map((module) => `${module}.zig`)
+    const usesLocal = locals.some((name) => new RegExp(`\\b${name}\\(`).test(body))
+    if (files.length === 0 || usesLocal) files.push('parser_extension.zig')
+    return { name: declaration[1], area: HOOK_AREAS[declaration[1]], files, index }
+  })
   const groups = []
   for (const name of names) {
     const area = HOOK_AREAS[name]
@@ -986,7 +1024,7 @@ async function readHooks() {
     if (group) group.hooks.push(name)
     else groups.push({ area, hooks: [name] })
   }
-  return { names, groups }
+  return { names, groups, hooks }
 }
 
 const TSRX_NODE_TYPES = [
@@ -1084,6 +1122,409 @@ async function howItWorksMarkdown() {
     )
     .join('\n')
 }
+
+// ---------- the parser, running inside this build ----------
+// The chips under every example on guide/tsrx-syntax name node types the parser
+// produced for that example, so this build instantiates the same WebAssembly
+// module the site ships and asks it. It is the instantiation in
+// tools/wasm-smoke.mjs: same flag packing, same length-prefixed result, the same
+// generated decoder out of npm/yuku-tsrx. There is no fallback list and no
+// hand-written chip anywhere in this file: a build that cannot start the engine
+// has nothing truthful to print, so it fails instead.
+const BUILD_SOURCE_TYPES = ['script', 'module', 'commonjs']
+const BUILD_LANGS = ['js', 'ts', 'jsx', 'tsx', 'dts']
+
+function packBuildFlags({
+  sourceType = 'module',
+  lang = 'tsx',
+  preserveParens = true,
+  semanticErrors = true,
+} = {}) {
+  const sourceTypeIndex = BUILD_SOURCE_TYPES.indexOf(sourceType)
+  const langIndex = BUILD_LANGS.indexOf(lang)
+  if (sourceTypeIndex < 0) throw new Error(`unknown sourceType ${sourceType}`)
+  if (langIndex < 0) throw new Error(`unknown lang ${lang}`)
+  let flags = sourceTypeIndex
+  flags |= langIndex << 2
+  if (preserveParens) flags |= 1 << 5
+  if (semanticErrors) flags |= 1 << 6
+  return flags >>> 0
+}
+
+let buildEngine = null
+
+async function bootWasmForBuild() {
+  if (buildEngine) return buildEngine
+  const relative = path.relative(repoRoot, wasmPath)
+  let bytes
+  try {
+    bytes = await readFile(wasmPath)
+  } catch {
+    throw new Error(`missing ${relative}: run \`pnpm run docs:wasm\` first`)
+  }
+  let instance
+  try {
+    instance = new WebAssembly.Instance(new WebAssembly.Module(bytes), {})
+  } catch (error) {
+    throw new Error(`${relative} did not instantiate in Node: ${error.message}`)
+  }
+  for (const name of ['memory', 'alloc', 'free', 'parse']) {
+    if (!(name in instance.exports)) throw new Error(`${relative}: missing export \`${name}\``)
+  }
+  const { decode } = await import(
+    pathToFileURL(path.join(repoRoot, 'npm', 'yuku-tsrx', 'decode.js')).href
+  )
+  buildEngine = { exports: instance.exports, decode }
+  return buildEngine
+}
+
+const buildEncoder = new TextEncoder()
+
+// Every call may grow the memory, so each view is built from the current buffer.
+async function parseForBuild(source) {
+  const engine = await bootWasmForBuild()
+  const bytes = buildEncoder.encode(source)
+  const len = Math.max(bytes.length, 1)
+  const ptr = engine.exports.alloc(len)
+  if (ptr === 0) throw new Error('yuku-tsrx wasm: alloc returned 0')
+  new Uint8Array(engine.exports.memory.buffer, ptr, bytes.length).set(bytes)
+  let payload
+  try {
+    const result = engine.exports.parse(ptr, bytes.length, packBuildFlags())
+    if (result === 0) throw new Error('yuku-tsrx wasm: parse returned a null pointer')
+    const length = new DataView(engine.exports.memory.buffer).getUint32(result, true)
+    payload = engine.exports.memory.buffer.slice(result + 4, result + 4 + length)
+    engine.exports.free(result, 4 + length)
+  } finally {
+    engine.exports.free(ptr, len)
+  }
+  return engine.decode(payload, source)
+}
+
+// ---------- node-type chips (guide/tsrx-syntax) ----------
+// A page carrying `<!-- node-chips -->` gets, under every ```tsrx fence, the
+// TSRX node types the parser produced for that exact fence text. Two kinds of
+// answer are on the page, and both are read out of the decoded tree:
+//
+// - a record, which is a standalone TSRX node the dialect owns (schema.zig);
+// - an overlay, which is an ordinary Yuku node carrying a field the dialect
+//   added, so the chip names the node and the field rather than a type that
+//   does not exist.
+//
+// Nothing here inspects the source text for an `@`; every chip is a question
+// asked of a node the parser returned.
+const NODE_CHIPS_MARKER = '<!-- node-chips -->'
+const TSRX_RECORD_TYPES = new Set(TSRX_NODE_TYPES)
+
+const TSRX_OVERLAYS = [
+  {
+    chip: 'ForOfStatement.index',
+    title: 'the `; index <name>` clause, an extra field on an ordinary ForOfStatement',
+    test: (node) => node.type === 'ForOfStatement' && node.index != null,
+  },
+  {
+    chip: 'ForOfStatement.key',
+    title: 'the `; key <expr>` clause, an extra field on an ordinary ForOfStatement',
+    test: (node) => node.type === 'ForOfStatement' && node.key != null,
+  },
+  {
+    chip: 'ObjectPattern.lazy',
+    title: 'a `&{ }` pattern: the lazy marking sits on the ordinary ObjectPattern',
+    test: (node) => node.type === 'ObjectPattern' && node.lazy === true,
+  },
+  {
+    chip: 'ArrayPattern.lazy',
+    title: 'a `&[ ]` pattern: the lazy marking sits on the ordinary ArrayPattern',
+    test: (node) => node.type === 'ArrayPattern' && node.lazy === true,
+  },
+  {
+    chip: 'CatchClause.resetParam',
+    title: 'the second `@catch` parameter, an extra field on an ordinary CatchClause',
+    test: (node) => node.type === 'CatchClause' && node.resetParam != null,
+  },
+  {
+    chip: 'JSXOpeningElement.name',
+    title: 'a dynamic tag: the element name is a JSXExpressionContainer, not an identifier',
+    test: (node) =>
+      node.type === 'JSXOpeningElement' && node.name?.type === 'JSXExpressionContainer',
+  },
+  {
+    chip: 'ImportDeclaration.source',
+    title: 'a submodule import: the specifier is an identifier, not a string literal',
+    test: (node) => node.type === 'ImportDeclaration' && node.source?.type !== 'Literal',
+  },
+  {
+    chip: 'JSXText.value',
+    title: 'text entities decoded by the dialect, so value is not the source it came from',
+    test: (node, source) =>
+      node.type === 'JSXText' && node.value !== source.slice(node.start, node.end),
+  },
+]
+
+function walkTree(program, visit) {
+  const seen = new Set()
+  const step = (value) => {
+    if (value === null || typeof value !== 'object' || seen.has(value)) return
+    seen.add(value)
+    if (Array.isArray(value)) {
+      for (const child of value) step(child)
+      return
+    }
+    if (typeof value.type === 'string') visit(value)
+    for (const [key, child] of Object.entries(value)) {
+      if (key === 'comments') continue
+      step(child)
+    }
+  }
+  step(program)
+}
+
+function tsrxChips(program, source) {
+  const records = new Set()
+  const overlays = new Set()
+  walkTree(program, (node) => {
+    if (TSRX_RECORD_TYPES.has(node.type)) records.add(node.type)
+    for (const overlay of TSRX_OVERLAYS) {
+      if (overlay.test(node, source)) overlays.add(overlay.chip)
+    }
+  })
+  return [
+    ...TSRX_NODE_TYPES.filter((type) => records.has(type)).map((type) => ({
+      chip: type,
+      title: `a TSRX record node, declared in src/dialect/schema.zig`,
+    })),
+    ...TSRX_OVERLAYS.filter((overlay) => overlays.has(overlay.chip)),
+  ]
+}
+
+// One parse per fence, keyed by the exact fence text, so the renderer and the
+// Markdown twin cannot disagree and neither can invent a fence the parser was
+// never given.
+async function nodeChipEntries(body, sourcePath) {
+  const entries = new Map()
+  const fences = [...body.matchAll(/^```tsrx([^\n]*)\n([\s\S]*?)\n```$/gm)]
+  if (fences.length === 0) {
+    throw new Error(`${sourcePath}: the ${NODE_CHIPS_MARKER} marker is on a page with no tsrx fence`)
+  }
+  for (const [, info, code] of fences) {
+    if (entries.has(code)) continue
+    let result
+    try {
+      result = await parseForBuild(code)
+    } catch (error) {
+      throw new Error(`${sourcePath}: a tsrx fence did not parse in the build: ${error.message}`)
+    }
+    entries.set(code, {
+      chips: tsrxChips(result.program, code),
+      diagnostics: result.diagnostics,
+      invalid: /\bno-playground\b/.test(info),
+    })
+  }
+  return entries
+}
+
+function nodeChipsHtml(entry) {
+  const chips = entry.chips.map(
+    (chip) =>
+      `<span class="node-chip" title="${escapeHtml(chip.title)}"><code>${escapeHtml(chip.chip)}</code></span>`,
+  )
+  if (entry.diagnostics.length > 0) {
+    chips.push(
+      `<span class="node-chip node-chip-diag" title="${escapeHtml(
+        entry.diagnostics[0].message,
+      )}">${entry.diagnostics.length} diagnostic${entry.diagnostics.length === 1 ? '' : 's'}</span>`,
+    )
+  }
+  if (chips.length === 0) {
+    chips.push(
+      '<span class="node-chip node-chip-plain" title="the parser produced ordinary Yuku nodes for this example and no TSRX record or overlay">no TSRX-only nodes</span>',
+    )
+  }
+  return `<p class="node-chips" aria-label="TSRX node types the parser produced for this example">${chips.join(
+    '',
+  )}</p>\n`
+}
+
+function nodeChipsSentence(entry) {
+  const names = entry.chips.map((chip) => chip.chip)
+  const parts = []
+  parts.push(
+    names.length > 0
+      ? `The parser produced ${names.join(', ')} for this example.`
+      : 'The parser produced ordinary Yuku nodes for this example and no TSRX record or overlay.',
+  )
+  if (entry.diagnostics.length > 0) {
+    parts.push(
+      `${entry.diagnostics.length} diagnostic${entry.diagnostics.length === 1 ? '' : 's'}: ${entry.diagnostics[0].message}.`,
+    )
+  }
+  return `*${parts.join(' ')}*`
+}
+
+const NODE_CHIPS_NOTE =
+  'The chips under each example are the node types the parser produced for it. They are not written by hand: this page is built by handing every example below to the WebAssembly build of yuku-tsrx and reading the tree that comes back.'
+
+function nodeChipsMarkdown(body, entries) {
+  return body
+    .replace(NODE_CHIPS_MARKER, NODE_CHIPS_NOTE)
+    .replace(/^```tsrx([^\n]*)\n([\s\S]*?)\n```$/gm, (match, _info, code) => {
+      const entry = entries.get(code)
+      return entry ? `${match}\n\n${nodeChipsSentence(entry)}` : match
+    })
+}
+
+// ---------- extension-point matrix (architecture/yuku-dialect) ----------
+// `<!-- hook-matrix -->` before the twenty-hook table turns it into a table you
+// can filter by area, and adds the file each hook hands the work to. Both the
+// names and the files are read out of src/dialect/parser_extension.zig at build
+// time: if the table and the zig disagree on a name, or on how many there are,
+// the build stops rather than publishing a table that has drifted.
+const AREA_SLUGS = {
+  Statement: 'statement',
+  Expression: 'expression',
+  Pattern: 'pattern',
+  Function: 'function',
+  'For-of': 'for-of',
+  Module: 'module',
+  JSX: 'jsx',
+  Text: 'text',
+}
+
+function hookMatrixHtml(article, hooks, sourcePath) {
+  const marker = '<!-- hook-matrix -->'
+  const markerIndex = article.indexOf(marker)
+  const start = article.indexOf('<div class="table-wrap">', markerIndex)
+  const end = article.indexOf('</table></div>', start)
+  if (markerIndex === -1 || start === -1 || end === -1) {
+    throw new Error(`${sourcePath}: the ${marker} marker has no table after it`)
+  }
+  const table = article.slice(start, end)
+  const rows = [
+    ...table.matchAll(
+      /<tr>\s*<td[^>]*>([\s\S]*?)<\/td>\s*<td[^>]*>([\s\S]*?)<\/td>\s*<td[^>]*>([\s\S]*?)<\/td>\s*<\/tr>/g,
+    ),
+  ]
+  if (rows.length !== hooks.length) {
+    throw new Error(
+      `${sourcePath}: the hook table has ${rows.length} rows, but src/dialect/parser_extension.zig declares ${hooks.length} hooks`,
+    )
+  }
+  const body = rows.map(([, hookCell, areaCell, roleCell], index) => {
+    const hook = hooks[index]
+    const name = hookCell.replace(/<[^>]*>/g, '').trim()
+    if (name !== hook.name) {
+      throw new Error(
+        `${sourcePath}: row ${index + 1} of the hook table is \`${name}\`, but src/dialect/parser_extension.zig declares \`${hook.name}\` there`,
+      )
+    }
+    const area = areaCell.replace(/<[^>]*>/g, '').trim()
+    if (area !== hook.area) {
+      throw new Error(
+        `${sourcePath}: row ${index + 1} (\`${name}\`) is filed under ${area}, but docs/build.mjs files it under ${hook.area}`,
+      )
+    }
+    const slug = AREA_SLUGS[area]
+    if (!slug) throw new Error(`${sourcePath}: no chip slug for the area ${area}`)
+    const files = hook.files
+      .map((file) => `<code>${escapeHtml(file)}</code>`)
+      .join(' ')
+    return `<tr data-classification="${slug}"><td>${hookCell.trim()}</td><td><span class="matrix-badge matrix-badge-${slug}">${escapeHtml(
+      area,
+    )}</span></td><td>${files}</td><td>${roleCell.trim()}</td></tr>`
+  })
+  const counts = new Map()
+  for (const hook of hooks) counts.set(hook.area, (counts.get(hook.area) ?? 0) + 1)
+  const chips = [
+    `<button type="button" data-matrix-chip="all" aria-pressed="true">All <span class="matrix-count">${hooks.length}</span></button>`,
+    ...[...counts].map(
+      ([area, count]) =>
+        `<button type="button" data-matrix-chip="${AREA_SLUGS[area]}" aria-pressed="false"><span class="matrix-badge matrix-badge-${AREA_SLUGS[area]}" aria-hidden="true"></span>${escapeHtml(
+          area,
+        )} <span class="matrix-count">${count}</span></button>`,
+    ),
+  ].join('\n    ')
+  const replacement = `<div class="matrix-filter" data-matrix-filter data-matrix-noun="hooks">
+  <div class="matrix-chips" role="group" aria-label="Filter the extension points by the area of the grammar they sit in">
+    ${chips}
+  </div>
+  <p class="matrix-status" data-matrix-status aria-live="polite">Showing all ${hooks.length} hooks.</p>
+  <div class="table-wrap"><table>
+<thead><tr><th>Hook</th><th>Area</th><th>Implemented in</th><th>Where TSRX gets a say</th></tr></thead>
+<tbody>
+${body.join('\n')}
+</tbody></table></div>
+</div>`
+  return (
+    article.slice(0, markerIndex) +
+    article.slice(markerIndex + marker.length, start) +
+    replacement +
+    article.slice(end + '</table></div>'.length)
+  )
+}
+
+const hookMatrixTwin =
+  'On the site this table is filterable by area, and the build adds a column naming the file in `src/dialect/` each hook hands the work to, read out of `src/dialect/parser_extension.zig`.'
+
+// ---------- measure in this tab (reference/benchmarks) ----------
+// A figure that parses a sample in the reader's own tab, N times, and prints
+// what it measured. It is deliberately its own section, under its own heading,
+// with the caveat above the numbers rather than under them: this is the
+// WebAssembly build on one small sample in a browser, and the table further up
+// this page is the native addon on a 224-file corpus in a fresh child process
+// per sample. Putting the two side by side would invite a comparison the data
+// does not support, so this figure never repeats a number from the report.
+const BENCH_ITERATIONS = [100, 500, 2000]
+const BENCH_DEFAULT_ITERATIONS = 500
+const BENCH_CAVEAT =
+  'This runs the WebAssembly build of yuku-tsrx (ReleaseSmall) on one small sample in your browser. What it times is <code>parse()</code>, which includes decoding the result into JavaScript objects, and it times batches of them because a browser clock is deliberately too coarse to resolve a single parse. The report above measured the native Node addon on a 224-file corpus, in a fresh child process per sample, timing the parse loop alone. The two are not comparable: this figure exists so you can watch the parser work, not to reproduce the report.'
+
+function benchLiveHtml(fixtures) {
+  const samples = { hero: { label: 'Hero snippet', source: heroCode } }
+  for (const fixture of FIXTURES) {
+    // The invalid fixture is on the page to show diagnostics, and timing a
+    // rejected parse would measure the error path rather than the parser.
+    if (fixture.id === 'control-flow-switch-invalid') continue
+    samples[fixture.id] = { label: fixture.label, source: fixtures[fixture.id].source }
+  }
+  const sampleChips = Object.entries(samples)
+    .map(
+      ([id, sample], index) =>
+        `<button type="button" data-bench-sample="${id}" aria-pressed="${index === 0}">${escapeHtml(
+          sample.label,
+        )} <span class="matrix-count">${buildEncoder.encode(sample.source).length} B</span></button>`,
+    )
+    .join('\n      ')
+  const iterationChips = BENCH_ITERATIONS.map(
+    (count) =>
+      `<button type="button" data-bench-iterations="${count}" aria-pressed="${
+        count === BENCH_DEFAULT_ITERATIONS
+      }">${count}</button>`,
+  ).join('\n      ')
+  const json = JSON.stringify(samples).replaceAll('<', '\\u003c')
+  return `<figure class="explorer ex-figure bench-live" data-bench-live>
+  <p class="bench-live-caveat">${BENCH_CAVEAT}</p>
+  <div class="ex-controls">
+    <div class="ex-chip-group" role="group" aria-label="Sample to parse">
+      <span class="ex-chip-label">Sample</span>
+      ${sampleChips}
+    </div>
+    <div class="ex-chip-group" role="group" aria-label="Parses per run">
+      <span class="ex-chip-label">Iterations</span>
+      ${iterationChips}
+    </div>
+    <div class="ex-chip-group">
+      <button type="button" class="bench-run" data-bench-run disabled>Run</button>
+    </div>
+  </div>
+  <div class="ex-out" data-ex-out><p class="ex-note">Nothing has been measured yet. The parser loads when this figure scrolls into view, and runs when you press Run.</p></div>
+  <figcaption class="ex-status" data-ex-status aria-live="polite">the parser runs in your browser; with JavaScript off this figure measures nothing and says so</figcaption>
+  <script type="application/json" data-bench-samples>${json}</script>
+</figure>
+`
+}
+
+const benchLiveTwin =
+  'On the site this is an interactive figure: it parses one of these samples in your browser as many times as you ask and prints the median, the p95, parses per second and MB per second it measured. Those numbers are not comparable with the table above, which measured the native addon on a 224-file corpus.'
 
 // Each project's own mark, as the single-path glyphs published by Simple Icons
 // (CC0; the marks themselves stay their owners' trademarks and are used here to
@@ -1602,7 +2043,10 @@ async function build() {
       description: data.description || '',
     }
     const headings = []
-    const marked = createMarked(makeSlugger(), headings)
+    const nodeChips = body.includes(NODE_CHIPS_MARKER)
+      ? await nodeChipEntries(body, sourcePath)
+      : null
+    const marked = createMarked(makeSlugger(), headings, nodeChips)
     let article = marked.parse(body)
     article = article
       .replaceAll('<table>', '<div class="table-wrap"><table>')
@@ -1636,6 +2080,18 @@ async function build() {
     if (article.includes('<!-- chooser -->')) {
       article = chooserHtml(article)
       exportedBody = exportedBody.replace('<!-- chooser -->', chooserTwin)
+    }
+    if (nodeChips) {
+      article = article.replace(NODE_CHIPS_MARKER, `<p class="node-chips-note">${NODE_CHIPS_NOTE}</p>`)
+      exportedBody = nodeChipsMarkdown(exportedBody, nodeChips)
+    }
+    if (article.includes('<!-- hook-matrix -->')) {
+      article = hookMatrixHtml(article, (await readHooks()).hooks, sourcePath)
+      exportedBody = exportedBody.replace('<!-- hook-matrix -->', hookMatrixTwin)
+    }
+    if (article.includes('<!-- bench-live -->')) {
+      article = article.replace('<!-- bench-live -->', benchLiveHtml(await readFixtures()))
+      exportedBody = exportedBody.replace('<!-- bench-live -->', benchLiveTwin)
     }
     article = addGlossary(article)
     searchDocs.push(...extractSections(new Marked(), exportedBody, page))

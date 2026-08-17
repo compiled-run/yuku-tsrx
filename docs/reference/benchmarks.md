@@ -65,6 +65,14 @@ the corpus and its manifest, the SHA-256 of each file in the npm package, and
 the SHA-256 of the native addon, so a rerun can be checked against exactly the
 inputs this one used.
 
+## Measure in this tab
+
+The numbers above were measured once, on one machine. This figure measures a
+different thing, in a different place: the WebAssembly build of the same parser,
+running in your browser, on one small sample.
+
+<!-- bench-live -->
+
 ## What this is not
 
 One benchmark, on one corpus, on one machine, on one day. Treat it as one
