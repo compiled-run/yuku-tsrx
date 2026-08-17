@@ -5,7 +5,7 @@ goal:
   slug: yuku-tsrx-docs-site
   kind: specific
   tranche: "tranche 2 (owner follow-up 2026-08-17): re-color to Yuku gold; serve at compiled.run/yuku-tsrx with a link from the compiled.run home; add real interactivity (editable hero editor and playground backed by a wasm build of the dialect); final audit"
-  status: blocked
+  status: active
   oracle:
     signal: A production Vercel URL for yuku-tsrx serves a docs site whose structure, components, and styling match compiled.run/oxc-tsrx, with a re-colored logo bearing the yuku-tsrx wordmark, whose guides cover the parser, analyzer, and codegen (not lint/format), and whose every stated fact is checkable in the yuku-tsrx repo; the local docs build passes; README.md is materially shorter than 143 lines with the same facts.
     cadence: after each Worker package and at final audit
@@ -62,7 +62,7 @@ visual_board:
     status: live
     url: http://goalbuddy.localhost:41737/yuku-tsrx-docs-site/
     command: node /Users/jacksm5pro/.claude/skills/goal-prep/surfaces/local-goal-board/scripts/local-goal-board.mjs --goal docs/goals/yuku-tsrx-docs-site
-active_task: null
+active_task: T999
 tasks:
   - id: T001
     type: scout
@@ -695,7 +695,7 @@ tasks:
   - id: T013
     type: worker
     assignee: Worker
-    status: active
+    status: blocked
     reasoning_hint: default
     objective: "After the owner merges compiled-run/oxc-tsrx PR #24 and CI deploys: confirm https://compiled.run/yuku-tsrx and https://compiled.run/yuku-tsrx/guide/introduction return 200 and https://compiled.run/ links /yuku-tsrx; then set docs/site.config.mjs origin to https://compiled.run, rebuild, redeploy yuku-tsrx-docs to production, and update README.md docs links from yuku-tsrx-docs.vercel.app/yuku-tsrx to compiled.run/yuku-tsrx."
     allowed_files:
@@ -714,7 +714,18 @@ tasks:
     stop_if:
       - "compiled.run/yuku-tsrx is not 200 (PR #24 not merged or CI not finished); stop and report, do not change origin."
       - Verification fails twice.
-    receipt: null
+    receipt:
+      result: blocked
+      task_id: T013
+      harness: claude-code
+      blocked_reason: "Depends on compiled-run/oxc-tsrx PR #24 being merged so CI deploys the compiled.run rewrite; the PM session cannot merge PRs. Once compiled.run/yuku-tsrx returns 200, this task switches docs/site.config.mjs origin to https://compiled.run, rebuilds, redeploys, and repoints README links."
+      changed_files: []
+      commands:
+        - cmd: curl -s -o /dev/null -w '%{http_code}' https://compiled.run/yuku-tsrx
+          status: fail
+      summary: Waiting on owner merge of https://github.com/compiled-run/oxc-tsrx/pull/24.
+      waiting_for_user_approval: true
+      required_reply: merge https://github.com/compiled-run/oxc-tsrx/pull/24
   - id: T018
     type: worker
     assignee: Worker
@@ -934,7 +945,7 @@ tasks:
   - id: T999
     type: judge
     assignee: Judge
-    status: queued
+    status: active
     reasoning_hint: high
     objective: "Final audit: map receipts and verification back to the original outcome (site cloned and re-skinned, parser/analyzer/codegen focus, README trimmed, production deploy live) and record full_outcome_complete."
     inputs:
