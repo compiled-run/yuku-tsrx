@@ -62,7 +62,7 @@ visual_board:
     status: live
     url: http://goalbuddy.localhost:41737/yuku-tsrx-docs-site/
     command: node /Users/jacksm5pro/.claude/skills/goal-prep/surfaces/local-goal-board/scripts/local-goal-board.mjs --goal docs/goals/yuku-tsrx-docs-site
-active_task: T026
+active_task: T999
 tasks:
   - id: T001
     type: scout
@@ -1165,11 +1165,11 @@ tasks:
         - docs/goals/yuku-tsrx-docs-site/notes/T027-analyzer.png
         - docs/goals/yuku-tsrx-docs-site/notes/T027-codegen.png
       commands:
-        - cmd: "pnpm run docs:build; markers rendered on parser/analyzer/codegen; 4 gate cards"
+        - cmd: pnpm run docs:build; markers rendered on parser/analyzer/codegen; 4 gate cards
           status: pass
-        - cmd: "node docs/verify-playground.mjs (local and --url production)"
+        - cmd: node docs/verify-playground.mjs (local and --url production)
           status: pass
-        - cmd: "deploy --prod"
+        - cmd: deploy --prod
           status: pass
         - cmd: "PM reviewed T027-analyzer.png: real symbol explorer, references lit, honest unresolved count"
           status: pass
@@ -1234,15 +1234,15 @@ tasks:
       commands:
         - cmd: "pnpm run docs:transcripts (zig build, ls, zig build test, zig build wasm, wasm-smoke all exit 0; pnpm test dropped: exit 1 on 2 stale m1 controls, stated on page)"
           status: pass
-        - cmd: "pnpm run docs:build (20 hooks read from parser_extension.zig)"
+        - cmd: pnpm run docs:build (20 hooks read from parser_extension.zig)
           status: pass
-        - cmd: "node docs/verify-playground.mjs local + --url production"
+        - cmd: node docs/verify-playground.mjs local + --url production
           status: pass
-        - cmd: "deploy --prod"
+        - cmd: deploy --prod
           status: pass
         - cmd: "PM reviewed T024-getting-started.png: chooser + playing captured transcript with dated caption"
           status: pass
-      summary: "Getting-started chooser (three routes), two playable terminal demos from real captured transcripts (docs/transcripts JSON, dated, no edits, failing pnpm test dropped and stated), and a five-step how-it-works on the introduction with the 20 hook chips read from parser_extension.zig. interactive.js restored with a lazy import; a real production race (chooser clicked before its module loaded) fixed in the verifier."
+      summary: Getting-started chooser (three routes), two playable terminal demos from real captured transcripts (docs/transcripts JSON, dated, no edits, failing pnpm test dropped and stated), and a five-step how-it-works on the introduction with the 20 hook chips read from parser_extension.zig. interactive.js restored with a lazy import; a real production race (chooser clicked before its module loaded) fixed in the verifier.
   - id: T025
     type: worker
     assignee: Worker
@@ -1298,19 +1298,19 @@ tasks:
         - docs/goals/yuku-tsrx-docs-site/notes/T025-matrix.png
         - docs/goals/yuku-tsrx-docs-site/notes/T025-bench.png
       commands:
-        - cmd: "pnpm run docs:build with bootWasmForBuild (chips under 19 fences, real diagnostic counts on the 3 invalid ones); hook matrix 20 rows validated against parser_extension.zig"
+        - cmd: pnpm run docs:build with bootWasmForBuild (chips under 19 fences, real diagnostic counts on the 3 invalid ones); hook matrix 20 rows validated against parser_extension.zig
           status: pass
-        - cmd: "node docs/verify-playground.mjs local + --url production"
+        - cmd: node docs/verify-playground.mjs local + --url production
           status: pass
-        - cmd: "deploy --prod"
+        - cmd: deploy --prod
           status: pass
         - cmd: "PM reviewed T025-matrix.png: filterable 20-hook matrix with Implemented-in from source"
           status: pass
-      summary: "Node-type chips computed by running the wasm inside the static build under every syntax fence; the twenty-hook filterable matrix on Architecture with the implementing file derived from source; Measure-in-this-tab on Benchmarks in its own figure with the not-comparable caveat, batching parses because a browser clock cannot resolve one."
+      summary: Node-type chips computed by running the wasm inside the static build under every syntax fence; the twenty-hook filterable matrix on Architecture with the implementing file derived from source; Measure-in-this-tab on Benchmarks in its own figure with the not-comparable caveat, batching parses because a browser clock cannot resolve one.
   - id: T026
     type: judge
     assignee: Judge
-    status: active
+    status: done
     reasoning_hint: high
     objective: "On the production URL, prove each kept component against notes/T022-guide-interactivity-spec.md: home shows four computed cards matching a fresh read of benchmarks/m6-baseline.json (3.47x, 33,708, 32.3 MB/s, 15% less) with the one-machine caption and the fuel race; parser AST explorer hover highlights both ways; analyzer symbol click lights declaration and references and the scope tree exists; codegen toggles change real output and shortest is disabled with the reason; introduction how-it-works has five steps with 20 hook chips from the zig; getting-started chooser has three routes and both transcripts play, are dated, every entry exit 0 and matches docs/transcripts JSON; tsrx-syntax chips under every fence naming the right node types for at least three constructs; hook matrix 20 rows, filters by area, Implemented-in agrees with parser_extension.zig on a five-hook spot check; benchmarks Measure-in-this-tab runs with the caveat; buttons vertically centered in Safari-equivalent\
       \ measurement (inline-flex); styled scrollbars on demo panes; no oxlint/oxfmt/linter/formatter claims; no em dashes; docs/verify-playground.mjs --url passes with 0 console errors; guide page weight before/after wasm fetch recorded. Decide pass or name a fix package; then hand to T013/T999."
@@ -1322,11 +1322,43 @@ tasks:
       - Do not implement.
     expected_output:
       - pass | defects with fix package
-    receipt: null
+    receipt:
+      result: done
+      harness: claude-code
+      decision: defects
+      full_outcome_complete: false
+      rationale: "Production proves every kept T022 component and every owner ask (cards from a fresh m6 read, fuel race 28.8%/100%, band 604px side by side, buttons flex/center, styled scrollbars, AST hover both ways, symbol click, codegen toggles with shortest disabled, 5 steps and 20 chips, chooser and dated transcripts equal to JSON, 19/19 chip rows agree with the wasm in Node, matrix 20 rows and Implemented-in agrees, bench-live with caveat, no em dashes, verifier --url 0 errors). One blocking defect: analyzer sample referenced a @{ }-block const outside its block and the prose blamed a @for index; fixed by PM as T028 (only reset unresolved now, verified in Node). Cosmetic: codegen comments none vs some indistinguishable on the sample; minify implies shortest only in a tooltip; analyzer pane clips long lines."
+      measurements:
+        home_transfer_bytes: 425727
+        guide_bytes_before_wasm: 126347
+        guide_bytes_after_wasm: 427493
+      spawned_tasks:
+        - T028
+      note: notes/T026-audit.md
+  - id: T028
+    type: pm
+    assignee: PM
+    status: done
+    reasoning_hint: default
+    objective: "Fix package from the T026 audit: make the analyzer symbol-explorer sample and its paragraph agree with what analyze() returns."
+    allowed_files:
+      - docs/guide/analyzer.md
+      - docs/dist/**
+    receipt:
+      result: done
+      harness: claude-code
+      changed_files:
+        - docs/guide/analyzer.md
+      commands:
+        - cmd: "node analyze on the shipped sample: resolved items,total,items,item,error; unresolved reset only"
+          status: pass
+        - cmd: node tools/wasm-smoke.mjs --fences; pnpm run docs:build; verifier local + --url; deploy --prod
+          status: pass
+      summary: Sample now reads total inside its @{ } block (block scoped const), the paragraph names reset as the one unresolved reference and explains why (no symbol yet for the second @catch parameter); the earlier @for-index claim was wrong and is gone.
   - id: T999
     type: judge
     assignee: Judge
-    status: queued
+    status: active
     reasoning_hint: high
     objective: "Final audit: map receipts and verification back to the original outcome (site cloned and re-skinned, parser/analyzer/codegen focus, README trimmed, production deploy live) and record full_outcome_complete."
     inputs:

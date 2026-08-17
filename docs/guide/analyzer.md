@@ -75,16 +75,22 @@ asks "where is this defined" gets the wrong answer.
 
 Click a symbol below to light its declaration and every reference the analyzer
 resolved to it, and hover a scope to outline the span it covers. The status
-line counts what did not resolve too: today the analyzer creates no symbol for
-the second `@catch` parameter or for a `@for` `index` binding, so references to
-those show as unresolved rather than being hidden.
+line counts what did not resolve too. In this sample exactly one reference is
+unresolved: `reset`. The analyzer creates a symbol for the first `@catch`
+parameter (`error`) but not yet for the second, so the `onClick={reset}`
+reference has nothing to point at, and the figure shows that rather than hiding
+it. A `const` declared in a `@{ }` block is block scoped, so the sample reads
+`total` inside that block.
 
 <!-- symbol-explorer -->
 ```tsrx
 export function Cart({ items }) {
-  @{ const total = items.length; }
+  @{
+    const total = items.length;
+    const label = total === 1 ? "item" : "items";
+  }
   return (
-    <ul class="cart" data-count={total}>
+    <ul class="cart">
       @try {
         @for (const item of items; index i; key item.id) {
           <li>{item.label}</li>
