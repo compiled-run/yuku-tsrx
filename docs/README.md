@@ -56,3 +56,17 @@ The site is served under a base path, so pages land in
 Alongside each page the build writes a `.md` twin (used by the copy-page
 button), plus `search-index.json`, `llms.txt`, `llms-full.txt` and
 `sitemap.xml`.
+
+## Deploy
+
+The site is a static upload to the Vercel project `yuku-tsrx-docs` in scope
+`jack-shelton`, live at <https://yuku-tsrx-docs.vercel.app/yuku-tsrx>.
+
+```sh
+pnpm run docs:build
+vercel link --cwd docs/dist --project yuku-tsrx-docs --scope jack-shelton --yes
+vercel deploy --cwd docs/dist --prod --yes --scope jack-shelton
+```
+
+Link after building, not before: the build empties `dist/`, which removes the
+`dist/.vercel/` link file written by `vercel link`.

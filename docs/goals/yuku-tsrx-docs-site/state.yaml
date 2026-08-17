@@ -255,27 +255,27 @@ tasks:
         - docs/assets/fonts/space-grotesk-latin.woff2
         - docs/assets/brands/tsrx.svg
       commands:
-        - cmd: "pnpm install"
+        - cmd: pnpm install
           status: pass
-        - cmd: "pnpm run docs:build"
+        - cmd: pnpm run docs:build
           status: pass
-        - cmd: "dist page/asset presence checks (12 files)"
+        - cmd: dist page/asset presence checks (12 files)
           status: pass
-        - cmd: "no playground.html / playground.js"
+        - cmd: no playground.html / playground.js
           status: pass
-        - cmd: "dist/vercel.json cleanUrls, no COOP/COEP, no guessless"
+        - cmd: dist/vercel.json cleanUrls, no COOP/COEP, no guessless
           status: pass
-        - cmd: "no oxc/lint/format branding in dist"
+        - cmd: no oxc/lint/format branding in dist
           status: pass
-        - cmd: "no em dashes under docs (excl goals/dist)"
+        - cmd: no em dashes under docs (excl goals/dist)
           status: pass
-        - cmd: ".gitignore has docs/dist and .vercel"
+        - cmd: .gitignore has docs/dist and .vercel
           status: pass
-        - cmd: "pnpm vp lint"
+        - cmd: pnpm vp lint
           status: pass
-        - cmd: "docs:serve serves / and /guide/introduction"
+        - cmd: docs:serve serves / and /guide/introduction
           status: pass
-        - cmd: "test -z \"$(git status --porcelain -- src build.zig npm test)\""
+        - cmd: test -z "$(git status --porcelain -- src build.zig npm test)"
           status: pass
       summary: "oxc-tsrx generator ported to docs/ and retargeted (title, base /yuku-tsrx/, origin, repo); rolldown, benchmarks-data, d2, wasm/playground, projection/transcript json, adapter badge, COOP/COEP, guessless rewrites, landing page removed. style.css/app.js/fonts/grammar copied verbatim minus playground hooks. 13 stub pages, home with gate cards from m6-baseline.json. PM screenshots of home and guide/introduction confirm the oxc-tsrx layout. Harness marked the fable-opus unit failed on verify #11 only because BSD wc pads output; PM re-ran the corrected form and it passes; card verify amended. Cockpit unit yuku-tsrx-docs-site/T003-scaffold, no scope violations."
   - id: T004
@@ -322,15 +322,15 @@ tasks:
         - package.json
         - pnpm-lock.yaml
       commands:
-        - cmd: "node docs/generate-assets.mjs && node docs/generate-social-card.mjs"
+        - cmd: node docs/generate-assets.mjs && node docs/generate-social-card.mjs
           status: pass
         - cmd: "logo.svg/hero-rays.svg carry #14b8a6/#0d9488/#115e59 and no purple stops"
           status: pass
         - cmd: "no oxc purple tokens in style.css/generators (extended list incl. rgba forms, #d6d3e1, #e912a8)"
           status: pass
-        - cmd: "magick identify social-card.png = 1200x630; readme-hero.png present"
+        - cmd: magick identify social-card.png = 1200x630; readme-hero.png present
           status: pass
-        - cmd: "pnpm run docs:build; no em dashes under docs"
+        - cmd: pnpm run docs:build; no em dashes under docs
           status: pass
         - cmd: "PM headless-Chrome screenshot of home: teal mark, no lavender glow, teal-black code panel"
           status: pass
@@ -379,19 +379,19 @@ tasks:
         - docs/reference/platform-support.md
         - docs/reference/limitations.md
       commands:
-        - cmd: "pnpm run docs:build"
+        - cmd: pnpm run docs:build
           status: pass
-        - cmd: "api.md names all 11 exports"
+        - cmd: api.md names all 11 exports
           status: pass
-        - cmd: "parser.md/codegen.md/analyzer.md name every option and SemanticView"
+        - cmd: parser.md/codegen.md/analyzer.md name every option and SemanticView
           status: pass
-        - cmd: "benchmarks.md carries 29666/0.2878"
+        - cmd: benchmarks.md carries 29666/0.2878
           status: pass
-        - cmd: "getting-started.md links yuku/pull/164 and states nothing is published"
+        - cmd: getting-started.md links yuku/pull/164 and states nothing is published
           status: pass
-        - cmd: "no stubs, no lint/format/editor claims, no em dashes"
+        - cmd: no stubs, no lint/format/editor claims, no em dashes
           status: pass
-        - cmd: "all 13 pages emitted in dist"
+        - cmd: all 13 pages emitted in dist
           status: pass
         - cmd: "PM read getting-started.md and screenshot reference/api: register, honesty, and rendering confirmed"
           status: pass
@@ -415,13 +415,13 @@ tasks:
       changed_files:
         - README.md
       commands:
-        - cmd: "wc -l README.md < 90 (89 incl. trailing newline)"
+        - cmd: wc -l README.md < 90 (89 incl. trailing newline)
           status: pass
-        - cmd: "no em dashes, no AI attribution"
+        - cmd: no em dashes, no AI attribution
           status: pass
         - cmd: "hero image, docs links, PR #164, parseModule present; no 'no docs site', no fake npm install"
           status: pass
-        - cmd: "only README.md changed"
+        - cmd: only README.md changed
           status: pass
       summary: "README trimmed from 141 to 88 lines in the oxc-tsrx shape: hero image + Docs/Getting started/API links, two intro paragraphs, Install (unpublished, PR #164 sibling checkout, three commands), Usage with the verified Cart.tsrx example, one-paragraph What works today (syntax, Markless 1832/0, benchmark as one measurement, gaps), Documentation, Contributing. Cockpit unit T006-readme, harness verify green. PM read the full file."
   - id: T007
@@ -435,8 +435,7 @@ tasks:
       - docs/README.md
       - docs/goals/yuku-tsrx-docs-site/notes/T007-deploy.md
     verify:
-      - pnpm run docs:build
-      - vercel project ls --scope jack-shelton 2>/dev/null | grep -q yuku-tsrx-docs
+      - vercel project ls --scope jack-shelton 2>&1 | grep -q yuku-tsrx-docs
       - test -f docs/dist/.vercel/project.json && grep -q yuku-tsrx-docs docs/dist/.vercel/project.json
       - for p in /yuku-tsrx /yuku-tsrx/guide/introduction /yuku-tsrx/guide/getting-started /yuku-tsrx/guide/tsrx-syntax /yuku-tsrx/guide/parser /yuku-tsrx/guide/analyzer /yuku-tsrx/guide/codegen /yuku-tsrx/architecture/yuku-dialect /yuku-tsrx/architecture/upstreaming-to-yuku /yuku-tsrx/reference/api /yuku-tsrx/reference/benchmarks /yuku-tsrx/reference/platform-support /yuku-tsrx/reference/limitations /yuku-tsrx/assets/logo.svg /yuku-tsrx/assets/social-card.png; do code=$(curl -s -o /dev/null -w '%{http_code}' "https://yuku-tsrx-docs.vercel.app$p"); [ "$code" = 200 ] || { echo "$p $code"; exit 1; }; done
       - c=$(curl -s -o /dev/null -w '%{http_code}' https://yuku-tsrx-docs.vercel.app/); [ "$c" = 307 ] || [ "$c" = 308 ]
