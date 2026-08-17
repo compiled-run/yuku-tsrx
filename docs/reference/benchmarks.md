@@ -24,7 +24,10 @@ That file is committed, so you can check any of them.
 
 Read as a sentence: median 29.7 microseconds per parse for yuku-tsrx against
 103.1 for `@tsrx/core`, a ratio of 0.288, and peak resident memory 0.85 times
-`@tsrx/core`'s.
+`@tsrx/core`'s. The same four numbers the home page prints, from this table:
+3.47 times faster on the median parse, 33,708 parses per second against 9,702,
+32.3 MB/s of source against 9.3 MB/s, and 15% less peak memory. MB here means
+1,000,000 bytes.
 
 The report's `valid` field is `true`, which is the harness's own statement that
 the run met its noise conditions.

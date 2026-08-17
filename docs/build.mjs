@@ -627,6 +627,138 @@ function disclosureMarkdown(body) {
   )
 }
 
+// ---------- engine-backed guide figures ----------
+// A marker on its own line, immediately followed by a ```tsrx fence, becomes a
+// figure that docs/assets/yuku-explorers.js drives with the WebAssembly build
+// of the dialect running in the reader's tab. The build ships the fence and the
+// panes; it never ships an answer. Nothing on the page is a recorded or
+// approximated engine result, so with JavaScript off, or with the module
+// unable to start, the figure stays the highlighted fence and says so.
+const GUIDE_FIGURES = {
+  'ast-explorer': {
+    attribute: 'data-ast-explorer',
+    className: 'ast-explorer',
+    panes: ['Source', 'AST'],
+    idleNote: 'The parser runs when this figure scrolls into view.',
+    idleStatus:
+      'the parser runs in your browser when this figure scrolls into view; with JavaScript off this stays the listing above',
+    twin: 'On the site this is an interactive figure: the parser runs in your browser and hovering a node highlights the source it came from.',
+  },
+  'symbol-explorer': {
+    attribute: 'data-symbol-explorer',
+    className: 'symbol-explorer',
+    panes: ['Source', 'Symbols'],
+    idleNote: 'The analyzer runs when this figure scrolls into view.',
+    idleStatus:
+      'the analyzer runs in your browser when this figure scrolls into view; with JavaScript off this stays the listing above',
+    twin: 'On the site this is an interactive figure: the analyzer runs in your browser and clicking a symbol lights its declaration and every reference to it.',
+  },
+  'codegen-walkthrough': {
+    attribute: 'data-codegen-walkthrough',
+    className: 'codegen-walkthrough',
+    panes: ['Source', 'Generated'],
+    idleNote: 'The generator runs when this figure scrolls into view.',
+    idleStatus:
+      'the generator runs in your browser when this figure scrolls into view; with JavaScript off this stays the listing above',
+    twin: 'On the site this is an interactive figure: every option below is a control, and the output is what the generator running in your browser returns for it.',
+  },
+}
+
+const FIGURE_MARKER = /<!-- (ast-explorer|symbol-explorer|codegen-walkthrough) -->/g
+const FIGURE_WITH_FENCE =
+  /<!-- (ast-explorer|symbol-explorer|codegen-walkthrough) -->\n+```tsrx[^\n]*\n([\s\S]*?)\n```/g
+
+// The fence text is taken from the Markdown, not read back out of the rendered
+// HTML, so the string the figure hands to the engine is byte for byte the one
+// `node tools/wasm-smoke.mjs --fences` proved parses clean.
+function collectFigureSources(body, sourcePath) {
+  // matchAll copies the source regex's lastIndex, and these two are module
+  // level, so both are rewound before every use.
+  FIGURE_MARKER.lastIndex = 0
+  FIGURE_WITH_FENCE.lastIndex = 0
+  const markers = [...body.matchAll(FIGURE_MARKER)]
+  const withFence = [...body.matchAll(FIGURE_WITH_FENCE)]
+  if (markers.length !== withFence.length) {
+    throw new Error(
+      `${sourcePath}: a guide figure marker is not followed by a \`\`\`tsrx fence (${markers.length} markers, ${withFence.length} usable)`,
+    )
+  }
+  return withFence.map((match) => ({ kind: match[1], source: match[2] }))
+}
+
+// The rendered fence is one `<div class="code-block">`; find where it closes so
+// the figure can wrap it whole, shiki spans, hovers, try button and all.
+function codeBlockEnd(html, start) {
+  const tag = /<div\b|<\/div>/g
+  tag.lastIndex = start
+  let depth = 0
+  let match
+  while ((match = tag.exec(html)) !== null) {
+    if (match[0] === '</div>') {
+      depth -= 1
+      if (depth === 0) return tag.lastIndex
+    } else {
+      depth += 1
+    }
+  }
+  return -1
+}
+
+function guideFigureHtml(kind, source, blockHtml) {
+  const spec = GUIDE_FIGURES[kind]
+  return `<figure class="explorer ex-figure ${spec.className}" ${spec.attribute} data-source="${escapeHtml(source)}">
+  <div class="projection-map-panes">
+    <div class="projection-map-pane">
+      <h3>${spec.panes[0]}</h3>
+      <div class="ex-source-host" data-ex-source>${blockHtml}</div>
+      <div class="explorer-diagnostics" data-ex-diagnostics></div>
+    </div>
+    <div class="projection-map-pane">
+      <h3>${spec.panes[1]}</h3>
+      <div class="ex-out" data-ex-out><p class="ex-note">${spec.idleNote}</p></div>
+    </div>
+  </div>
+  <div class="ex-controls" data-ex-controls></div>
+  <figcaption class="ex-status" data-ex-status aria-live="polite">${spec.idleStatus}</figcaption>
+</figure>
+`
+}
+
+function renderGuideFigures(article, sources, sourcePath) {
+  let out = ''
+  let cursor = 0
+  let index = 0
+  FIGURE_MARKER.lastIndex = 0
+  let match
+  while ((match = FIGURE_MARKER.exec(article)) !== null) {
+    const blockStart = article.indexOf('<div class="code-block"', match.index)
+    const blockEnd = blockStart === -1 ? -1 : codeBlockEnd(article, blockStart)
+    if (blockEnd === -1) {
+      throw new Error(`${sourcePath}: the <!-- ${match[1]} --> marker has no rendered fence after it`)
+    }
+    const entry = sources[index]
+    if (!entry || entry.kind !== match[1]) {
+      throw new Error(`${sourcePath}: guide figure markers and fences do not line up`)
+    }
+    out += article.slice(cursor, match.index)
+    out += guideFigureHtml(match[1], entry.source, article.slice(blockStart, blockEnd))
+    cursor = blockEnd
+    index += 1
+    FIGURE_MARKER.lastIndex = blockEnd
+  }
+  return out + article.slice(cursor)
+}
+
+// The Markdown twin keeps the fence and says, in one sentence, what the site
+// does with it. It never carries an output the reader cannot reproduce.
+function guideFigureMarkdown(body) {
+  FIGURE_MARKER.lastIndex = 0
+  return body.replace(FIGURE_MARKER, (_match, kind) => GUIDE_FIGURES[kind].twin)
+}
+
+const hasGuideFigure = (body) =>
+  /<!-- (?:ast-explorer|symbol-explorer|codegen-walkthrough) -->/.test(body)
+
 // Each project's own mark, as the single-path glyphs published by Simple Icons
 // (CC0; the marks themselves stay their owners' trademarks and are used here to
 // name the tool they belong to). They are inlined rather than fetched, so the
@@ -768,43 +900,69 @@ const microseconds = (ns) => `${(ns / 1000).toFixed(2)} µs`
 // Every figure below is derived here, from the committed report, and never
 // typed in. The formulas are spelled out so a reader hovering a card can check
 // the arithmetic against the JSON.
+// A run the harness itself rejected is not a run this page gets to quote, so
+// the build stops rather than printing a speed claim from it.
+if (baseline.valid !== true) {
+  throw new Error(
+    'benchmarks/m6-baseline.json has valid !== true; the home page will not print figures from a rejected run',
+  )
+}
+
 const nsYuku = baseline.statistics.yuku.ns_per_parse.median
 const nsCore = baseline.statistics.core.ns_per_parse.median
 const ppsYuku = baseline.statistics.yuku.parses_per_second.median
 const ppsCore = baseline.statistics.core.parses_per_second.median
-const speedup = 1 / baseline.ratios.ns_per_parse
+const bpsYuku = baseline.statistics.yuku.bytes_per_second.median
+const bpsCore = baseline.statistics.core.bytes_per_second.median
+const rssYuku = baseline.statistics.yuku.peak_rss_bytes.median
+const rssCore = baseline.statistics.core.peak_rss_bytes.median
+const speedup = nsCore / nsYuku
 const memorySaved = (1 - baseline.ratios.peak_rss) * 100
+// MB here is 1,000,000 bytes, the unit the report itself uses; the caption says
+// so rather than leaving a reader to guess between that and 1,048,576.
+const megabytes = (bytes) => (bytes / 1e6).toFixed(1)
 
 function homeBenchCards() {
   const cards = [
     {
-      // 1 / ratios.ns_per_parse: the report states the ratio the slow way
-      // round, and a reader wants the multiple, not the fraction.
-      valueHtml: `${speedup.toFixed(1)}&times; faster`,
-      valueText: `${speedup.toFixed(1)}x faster`,
-      label: 'median parse time vs @tsrx/core',
-      note: `1 / ratios.ns_per_parse, where the ratio is ${baseline.ratios.ns_per_parse.toFixed(4)}: ${microseconds(nsYuku)} against ${microseconds(nsCore)} per parse.`,
+      // The report states the ratio the slow way round, and a reader wants the
+      // multiple, not the fraction.
+      valueHtml: `${speedup.toFixed(2)}&times;`,
+      valueText: `${speedup.toFixed(2)}x`,
+      label: 'faster median parse than @tsrx/core',
+      budget: `${benchNumber(nsYuku)} ns vs ${benchNumber(nsCore)} ns per parse`,
+      note: `statistics.core.ns_per_parse.median divided by statistics.yuku.ns_per_parse.median: ${microseconds(nsCore)} against ${microseconds(nsYuku)} per parse.`,
     },
     {
       valueHtml: `${benchNumber(ppsYuku)} parses/s`,
       valueText: `${benchNumber(ppsYuku)} parses per second`,
-      label: `vs ${benchNumber(ppsCore)} for @tsrx/core`,
+      label: 'median parses per second',
+      budget: `@tsrx/core: ${benchNumber(ppsCore)} parses/s`,
       note: 'statistics.yuku.parses_per_second.median against statistics.core.parses_per_second.median, over the whole corpus.',
     },
     {
-      valueHtml: `${Math.round(memorySaved)}% less memory`,
-      valueText: `${Math.round(memorySaved)} percent less memory`,
-      label: `peak RSS, ${baseline.ratios.peak_rss.toFixed(2)}x of @tsrx/core`,
+      valueHtml: `${megabytes(bpsYuku)} MB/s`,
+      valueText: `${megabytes(bpsYuku)} megabytes per second`,
+      label: 'source parsed per second',
+      budget: `@tsrx/core: ${megabytes(bpsCore)} MB/s`,
+      note: 'statistics.yuku.bytes_per_second.median divided by 1,000,000, against the same field for @tsrx/core.',
+    },
+    {
+      valueHtml: `${Math.round(memorySaved)}% less`,
+      valueText: `${Math.round(memorySaved)} percent less`,
+      label: 'peak memory than @tsrx/core',
+      budget: `${megabytes(rssYuku)} MB vs ${megabytes(rssCore)} MB peak RSS`,
       note: '(1 - ratios.peak_rss) * 100, measured as the whole child process maximum resident set size.',
     },
   ]
   return `<div class="gate-grid" role="group" aria-label="Headline figures derived from the committed benchmark report">${cards
     .map(
       (card) => `
-  <div class="bench-row gate-card" role="img" aria-label="${escapeHtml(`${card.valueText}, ${card.label}`)}"
+  <div class="bench-row gate-card" role="img" aria-label="${escapeHtml(`${card.valueText} ${card.label}, ${card.budget}`)}"
      data-label="${escapeDataset(card.valueText)}" data-result="${escapeDataset(card.label)}" data-note="${escapeDataset(card.note)}">
     <span class="gate-value">${card.valueHtml}</span>
     <span class="gate-label">${escapeHtml(card.label)}</span>
+    <span class="gate-budget">${escapeHtml(card.budget)}</span>
   </div>`,
     )
     .join('')}</div>`
@@ -1053,10 +1211,10 @@ async function renderHomePage({ description }) {
   </section>
   <section class="home-bench" aria-label="Measured parse time">
     <h2>Measured, not claimed</h2>
-    <p>Every figure here is computed from <code>benchmarks/m6-baseline.json</code> when this page is built, so none of it can drift from the committed report.</p>
+    <p>These four numbers are computed from <code>benchmarks/m6-baseline.json</code> when this page is built, so they cannot drift from the committed report.</p>
     ${homeBenchCards()}
     ${homeCompChart()}
-    <p class="home-bench-caption">One measurement on one machine. Your hardware will differ.</p>
+    <p class="home-bench-caption" title="MB means 1,000,000 bytes here, the unit the report uses.">One measurement on one machine (${escapeHtml(baseline.provenance.runtime.cpu)}, a ${benchNumber(baseline.input.file_count)}-file corpus). Your hardware will differ. MB means 1,000,000 bytes.</p>
     <p class="home-bench-link"><a href="${withBase('/reference/benchmarks')}">See the report and its caveats</a></p>
   </section>
   <section class="features" aria-label="Feature highlights">
@@ -1133,6 +1291,11 @@ async function build() {
     if (article.includes('<!-- details:')) {
       article = disclosureHtml(article)
       exportedBody = disclosureMarkdown(exportedBody)
+    }
+    if (hasGuideFigure(body)) {
+      const figureSources = collectFigureSources(body, sourcePath)
+      article = renderGuideFigures(article, figureSources, sourcePath)
+      exportedBody = guideFigureMarkdown(exportedBody)
     }
     article = addGlossary(article)
     searchDocs.push(...extractSections(new Marked(), exportedBody, page))

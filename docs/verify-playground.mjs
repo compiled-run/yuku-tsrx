@@ -236,6 +236,139 @@ async function main() {
     )
     notes.push(`try button loaded ${loaded.split('\n').length} lines into the playground`)
 
+    // ---- T023: the four home benchmark cards ----
+    const cards = await home.$$eval('.gate-card', (nodes) =>
+      nodes.map((node) => node.textContent.replace(/\s+/g, ' ').trim()),
+    )
+    check(cards.length === 4, `home: ${cards.length} benchmark cards, expected 4`)
+    check(
+      /\d\.\d\d[x×]/.test(cards[0] ?? ''),
+      `home: the first card carries no two-decimal multiple: ${cards[0]}`,
+    )
+    notes.push(`home cards: ${cards.join(' | ')}`)
+
+    // ---- T023: the engine-backed guide figures ----
+    const figureStatus = (page, selector) =>
+      page.evaluate(
+        (marker) =>
+          document.querySelector(`${marker} [data-ex-status]`)?.textContent?.trim() ?? '',
+        selector,
+      )
+    const waitForFigure = (page, selector, pattern) =>
+      page.waitForFunction(
+        ([marker, source]) =>
+          new RegExp(source).test(
+            document.querySelector(`${marker} [data-ex-status]`)?.textContent ?? '',
+          ),
+        [selector, pattern.source],
+        { timeout: 30_000 },
+      )
+
+    const parserPage = await context.newPage()
+    watch(parserPage, 'guide/parser')
+    await parserPage.goto(`${origin}${basePath}/guide/parser`, { waitUntil: 'load' })
+    check(
+      (await parserPage.locator('[data-ast-explorer]').count()) === 1,
+      'guide/parser: the AST explorer figure is not on the page',
+    )
+    await parserPage.locator('[data-ast-explorer]').scrollIntoViewIfNeeded()
+    await waitForFigure(parserPage, '[data-ast-explorer]', /nodes/)
+    notes.push(`ast explorer: ${await figureStatus(parserPage, '[data-ast-explorer]')}`)
+    await parserPage.locator('[data-ast-explorer] .ex-tree button').nth(2).hover()
+    const hitCount = await parserPage.locator('[data-ast-explorer] .ex-seg.ex-hit').count()
+    check(hitCount > 0, 'guide/parser: hovering an AST row highlighted no source')
+    await parserPage.locator('[data-ast-explorer] .ex-seg').nth(6).hover()
+    const pressed = await parserPage.locator('[data-ast-explorer] .ex-tree [aria-pressed="true"]').count()
+    check(
+      pressed === 1,
+      `guide/parser: hovering the source lit ${pressed} tree rows, expected exactly one`,
+    )
+
+    const analyzerPage = await context.newPage()
+    watch(analyzerPage, 'guide/analyzer')
+    await analyzerPage.goto(`${origin}${basePath}/guide/analyzer`, { waitUntil: 'load' })
+    check(
+      (await analyzerPage.locator('[data-symbol-explorer]').count()) === 1,
+      'guide/analyzer: the symbol explorer figure is not on the page',
+    )
+    await analyzerPage.locator('[data-symbol-explorer]').scrollIntoViewIfNeeded()
+    await waitForFigure(analyzerPage, '[data-symbol-explorer]', /symbols/)
+    notes.push(`symbol explorer: ${await figureStatus(analyzerPage, '[data-symbol-explorer]')}`)
+    const symbolRow = await analyzerPage.evaluate(() => {
+      const rows = [...document.querySelectorAll('[data-symbol-explorer] tr[data-ex-symbol]')]
+      const wanted = rows.find((row) => row.querySelector('td')?.textContent?.trim() === 'item')
+      return Number((wanted ?? rows[0])?.dataset.exSymbol ?? -1)
+    })
+    check(symbolRow >= 0, 'guide/analyzer: the symbol table has no rows')
+    await analyzerPage.locator(`[data-symbol-explorer] tr[data-ex-symbol="${symbolRow}"]`).click()
+    const declCount = await analyzerPage.locator('[data-symbol-explorer] .ex-decl').count()
+    const refCount = await analyzerPage.locator('[data-symbol-explorer] .ex-ref').count()
+    check(declCount >= 1, 'guide/analyzer: the selected symbol lit no declaration')
+    check(refCount >= 1, 'guide/analyzer: the selected symbol lit no reference')
+    const scopeRows = await analyzerPage.locator('[data-symbol-explorer] [data-ex-scope]').count()
+    check(scopeRows >= 3, `guide/analyzer: the scope tree has ${scopeRows} rows, expected 3 or more`)
+    notes.push(`symbol click lit ${declCount} declaration and ${refCount} reference segments`)
+
+    const codegenPage = await context.newPage()
+    watch(codegenPage, 'guide/codegen')
+    await codegenPage.goto(`${origin}${basePath}/guide/codegen`, { waitUntil: 'load' })
+    check(
+      (await codegenPage.locator('[data-codegen-walkthrough]').count()) === 1,
+      'guide/codegen: the codegen walkthrough figure is not on the page',
+    )
+    await codegenPage.locator('[data-codegen-walkthrough]').scrollIntoViewIfNeeded()
+    await waitForFigure(codegenPage, '[data-codegen-walkthrough]', /generated in/)
+    const generated = codegenPage.locator('[data-codegen-walkthrough] [data-ex-generated]')
+    const prettyOutput = await generated.textContent()
+    check(
+      prettyOutput.includes('\n  ') && prettyOutput.includes('total === 0'),
+      'guide/codegen: the default output is not indented, so pretty is not the default',
+    )
+    await codegenPage.click('[data-codegen-walkthrough] [data-ex-value="compact"]')
+    await codegenPage.waitForFunction(
+      (previous) =>
+        (document.querySelector('[data-codegen-walkthrough] [data-ex-generated]')?.textContent ??
+          '') !== previous,
+      prettyOutput,
+      { timeout: 15_000 },
+    )
+    const compactOutput = await generated.textContent()
+    // Not "no newline is left anywhere": the text children of a JSX element are
+    // significant, so compact output keeps the markup's own line breaks. What
+    // compact drops is the discretionary whitespace, which is what these two
+    // assertions read.
+    check(
+      compactOutput.includes('total===0') && !compactOutput.includes('total === 0'),
+      'guide/codegen: the compact output still spaces its operators',
+    )
+    check(
+      compactOutput.length < prettyOutput.length,
+      `guide/codegen: compact output is not shorter than pretty (${compactOutput.length} vs ${prettyOutput.length})`,
+    )
+    await codegenPage.click('[data-codegen-walkthrough] [data-ex-flag="strip"]')
+    await codegenPage.waitForFunction(
+      (previous) =>
+        (document.querySelector('[data-codegen-walkthrough] [data-ex-generated]')?.textContent ??
+          '') !== previous,
+      compactOutput,
+      { timeout: 15_000 },
+    )
+    const strippedOutput = await generated.textContent()
+    check(
+      strippedOutput !== compactOutput,
+      'guide/codegen: strip did not change the generated source',
+    )
+    check(
+      await codegenPage.locator('[data-codegen-walkthrough] [data-ex-value="shortest"]').isDisabled(),
+      'guide/codegen: the shortest quotes chip is not disabled',
+    )
+    const call = await codegenPage.textContent('[data-codegen-walkthrough] .ex-call')
+    check(
+      call.includes('format: "compact"'),
+      `guide/codegen: the equivalent call does not name the compact format: ${call}`,
+    )
+    notes.push(`codegen walkthrough: ${call.trim()}`)
+
     // The router swaps the routed region in place, so the panel is torn down
     // and rebuilt without a page load. Both directions have to survive it.
     const spa = await context.newPage()

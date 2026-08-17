@@ -7,29 +7,15 @@
 // panel says so and stays a read-only listing.
 
 import { analyze, generate, parse, ready, symbolFlags } from './yuku-wasm.js'
-
-const escapeHtml = (text) =>
-  String(text)
-    .replaceAll('&', '&amp;')
-    .replaceAll('<', '&lt;')
-    .replaceAll('>', '&gt;')
-    .replaceAll('"', '&quot;')
-    .replaceAll("'", '&#39;')
-
-// Codegen errors carry byte offsets straight out of the wasm payload. The AST
-// decoder already maps its own spans to UTF-16 indices, so this is only needed
-// for the generate lane.
-function byteToCharIndex(text, byteOffset) {
-  let bytes = 0
-  let index = 0
-  for (const ch of text) {
-    if (bytes >= byteOffset) return index
-    const cp = ch.codePointAt(0)
-    bytes += cp < 0x80 ? 1 : cp < 0x800 ? 2 : cp < 0x10000 ? 3 : 4
-    index += ch.length
-  }
-  return index
-}
+import {
+  byteToCharIndex,
+  escapeHtml,
+  flagNames,
+  formatMs,
+  plural,
+  quickCode,
+  quickTokens,
+} from './yuku-shared.js'
 
 // ---- URL-hash sharing ----
 const b64uEncode = (text) => {
@@ -58,67 +44,13 @@ function readShareHash() {
   return state
 }
 
-// Instant approximate tokens with the same span shape and palette shiki uses,
-// so an edited line keeps its colours without shipping a highlighter bundle.
-const QUICK_COLORS = {
-  c: ['#6A737D', '#8B949E'],
-  s: ['#032F62', '#9ECBFF'],
-  d: ['#D73A49', '#F97583'],
-  k: ['#D73A49', '#F97583'],
-  n: ['#005CC5', '#79B8FF'],
-  t: ['#22863A', '#85E89D'],
-  f: ['#6F42C1', '#B392F0'],
-  y: ['#005CC5', '#79B8FF'],
-}
-const QUICK_KINDS = ['c', 's', 'd', 'k', 'n', 't', 'f', 'y']
-const QUICK_RE =
-  /(\/\/.*$)|("(?:[^"\\]|\\.)*"?|'(?:[^'\\]|\\.)*'?|`(?:[^`\\]|\\.)*`?)|(@\{|@[a-z]+)|(\b(?:export|import|from|function|return|const|let|var|type|interface|new|await|async|if|else|for|of|in|switch|case|default|try|catch)\b)|(\b\d+(?:\.\d+)?\b)|(<\/?[A-Za-z][\w.-]*|\/?>)|([a-z_$][\w$]*(?=\s*\())|([A-Z][\w$]*)/g
-
-const quickTokens = (line) => {
-  let out = ''
-  let last = 0
-  for (const match of line.matchAll(QUICK_RE)) {
-    out += escapeHtml(line.slice(last, match.index))
-    const groupIndex = match.slice(1).findIndex((group) => group !== undefined)
-    const [light, dark] = QUICK_COLORS[QUICK_KINDS[groupIndex]]
-    // Both panels this feeds are always dark, so the dark value is also painted
-    // outright: the generated-code pane has no `.shiki` ancestor to resolve the
-    // custom property against, and the editor mirror resolves it to the same
-    // colour anyway.
-    out += `<span style="--shiki-light:${light};--shiki-dark:${dark};color:${dark}">${escapeHtml(match[0])}</span>`
-    last = match.index + match[0].length
-  }
-  return out + escapeHtml(line.slice(last))
-}
-
-const quickCode = (text) =>
-  text
-    .split('\n')
-    .map((line) => `<span class="line">${quickTokens(line)}</span>`)
-    .join('\n')
-
 // A very large program serialises to tens of megabytes of JSON, which is a tab
 // nobody can read and a main thread nobody gets back. Cut it and say so.
 const AST_LIMIT = 200_000
 const jsonReplacer = (_key, value) => (typeof value === 'bigint' ? `${value}n` : value)
 
-const formatMs = (ms) => (ms < 10 ? ms.toFixed(2) : Math.round(ms).toString())
-const plural = (count, word) => `${count} ${word}${count === 1 ? '' : 's'}`
-
 const playgroundHref = () =>
   document.querySelector('.top-nav a[href$="/playground"]')?.getAttribute('href') ?? '/playground'
-
-function flagNames(flags, table) {
-  if (!table) return ''
-  const names = []
-  for (const [name, bit] of Object.entries(table)) {
-    // The table also carries composite masks (Variable, Import, ValueSpace);
-    // only the single-bit entries describe one property of a symbol.
-    if ((bit & (bit - 1)) !== 0) continue
-    if ((flags & bit) !== 0) names.push(name)
-  }
-  return names.join(' ')
-}
 
 export async function initDemo(panel) {
   const editor = panel.querySelector('#demo-editor')

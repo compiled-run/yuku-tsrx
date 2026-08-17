@@ -65,6 +65,31 @@ same wall because its `quotes` mode sets `shortest`. Until the enum gains the
 value, use `preserve`, `double`, or `single`, and ask for
 `minify: { whitespace: true, syntax: true }` instead of `minify: true`.
 
+Every option in the table is a control below, and the output is what the
+generator in your browser returns for the settings you pick.
+
+<!-- codegen-walkthrough -->
+```tsrx
+import type { Item } from "./item";
+import { format } from './format';
+
+/* The cart list, one row per item. */
+export function Cart({ items }: { items: Item[] }) {
+  // total is read by the attribute below
+  @{ const total = items.length; }
+  return (
+    <ul class="cart" data-empty={total === 0}>
+      @for (const item of items; key item.id) {
+        <li>{format(item.label)}</li>
+      }
+    </ul>
+  );
+}
+```
+
+The figure parses with `attachComments: true`, because the `comments` option can
+only act on comments the parse kept.
+
 ### `comments`
 
 `none` drops all comments, `all` emits every one, `line` emits only `// ...`,

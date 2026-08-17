@@ -148,6 +148,26 @@ Every node carries `type`, `start`, and `end`. `start` and `end` are offsets int
 the source you passed in, so `source.slice(node.start, node.end)` gives back the
 exact text of a node.
 
+Hover a node in the tree below to see the exact text its `start` and `end`
+cover, or hover the source to find the innermost node that covers a character.
+
+<!-- ast-explorer -->
+```tsrx
+export function Cart({ items }) {
+  @{ const total = items.length; }
+  return (
+    <ul class="cart">
+      @if (total === 0) {
+        <li>Nothing here yet</li>
+      }
+      @for (const item of items; key item.id) {
+        <li>{item.label}</li>
+      }
+    </ul>
+  );
+}
+```
+
 `Program` has `body`, `sourceType` (`"script"` or `"module"`), and an optional
 `hashbang`. Its `body` is typed as
 `Array<Statement | TSRXExpression | TSRXJSXElement | TSRXJSXFragment>`, because a

@@ -1497,7 +1497,8 @@ html.dark .projection-map-code .shiki span {
 .gs-terminal-titlebar button,
 .er-play,
 .chooser-chips button,
-.matrix-chips button {
+.matrix-chips button,
+.ex-controls button {
   padding: 5px 11px;
   border: 1px solid var(--c-divider);
   border-radius: 6px;
@@ -1511,13 +1512,15 @@ html.dark .projection-map-code .shiki span {
 .gs-terminal-titlebar button:hover,
 .er-play:hover,
 .chooser-chips button:hover,
-.matrix-chips button:hover {
+.matrix-chips button:hover,
+.ex-controls button:not([disabled]):hover {
   border-color: var(--c-brand);
 }
 .gs-terminal-titlebar button:focus-visible,
 .er-play:focus-visible,
 .chooser-chips button:focus-visible,
-.matrix-chips button:focus-visible {
+.matrix-chips button:focus-visible,
+.ex-controls button:focus-visible {
   outline: 2px solid var(--c-brand);
   outline-offset: 2px;
 }
@@ -1575,6 +1578,260 @@ html.dark .gs-terminal-line-error {
   color: var(--c-text-3);
   background: var(--c-bg-alt);
   font-size: 12.5px;
+}
+
+/* ---------- engine-backed guide figures (yuku-explorers.js) ---------- */
+/* The panes, the tree and the chips are the doc-shell components above; these
+   rules are only what is new: the segmented source, the highlight states, and
+   the control row. */
+.ex-figure {
+  background: var(--c-bg-soft);
+}
+.ex-figure .projection-map-pane {
+  display: flex;
+  flex-direction: column;
+}
+.ex-source-host {
+  min-width: 0;
+  max-height: 440px;
+  overflow: auto;
+}
+.ex-source-host .code-block {
+  margin: 0;
+  border: 0;
+  border-radius: 0;
+}
+.ex-source,
+.ex-generated {
+  margin: 0;
+  padding: 14px 16px;
+  font-family: var(--font-mono);
+  font-size: 12.5px;
+  line-height: 1.65;
+  color: var(--c-text-1);
+  white-space: pre;
+  overflow-x: auto;
+  tab-size: 2;
+}
+.ex-source code,
+.ex-generated code {
+  padding: 0;
+  border-radius: 0;
+  background: none;
+  font: inherit;
+  color: inherit;
+}
+/* Compact output is one very long line by design, so the generated pane wraps
+   rather than hiding most of the answer behind a horizontal scrollbar. */
+.ex-generated {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+/* quickCode paints the two shiki stops as custom properties and leaves the
+   choice to the page, because a guide page follows the reader's theme. */
+.ex-generated span,
+.ex-source-plain span {
+  color: var(--shiki-light);
+}
+html.dark .ex-generated span,
+html.dark .ex-source-plain span {
+  color: var(--shiki-dark);
+}
+.ex-seg {
+  border-radius: 2px;
+}
+.ex-seg.ex-hit {
+  background: var(--c-brand-soft);
+  box-shadow: inset 0 -2px var(--c-brand);
+}
+.ex-seg.ex-scope {
+  box-shadow: inset 0 0 0 1px var(--c-divider);
+}
+.ex-seg.ex-decl {
+  background: var(--c-brand-soft);
+  box-shadow: inset 0 -2px var(--c-brand);
+}
+.ex-seg.ex-ref {
+  box-shadow: inset 0 -2px var(--c-text-3);
+}
+.ex-seg.ex-unresolved {
+  box-shadow: inset 0 -2px currentColor;
+  text-decoration: underline dotted;
+  text-underline-offset: 3px;
+  cursor: help;
+}
+.ex-out {
+  min-width: 0;
+  max-height: 440px;
+  overflow: auto;
+}
+.ex-out .table-wrap {
+  margin: 0;
+  border: 0;
+  border-radius: 0;
+}
+.ex-out table {
+  font-size: 12.5px;
+}
+.ex-tree {
+  position: relative;
+  list-style: none;
+  margin: 0;
+  padding: 8px 0;
+  font-size: 12.5px;
+}
+.ex-tree li {
+  margin: 0;
+  padding: 0;
+}
+.ex-tree-row button {
+  display: block;
+  width: 100%;
+  white-space: nowrap;
+  padding: 2px 10px 2px calc(12px + var(--ex-depth, 0) * 11px);
+  border: 0;
+  border-radius: 4px;
+  color: var(--c-text-2);
+  background: none;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.ex-tree-row button:hover,
+.ex-tree-row button[aria-pressed="true"] {
+  color: var(--c-text-1);
+  background: var(--c-brand-soft);
+}
+.ex-tree-more {
+  padding: 2px 10px 2px calc(12px + var(--ex-depth, 0) * 11px);
+  color: var(--c-text-3);
+}
+.ex-scopes {
+  border-top: 1px solid var(--c-divider);
+  padding: 8px 12px 4px;
+}
+.ex-scopes > summary {
+  color: var(--c-text-2);
+  font-size: 12.5px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.ex-out tr.ex-row-active > td {
+  background: var(--c-brand-soft);
+}
+.ex-out tbody tr[data-ex-symbol] {
+  cursor: pointer;
+}
+.ex-controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px 14px;
+  padding: 10px 14px;
+  border-top: 1px solid var(--c-divider);
+  background: var(--c-bg-alt);
+}
+.ex-controls:empty {
+  display: none;
+}
+.ex-option-rows {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px 14px;
+}
+.ex-chip-group {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+.ex-chip-label {
+  color: var(--c-text-3);
+  font-size: 12px;
+  font-weight: 600;
+}
+.ex-controls button[aria-pressed="true"] {
+  border-color: var(--c-brand);
+  background: var(--c-brand-soft);
+}
+/* A control that is off is said so by a dashed edge and the muted token, never
+   by fading it: an opacity here takes the label under 4.5:1 in both themes. */
+.ex-controls button[disabled] {
+  border-style: dashed;
+  color: var(--c-text-3);
+  cursor: not-allowed;
+}
+.ex-check {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  color: var(--c-text-2);
+  font-size: 12.5px;
+}
+.ex-controls input[type="number"] {
+  width: 58px;
+  padding: 4px 6px;
+  border: 1px solid var(--c-divider);
+  border-radius: 6px;
+  color: var(--c-text-1);
+  background: var(--c-bg-elv);
+  font: inherit;
+  font-size: 12.5px;
+}
+.ex-controls input[type="number"]:disabled {
+  color: var(--c-text-3);
+  border-style: dashed;
+}
+.ex-note {
+  margin: 0;
+  padding: 14px 16px;
+  color: var(--c-text-3);
+  font-size: 13px;
+}
+.ex-unavailable {
+  color: var(--c-text-2);
+}
+.ex-call {
+  margin: 0;
+  padding: 10px 16px 14px;
+  border-top: 1px solid var(--c-divider);
+  font-size: 12.5px;
+}
+.ex-errors {
+  margin: 0;
+  padding: 10px 16px 0 32px;
+  color: var(--c-text-2);
+  font-size: 12.5px;
+}
+.ex-editor {
+  display: block;
+  width: 100%;
+  min-height: 220px;
+  padding: 14px 16px;
+  border: 0;
+  color: var(--c-text-1);
+  background: var(--c-code-bg);
+  font-family: var(--font-mono);
+  font-size: 12.5px;
+  line-height: 1.65;
+  resize: vertical;
+}
+.ex-status {
+  padding: 9px 14px 11px;
+  border-top: 1px solid var(--c-divider);
+  color: var(--c-text-3);
+  background: var(--c-bg-alt);
+  font-size: 12.5px;
+}
+@media (max-width: 760px) {
+  .ex-figure .projection-map-panes {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .ex-figure .projection-map-pane + .projection-map-pane {
+    border-left: 0;
+    border-top: 1px solid var(--c-divider);
+  }
 }
 
 /* #css-pages-end */
@@ -3264,9 +3521,9 @@ html.dark .comp-fill.comp-mixed {
 /* Home release-gate stat cards. */
 .gate-grid {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(4, 1fr);
   gap: 10px;
-  max-width: 720px;
+  max-width: 920px;
   margin: 0 auto;
 }
 .gate-card {
@@ -3415,6 +3672,15 @@ html.dark .gate-card .gate-meter-fill.fail {
 }
 html.dark .gate-status {
   color: #f87171;
+}
+/* Four cards need about 940px before the longest value ("33,708 parses/s")
+   starts wrapping inside its card, so they fold to two rows of two first and
+   only then to one column. */
+@media (max-width: 940px) {
+  .gate-grid {
+    grid-template-columns: repeat(2, 1fr);
+    max-width: 640px;
+  }
 }
 @media (max-width: 720px) {
   .gate-grid {

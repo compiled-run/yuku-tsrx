@@ -62,7 +62,7 @@ visual_board:
     status: live
     url: http://goalbuddy.localhost:41737/yuku-tsrx-docs-site/
     command: node /Users/jacksm5pro/.claude/skills/goal-prep/surfaces/local-goal-board/scripts/local-goal-board.mjs --goal docs/goals/yuku-tsrx-docs-site
-active_task: T027
+active_task: T024
 tasks:
   - id: T001
     type: scout
@@ -1092,19 +1092,19 @@ tasks:
         - docs/goals/yuku-tsrx-docs-site/notes/T023-bench-dark.png
         - docs/goals/yuku-tsrx-docs-site/notes/T023-scrollbar.png
       commands:
-        - cmd: "pnpm run docs:build; cards 3.5x / 33,708 / 15% computed from m6-baseline.json; comp-chart 2 rows; fuel.js shipped"
+        - cmd: pnpm run docs:build; cards 3.5x / 33,708 / 15% computed from m6-baseline.json; comp-chart 2 rows; fuel.js shipped
           status: pass
-        - cmd: "node docs/verify-playground.mjs (local and --url)"
+        - cmd: node docs/verify-playground.mjs (local and --url)
           status: pass
-        - cmd: "deploy --prod dpl_EwiPJdHgvDmc4X1xaU1aXHmKzvHc"
+        - cmd: deploy --prod dpl_EwiPJdHgvDmc4X1xaU1aXHmKzvHc
           status: pass
         - cmd: "PM reviewed T023-bench.png: 3.5x gap visible in the plumes"
           status: pass
-      summary: "Home benchmarks reframed to 3.5x faster / 33,708 parses/s / 15% less memory (build-computed), oxc comp-chart race with the WebGL fuel plume (canvas cap fixed so lane lengths reflect 28.8% vs 100%), buttons made inline-flex centered with heights preserved, demo scrollbars styled like doc fences, a live tooltip defect on the gate cards fixed. Lane times shown in microseconds."
+      summary: Home benchmarks reframed to 3.5x faster / 33,708 parses/s / 15% less memory (build-computed), oxc comp-chart race with the WebGL fuel plume (canvas cap fixed so lane lengths reflect 28.8% vs 100%), buttons made inline-flex centered with heights preserved, demo scrollbars styled like doc fences, a live tooltip defect on the gate cards fixed. Lane times shown in microseconds.
   - id: T027
     type: worker
     assignee: Worker
-    status: active
+    status: done
     reasoning_hint: default
     objective: "Guide explorers (Judge spec T022 sections 2, 3.1-3.4): reconcile the home benchmark cards to four build-time-computed cards (3.47x faster, 33,708 parses/s, 32.3 MB/s, 15% less peak memory, each with its @tsrx/core comparison line; build throws if valid is not true; gate-grid 4 columns) on top of whatever T023 shipped; add docs/assets/yuku-explorers.js (lazy, viewport-gated import from app.js) and three guide figures: <!-- ast-explorer --> on guide/parser.md, <!-- symbol-explorer --> on guide/analyzer.md, <!-- codegen-walkthrough --> on guide/codegen.md, each with a shiki no-JS fallback, edit mode, honest unavailable state, small .ex-* CSS in the doc region; extend docs/verify-playground.mjs; rebuild, verify, redeploy, screenshot the three figures and the home cards."
     allowed_files:
@@ -1123,6 +1123,10 @@ tasks:
       - docs/dist/**
       - docs/goals/yuku-tsrx-docs-site/notes/T027-*.md
       - docs/goals/yuku-tsrx-docs-site/notes/T027-*.png
+      - docs/goals/yuku-tsrx-docs-site/notes/T027-parser.png
+      - docs/goals/yuku-tsrx-docs-site/notes/T027-analyzer.png
+      - docs/goals/yuku-tsrx-docs-site/notes/T027-codegen.png
+      - docs/goals/yuku-tsrx-docs-site/notes/T027-explorers.md
     verify:
       - pnpm run docs:wasm && node tools/wasm-smoke.mjs --fences
       - pnpm run docs:build
@@ -1141,11 +1145,39 @@ tasks:
       - Any change is needed under src/, build.zig, npm/, or test/.
       - The wasm fails to instantiate in Chrome, or docs/verify-playground.mjs fails twice after fixes.
       - Vercel prompts for auth or offers a different project.
-    receipt: null
+    receipt:
+      result: done
+      harness: claude-code
+      changed_files:
+        - docs/build.mjs
+        - docs/assets/app.js
+        - docs/assets/yuku-explorers.js
+        - docs/assets/yuku-shared.js
+        - docs/assets/yuku-playground.js
+        - docs/assets/style.css
+        - docs/guide/parser.md
+        - docs/guide/analyzer.md
+        - docs/guide/codegen.md
+        - docs/reference/benchmarks.md
+        - docs/verify-playground.mjs
+        - docs/goals/yuku-tsrx-docs-site/notes/T027-explorers.md
+        - docs/goals/yuku-tsrx-docs-site/notes/T027-parser.png
+        - docs/goals/yuku-tsrx-docs-site/notes/T027-analyzer.png
+        - docs/goals/yuku-tsrx-docs-site/notes/T027-codegen.png
+      commands:
+        - cmd: "pnpm run docs:build; markers rendered on parser/analyzer/codegen; 4 gate cards"
+          status: pass
+        - cmd: "node docs/verify-playground.mjs (local and --url production)"
+          status: pass
+        - cmd: "deploy --prod"
+          status: pass
+        - cmd: "PM reviewed T027-analyzer.png: real symbol explorer, references lit, honest unresolved count"
+          status: pass
+      summary: "AST/source explorer, symbol explorer with scope tree, and codegen options walkthrough shipped on the guide pages from the wasm engine, plus four build-computed home cards. Two findings: (1) analyzer creates no symbol for the second @catch parameter or a @for index binding (product gap; prose on analyzer.md now states it); (2) a deploy after a rebuild without re-link created a stray Vercel project 'dist' that the worker could not remove; owner to delete."
   - id: T024
     type: worker
     assignee: Worker
-    status: queued
+    status: active
     reasoning_hint: default
     objective: "Getting-started chooser, real captured terminal transcripts, and the intro how-it-works (Judge spec T022 sections 3.5-3.8): tools/capture-transcripts.mjs (script docs:transcripts) runs getting-started-build (zig build; ls zig-out/npm/yuku-tsrx; zig build test --summary all; pnpm test) and getting-started-wasm (zig build wasm -Doptimize=ReleaseSmall; node tools/wasm-smoke.mjs) for real, strips colour, trims head/tail 15 lines with a labelled omitted marker, writes docs/transcripts/<name>.json with captured_at, platform, per-command exit codes; port terminalDemoHtml/terminalDemoMarkdown into build.mjs for <!-- terminal-demo:NAME --> (missing file is a build error) with dated caption and '# exit N'; port chooserHtml and add docs/assets/interactive.js (initChoosers + initMatrixFilters) with the lazy import restored in app.js; the 'Which route are you on' chooser (Consume from Node via link:, Run it in a browser via the wasm, Hack on the dialect) and both terminal demos on guide/getting-started.md;\
       \ howItWorksHtml (five steps: source, hooks, tree, buffer, api; 20 hook chips read from src/dialect/parser_extension.zig with a hard count of 20; panels visible without JS) with <!-- how-it-works --> on guide/introduction.md and CSS for the new step ids; extend the verifier; rebuild, verify, redeploy, screenshot."

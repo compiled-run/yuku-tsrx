@@ -707,6 +707,19 @@ function initPage() {
       dispose?.()
     })
   }
+  // The guide-page figures that run the dialect in the reader's tab. Same deal
+  // as the panel above: the module is only fetched on a page that has one, and
+  // it waits for the figure to be near the viewport before it asks the wasm to
+  // boot, because the module is over a megabyte.
+  if (
+    document.querySelector(
+      '[data-ast-explorer], [data-symbol-explorer], [data-codegen-walkthrough]',
+    )
+  ) {
+    import(new URL('./yuku-explorers.js', import.meta.url))
+      .then((module) => module.init(pageCleanupCallbacks))
+      .catch(() => {})
+  }
   // The home comparison chart paints a rocket-fuel plume into each lane with
   // WebGL. The CSS gradient in .comp-fill is the whole story without it, so the
   // module is only fetched when the chart is about to be on screen, and never

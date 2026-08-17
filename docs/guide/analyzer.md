@@ -73,6 +73,30 @@ parameters of a `@catch`. Each of those has to become a real scope with real
 symbols, or a reference to it resolves to nothing and every downstream tool that
 asks "where is this defined" gets the wrong answer.
 
+Click a symbol below to light its declaration and every reference the analyzer
+resolved to it, and hover a scope to outline the span it covers. The status
+line counts what did not resolve too: today the analyzer creates no symbol for
+the second `@catch` parameter or for a `@for` `index` binding, so references to
+those show as unresolved rather than being hidden.
+
+<!-- symbol-explorer -->
+```tsrx
+export function Cart({ items }) {
+  @{ const total = items.length; }
+  return (
+    <ul class="cart" data-count={total}>
+      @try {
+        @for (const item of items; index i; key item.id) {
+          <li>{item.label}</li>
+        }
+      } @catch (error, reset) {
+        <li><button onClick={reset}>{error.message}</button></li>
+      }
+    </ul>
+  );
+}
+```
+
 Two files own that:
 
 - **`src/dialect/semantic.zig`** hands the dialect's tree to Yuku's analyzer.
