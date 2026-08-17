@@ -703,6 +703,7 @@ tasks:
       - docs/dist/**
       - README.md
       - docs/goals/yuku-tsrx-docs-site/notes/T013-compiled-run-live.md
+      - docs/README.md
     verify:
       - c=$(curl -s -o /dev/null -w '%{http_code}' https://compiled.run/yuku-tsrx); [ "$c" = 200 ]
       - c=$(curl -s -o /dev/null -w '%{http_code}' https://compiled.run/yuku-tsrx/guide/introduction); [ "$c" = 200 ]
