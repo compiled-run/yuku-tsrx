@@ -62,7 +62,7 @@ visual_board:
     status: live
     url: http://goalbuddy.localhost:41737/yuku-tsrx-docs-site/
     command: node /Users/jacksm5pro/.claude/skills/goal-prep/surfaces/local-goal-board/scripts/local-goal-board.mjs --goal docs/goals/yuku-tsrx-docs-site
-active_task: T023
+active_task: T027
 tasks:
   - id: T001
     type: scout
@@ -1057,7 +1057,7 @@ tasks:
   - id: T023
     type: worker
     assignee: Worker
-    status: active
+    status: done
     reasoning_hint: default
     objective: "Home polish per owner: (1) eye-catching benchmark cards computed from m6-baseline.json (3.5x faster, 33,708 parses/s vs 9,702, 0.85x peak RSS) plus the oxc-tsrx comp-chart race with the WebGL fuel plume (fuel.js brought back, two rows yuku-tsrx vs @tsrx/core, CSS fill fallback, reduced-motion respected); (2) cross-browser button text centering (inline-flex, align-items center) for .action, .demo-button, .try-button and other button classes; (3) demo/playground scrollbars styled like the doc code blocks (thin, divider-colored thumb, transparent track) instead of default browser scrollbars. Rebuild, verify, redeploy, screenshot."
     allowed_files:
@@ -1079,11 +1079,32 @@ tasks:
       - Need files outside allowed_files.
       - fuel.js cannot be made to run without oxc-only dependencies (report).
       - Verification fails twice.
-    receipt: null
+    receipt:
+      result: done
+      harness: claude-code
+      changed_files:
+        - docs/build.mjs
+        - docs/assets/fuel.js
+        - docs/assets/app.js
+        - docs/assets/style.css
+        - docs/goals/yuku-tsrx-docs-site/notes/T023-home-polish.md
+        - docs/goals/yuku-tsrx-docs-site/notes/T023-bench.png
+        - docs/goals/yuku-tsrx-docs-site/notes/T023-bench-dark.png
+        - docs/goals/yuku-tsrx-docs-site/notes/T023-scrollbar.png
+      commands:
+        - cmd: "pnpm run docs:build; cards 3.5x / 33,708 / 15% computed from m6-baseline.json; comp-chart 2 rows; fuel.js shipped"
+          status: pass
+        - cmd: "node docs/verify-playground.mjs (local and --url)"
+          status: pass
+        - cmd: "deploy --prod dpl_EwiPJdHgvDmc4X1xaU1aXHmKzvHc"
+          status: pass
+        - cmd: "PM reviewed T023-bench.png: 3.5x gap visible in the plumes"
+          status: pass
+      summary: "Home benchmarks reframed to 3.5x faster / 33,708 parses/s / 15% less memory (build-computed), oxc comp-chart race with the WebGL fuel plume (canvas cap fixed so lane lengths reflect 28.8% vs 100%), buttons made inline-flex centered with heights preserved, demo scrollbars styled like doc fences, a live tooltip defect on the gate cards fixed. Lane times shown in microseconds."
   - id: T027
     type: worker
     assignee: Worker
-    status: queued
+    status: active
     reasoning_hint: default
     objective: "Guide explorers (Judge spec T022 sections 2, 3.1-3.4): reconcile the home benchmark cards to four build-time-computed cards (3.47x faster, 33,708 parses/s, 32.3 MB/s, 15% less peak memory, each with its @tsrx/core comparison line; build throws if valid is not true; gate-grid 4 columns) on top of whatever T023 shipped; add docs/assets/yuku-explorers.js (lazy, viewport-gated import from app.js) and three guide figures: <!-- ast-explorer --> on guide/parser.md, <!-- symbol-explorer --> on guide/analyzer.md, <!-- codegen-walkthrough --> on guide/codegen.md, each with a shiki no-JS fallback, edit mode, honest unavailable state, small .ex-* CSS in the doc region; extend docs/verify-playground.mjs; rebuild, verify, redeploy, screenshot the three figures and the home cards."
     allowed_files:

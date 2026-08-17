@@ -754,32 +754,101 @@ function benchNumber(value) {
   return value.toLocaleString('en-US', { maximumFractionDigits: 0 })
 }
 
+// app.js drops dataset values straight into the tooltip's innerHTML, so
+// anything that travels in a data- attribute is escaped twice: once for the
+// attribute, once for the assignment that reads it back out.
+const escapeDataset = (text) => escapeHtml(escapeHtml(text))
+
+// The report keeps parse time in nanoseconds, which is six digits per lane and
+// unreadable on a bar. Microseconds is the same measurement at a scale a reader
+// can hold, and two decimals is still far finer than the run to run spread the
+// report records (a MAD of about 225 ns on the yuku-tsrx lane).
+const microseconds = (ns) => `${(ns / 1000).toFixed(2)} µs`
+
+// Every figure below is derived here, from the committed report, and never
+// typed in. The formulas are spelled out so a reader hovering a card can check
+// the arithmetic against the JSON.
+const nsYuku = baseline.statistics.yuku.ns_per_parse.median
+const nsCore = baseline.statistics.core.ns_per_parse.median
+const ppsYuku = baseline.statistics.yuku.parses_per_second.median
+const ppsCore = baseline.statistics.core.parses_per_second.median
+const speedup = 1 / baseline.ratios.ns_per_parse
+const memorySaved = (1 - baseline.ratios.peak_rss) * 100
+
 function homeBenchCards() {
-  const yuku = baseline.statistics.yuku.ns_per_parse.median
-  const core = baseline.statistics.core.ns_per_parse.median
   const cards = [
     {
-      value: `${benchNumber(yuku)} ns`,
-      label: 'yuku-tsrx median ns per parse',
+      // 1 / ratios.ns_per_parse: the report states the ratio the slow way
+      // round, and a reader wants the multiple, not the fraction.
+      valueHtml: `${speedup.toFixed(1)}&times; faster`,
+      valueText: `${speedup.toFixed(1)}x faster`,
+      label: 'median parse time vs @tsrx/core',
+      note: `1 / ratios.ns_per_parse, where the ratio is ${baseline.ratios.ns_per_parse.toFixed(4)}: ${microseconds(nsYuku)} against ${microseconds(nsCore)} per parse.`,
     },
     {
-      value: `${benchNumber(core)} ns`,
-      label: '@tsrx/core median ns per parse',
+      valueHtml: `${benchNumber(ppsYuku)} parses/s`,
+      valueText: `${benchNumber(ppsYuku)} parses per second`,
+      label: `vs ${benchNumber(ppsCore)} for @tsrx/core`,
+      note: 'statistics.yuku.parses_per_second.median against statistics.core.parses_per_second.median, over the whole corpus.',
     },
     {
-      value: baseline.ratios.ns_per_parse.toFixed(4),
-      label: 'ratio, yuku-tsrx over @tsrx/core',
+      valueHtml: `${Math.round(memorySaved)}% less memory`,
+      valueText: `${Math.round(memorySaved)} percent less memory`,
+      label: `peak RSS, ${baseline.ratios.peak_rss.toFixed(2)}x of @tsrx/core`,
+      note: '(1 - ratios.peak_rss) * 100, measured as the whole child process maximum resident set size.',
     },
   ]
-  return `<div class="gate-grid" role="group" aria-label="Median parse time from the committed benchmark report">${cards
+  return `<div class="gate-grid" role="group" aria-label="Headline figures derived from the committed benchmark report">${cards
     .map(
       (card) => `
-  <div class="bench-row gate-card" role="img" aria-label="${escapeHtml(`${card.label}: ${card.value}`)}">
-    <span class="gate-value">${escapeHtml(card.value)}</span>
+  <div class="bench-row gate-card" role="img" aria-label="${escapeHtml(`${card.valueText}, ${card.label}`)}"
+     data-label="${escapeDataset(card.valueText)}" data-result="${escapeDataset(card.label)}" data-note="${escapeDataset(card.note)}">
+    <span class="gate-value">${card.valueHtml}</span>
     <span class="gate-label">${escapeHtml(card.label)}</span>
   </div>`,
     )
     .join('')}</div>`
+}
+
+// The two lanes of the comparison chart. Bar length is absolute time, so the
+// slowest lane fills the track and every other lane is read against it:
+// shorter is faster, with no axis to decode. fuel.js paints a WebGL plume into
+// each track once the chart scrolls up; these gradients are what ships without
+// it, and what a reader who asked for reduced motion keeps.
+function homeCompChart() {
+  const lanes = [
+    {
+      key: 'yukuTsrx',
+      name: 'yuku-tsrx',
+      ns: nsYuku,
+      ours: true,
+      note: `The dialect parser in this repository, parsing the whole ${benchNumber(baseline.input.file_count)}-file corpus ${baseline.protocol.iterations} times per sample.`,
+    },
+    {
+      key: 'tsrxCore',
+      name: '@tsrx/core',
+      ns: nsCore,
+      ours: false,
+      note: 'The published reference parser, run on the same bytes in the same child process shape, with the run order alternating between the two across samples.',
+    },
+  ]
+  const slowest = Math.max(...lanes.map((lane) => lane.ns))
+  const rows = lanes
+    .map((lane) => {
+      const widthPct = Math.max((lane.ns / slowest) * 100, 0.8)
+      const label = microseconds(lane.ns)
+      return `
+  <div class="bench-row comp-row${lane.ours ? ' comp-ours' : ''}" tabindex="0" role="img" aria-label="${escapeHtml(`${lane.name}: ${label} median per parse`)}"
+     data-key="${lane.key}" data-label="${escapeDataset(lane.name)}" data-result="${escapeDataset(`${label} median per parse`)}"
+     data-note="${escapeDataset(lane.note)}">
+    <span class="comp-head"><span class="comp-name">${escapeHtml(lane.name)}</span><span class="comp-time">${escapeHtml(label)}</span></span>
+    <span class="comp-track"><span class="bench-bar comp-fill" style="width:${widthPct.toFixed(1)}%"></span></span>
+  </div>`
+    })
+    .join('')
+  return `<div class="comp-chart" role="group" aria-label="Median parse time for the two parsers on one matched corpus. Shorter bars are faster.">${rows}
+</div>
+<p class="home-bench-caption">Shorter is faster. Median microseconds per parse of the same ${benchNumber(baseline.input.bytes)}-byte input, ${baseline.protocol.iterations} iterations, alternating order.</p>`
 }
 
 // ---------- the in-browser dialect (wasm) ----------
@@ -984,8 +1053,9 @@ async function renderHomePage({ description }) {
   </section>
   <section class="home-bench" aria-label="Measured parse time">
     <h2>Measured, not claimed</h2>
-    <p>These three numbers are read out of <code>benchmarks/m6-baseline.json</code> when this page is built, so they cannot drift from the committed report.</p>
+    <p>Every figure here is computed from <code>benchmarks/m6-baseline.json</code> when this page is built, so none of it can drift from the committed report.</p>
     ${homeBenchCards()}
+    ${homeCompChart()}
     <p class="home-bench-caption">One measurement on one machine. Your hardware will differ.</p>
     <p class="home-bench-link"><a href="${withBase('/reference/benchmarks')}">See the report and its caveats</a></p>
   </section>
@@ -1120,6 +1190,14 @@ async function build() {
   )
 
   await cp(path.join(docsDir, 'assets'), path.join(siteDir, 'assets'), { recursive: true })
+  // fuel.js is fetched by app.js only when the home comparison chart scrolls
+  // up, so nothing here links it and nothing would fail loudly if the copy
+  // above ever stopped reaching it. Copy it by name and let a missing file
+  // break the build rather than the page.
+  await cp(
+    path.join(docsDir, 'assets', 'fuel.js'),
+    path.join(siteDir, 'assets', 'fuel.js'),
+  )
   const wasmBytes = await copyWasmAssets()
   // Ship one stylesheet per page shell, without comments (the source keeps
   // them). Every byte here is on the critical path of the page that links it,

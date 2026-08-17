@@ -707,6 +707,32 @@ function initPage() {
       dispose?.()
     })
   }
+  // The home comparison chart paints a rocket-fuel plume into each lane with
+  // WebGL. The CSS gradient in .comp-fill is the whole story without it, so the
+  // module is only fetched when the chart is about to be on screen, and never
+  // when the reader has asked for reduced motion.
+  const fuelRows = document.querySelectorAll(
+    '.comp-row[data-key="yukuTsrx"], .comp-row[data-key="tsrxCore"]',
+  )
+  const chart = document.querySelector('.comp-chart')
+  if (
+    fuelRows.length &&
+    chart &&
+    !window.matchMedia('(prefers-reduced-motion: reduce)').matches
+  ) {
+    const io = new IntersectionObserver(
+      (entries) => {
+        if (!entries.some((entry) => entry.isIntersecting)) return
+        io.disconnect()
+        import(new URL('./fuel.js', import.meta.url))
+          .then((module) => module.init(fuelRows, pageCleanupCallbacks))
+          .catch(() => {})
+      },
+      { rootMargin: '200px 0px' },
+    )
+    io.observe(chart)
+    pageCleanupCallbacks.push(() => io.disconnect())
+  }
 }
 initPage()
 
@@ -785,15 +811,26 @@ function showChartTooltip(row) {
   }
   // Dataset values are double-escaped at build time, so they stay inert here.
   const { label, result, budget, pct, pass, note, samples } = row.dataset
+  // A row with no label has nothing to say. The home page's headline cards and
+  // comparison lanes are .bench-row too, and a gated chart row is only one of
+  // the shapes this tooltip serves, so every line below is conditional: a lane
+  // that carries no budget must not be told it failed one.
+  if (!label) return
   // Colour is redundant with the glyph and the word, never the only carrier:
   // "✓ pass" still reads as pass in greyscale and to a screen reader. It is
   // here so the eye lands on the verdict and the measured number first.
   const verdict = pass === 'true' ? 'pass' : 'fail'
   chartTooltip.innerHTML =
     `<strong>${label}</strong>` +
-    `<span><span class="chart-tooltip-key">Result:</span> <span class="chart-tooltip-value">${result}</span></span>` +
-    `<span><span class="chart-tooltip-key">Budget:</span> ${budget}</span>` +
-    `<span>${pct} · <span class="chart-tooltip-${verdict}">${verdict === 'pass' ? '✓ pass' : '✗ fail'}</span></span>` +
+    (result
+      ? `<span><span class="chart-tooltip-key">Result:</span> <span class="chart-tooltip-value">${result}</span></span>`
+      : '') +
+    (budget ? `<span><span class="chart-tooltip-key">Budget:</span> ${budget}</span>` : '') +
+    (pass
+      ? `<span>${pct ?? ''} · <span class="chart-tooltip-${verdict}">${verdict === 'pass' ? '✓ pass' : '✗ fail'}</span></span>`
+      : pct
+        ? `<span>${pct}</span>`
+        : '') +
     (samples ? `<span class="chart-tooltip-samples">${samples}</span>` : '') +
     (note ? `<span class="chart-tooltip-note">${note}</span>` : '')
   chartTooltip.hidden = false
