@@ -1725,6 +1725,30 @@ html.dark .action-brand:hover {
   background: #C2410C url("./hero-rays.svg") center / cover no-repeat;
 }
 /* Sits on the dark band, so it cannot inherit .pg-note's body-text colour. */
+/* Landing page: editor and output side by side, capped, scrolling inside. */
+.band .hero-panes {
+  max-width: 1240px;
+  height: 460px;
+  margin: 0 auto;
+  gap: 14px;
+  overflow: visible;
+}
+.band .hero-panes .code-panel {
+  border: 1px solid rgba(255, 237, 213, 0.28);
+  border-radius: 14px;
+  box-shadow: 0 32px 80px rgba(67, 20, 7, 0.55);
+  overflow: hidden;
+}
+.band .hero-panes .pg-panel {
+  border-right: 1px solid rgba(255, 237, 213, 0.28) !important;
+}
+@media (max-width: 960px) {
+  .band .hero-panes {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: 380px 380px;
+    height: auto;
+  }
+}
 .band .demo-scenario-note {
   max-width: 760px;
   margin: 12px auto 0;

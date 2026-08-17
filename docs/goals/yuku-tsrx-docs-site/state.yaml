@@ -992,11 +992,37 @@ tasks:
       commands:
         - cmd: "generators; logo carries #F97316, no gold tokens in the five color files"
           status: pass
-        - cmd: "pnpm run docs:build; deploy --prod dpl_5BZtBGJp424yL7ZrhSJDcrsKWM18"
+        - cmd: pnpm run docs:build; deploy --prod dpl_5BZtBGJp424yL7ZrhSJDcrsKWM18
           status: pass
         - cmd: "PM reviewed light and dark screenshots: deep orange band, panels sit on it, mark/button/hero coherent"
           status: pass
       summary: "Brand moved from gold to orange with a deep band (#C2410C/#EA580C/#7C2D12) so the dark panels sit on it; mark, hero glows, gradient button, social card, README hero, stylesheet all follow. Warn tokens and the perf heat ramp intentionally left yellow as functional palettes."
+  - id: T021
+    type: pm
+    assignee: PM
+    status: done
+    reasoning_hint: default
+    objective: "Owner: landing demo far too tall; put editor and output side by side and much smaller. Wrap #hero-demo and #pg-output in a .pg-panes.hero-panes grid capped at 460px (stacked 380px rows under 960px), keep the panel borders and shadow, rebuild, verify, redeploy."
+    allowed_files:
+      - docs/build.mjs
+      - docs/assets/style.css
+      - docs/dist/**
+    receipt:
+      result: done
+      harness: claude-code
+      changed_files:
+        - docs/build.mjs
+        - docs/assets/style.css
+      commands:
+        - cmd: pnpm run docs:build
+          status: pass
+        - cmd: node docs/verify-playground.mjs (local) and --url production
+          status: pass
+        - cmd: "measured: band 1296px -> 604px, page 3264px -> 2572px at 1440; mobile stacks 380px rows"
+          status: pass
+        - cmd: vercel deploy --prod
+          status: pass
+      summary: "Landing demo is now a two-column 460px band: editor left, output tabs right, both scrolling internally; screenshots reviewed by PM."
   - id: T999
     type: judge
     assignee: Judge

@@ -960,7 +960,8 @@ async function renderHomePage({ description }) {
     </div>
   </section>
   <section class="band" aria-label="TSRX example">
-    <div class="code-panel" id="hero-demo">
+    <div class="pg-panes hero-panes">
+    <div class="code-panel pg-panel" id="hero-demo">
       <div class="code-panel-bar">
         <span class="code-panel-dots" aria-hidden="true"><i></i><i></i><i></i></span>
         <span class="code-panel-file">src/Cart.tsrx</span>
@@ -979,6 +980,7 @@ async function renderHomePage({ description }) {
       </div>
     </div>
     ${outputPanelHtml()}
+    </div>
   </section>
   <section class="home-bench" aria-label="Measured parse time">
     <h2>Measured, not claimed</h2>
