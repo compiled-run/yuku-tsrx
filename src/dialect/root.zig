@@ -13,7 +13,6 @@ pub const Options = struct {
     source_type: ast.SourceType = .module,
     lang: ast.Lang = .js,
     preserve_parens: bool = true,
-    allow_return_outside_function: bool = false,
     comments: CommentMode = .flat,
     loose: bool = false,
 };
@@ -89,7 +88,6 @@ fn parseLocal(allocator: std.mem.Allocator, source: []const u8, options: Options
             .source_type = options.source_type,
             .lang = options.lang,
             .preserve_parens = options.preserve_parens,
-            .allow_return_outside_function = options.allow_return_outside_function,
             .comments = options.comments,
         }),
         .options = .{ .loose = options.loose },
