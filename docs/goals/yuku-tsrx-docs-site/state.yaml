@@ -62,7 +62,7 @@ visual_board:
     status: live
     url: http://goalbuddy.localhost:41737/yuku-tsrx-docs-site/
     command: node /Users/jacksm5pro/.claude/skills/goal-prep/surfaces/local-goal-board/scripts/local-goal-board.mjs --goal docs/goals/yuku-tsrx-docs-site
-active_task: T004
+active_task: T005
 tasks:
   - id: T001
     type: scout
@@ -281,7 +281,7 @@ tasks:
   - id: T004
     type: worker
     assignee: Worker
-    status: active
+    status: done
     reasoning_hint: default
     objective: Port generate-assets.mjs (at-mark candidate only) and generate-social-card.mjs with the section 3 teal color table and the yuku-tsrx wordmark; regenerate docs/assets/logo.svg, hero-rays.svg, social-card.png and .github/assets/readme-hero.png; apply the same color table to docs/assets/style.css (35 purple tokens); add docs:assets and docs:social-card scripts and playwright-core devDependency; rebuild.
     allowed_files:
@@ -307,11 +307,38 @@ tasks:
       - Need files outside allowed_files.
       - magick or system Chrome missing and no fallback yields a 1200x630 PNG.
       - Verification fails twice.
-    receipt: null
+    receipt:
+      result: done
+      harness: claude-code
+      changed_files:
+        - docs/generate-assets.mjs
+        - docs/generate-social-card.mjs
+        - docs/assets/logo.svg
+        - docs/assets/hero-rays.svg
+        - docs/assets/social-card.png
+        - docs/assets/style.css
+        - docs/README.md
+        - .github/assets/readme-hero.png
+        - package.json
+        - pnpm-lock.yaml
+      commands:
+        - cmd: "node docs/generate-assets.mjs && node docs/generate-social-card.mjs"
+          status: pass
+        - cmd: "logo.svg/hero-rays.svg carry #14b8a6/#0d9488/#115e59 and no purple stops"
+          status: pass
+        - cmd: "no oxc purple tokens in style.css/generators (extended list incl. rgba forms, #d6d3e1, #e912a8)"
+          status: pass
+        - cmd: "magick identify social-card.png = 1200x630; readme-hero.png present"
+          status: pass
+        - cmd: "pnpm run docs:build; no em dashes under docs"
+          status: pass
+        - cmd: "PM headless-Chrome screenshot of home: teal mark, no lavender glow, teal-black code panel"
+          status: pass
+      summary: "Logo, hero band, social card, README hero, and stylesheet re-colored to the Judge's teal ramp with the yuku-tsrx wordmark. Two cockpit units: T004-logo-assets (completed; harness verify passed) left seven purple tokens plus an rgba violet that DID paint the home page (.code-panel, .hero::before glow), caught by PM screenshot review; T004-recolor-fix removed them plus two more the table missed. That unit returned blocked only on a PM-authored verify that wrongly required T004's own uncommitted files to be clean; substance verified independently by PM."
   - id: T005
     type: worker
     assignee: Worker
-    status: queued
+    status: active
     reasoning_hint: default
     objective: "Replace every stub with real content per notes/T002-package-spec.md section 4 (introduction, getting-started, tsrx-syntax, parser, analyzer, codegen, yuku-dialect, upstreaming-to-yuku, api, benchmarks, platform-support, limitations, plus index.md/home strings); every fact traceable to npm/yuku-tsrx/index.d.ts, src/dialect file names, test/parser/misc/tsrx fixture names, benchmarks/m6-baseline.json, README.md, or goal.md; no lint/format/LSP/editor claims for yuku-tsrx; unpublished npm and PR #164 stated on Getting Started and Platform Support."
     allowed_files:

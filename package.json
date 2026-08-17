@@ -6,8 +6,10 @@
 	"scripts": {
 		"check": "vp check",
 		"check:m3-generated": "node tools/m3-generated.ts --check",
+		"docs:assets": "node docs/generate-assets.mjs",
 		"docs:build": "node docs/build.mjs",
 		"docs:serve": "node docs/serve.mjs",
+		"docs:social-card": "node docs/generate-social-card.mjs",
 		"fmt": "vp fmt",
 		"gen:npm": "node tools/m3-generated.ts --sync",
 		"lint": "vp lint",
@@ -21,6 +23,7 @@
 		"@types/node": "24.12.2",
 		"marked": "^18.0.6",
 		"minisearch": "^7.2.0",
+		"playwright-core": "^1.61.1",
 		"shiki": "^4.3.1",
 		"typescript": "5.9.3",
 		"vite": "8.0.16",

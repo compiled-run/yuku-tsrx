@@ -17,6 +17,16 @@ this directory by a small vanilla-JavaScript toolchain, no framework.
   drawer, outline scroll spy, copy buttons, client-side routing.
 - `assets/fonts/`: self-hosted Space Grotesk (display) and Inter (body).
 - `assets/logo.svg`, `assets/hero-rays.svg`: generated art.
+- `generate-assets.mjs`: writes those two SVGs. The logo is an at-mark on the
+  teal brand gradient; the hero band is 88 light streaks radiating from a fixed
+  point, placed by a seeded PRNG so every run produces the same file.
+- `generate-social-card.mjs`: writes `assets/social-card.png` (1200x630, the
+  `og:image`) and `../.github/assets/readme-hero.png` (the same card with
+  rounded corners baked into the alpha channel, for the repo README). It lays
+  the card out in HTML, screenshots it at 2x with system Chrome through
+  `playwright-core`, then downscales with ImageMagick so the type stays crisp.
+  The sentence under the wordmark is read from `site.config.mjs`, so the card
+  cannot drift from the home page hero.
 - `serve.mjs`: minimal static server for the built site, with the same
   extensionless-route behaviour the deploy has.
 
@@ -27,9 +37,15 @@ it.
 ## Commands
 
 ```sh
-pnpm run docs:build   # write docs/dist/
-pnpm run docs:serve   # serve docs/dist/ at http://127.0.0.1:4519/yuku-tsrx/
+pnpm run docs:build         # write docs/dist/
+pnpm run docs:serve         # serve docs/dist/ at http://127.0.0.1:4519/yuku-tsrx/
+pnpm run docs:assets        # regenerate assets/logo.svg and assets/hero-rays.svg
+pnpm run docs:social-card   # regenerate the OG card and the README hero
 ```
+
+`docs:assets` is deterministic and safe to re-run. `docs:social-card` needs
+Google Chrome and ImageMagick (`magick`) installed locally, and it reads the
+logo, so run `docs:assets` first if the mark changed.
 
 ## Output layout
 

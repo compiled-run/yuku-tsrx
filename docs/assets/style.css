@@ -40,9 +40,9 @@
   /* Without this, the "light dark" meta lets a dark-mode OS paint dark UA
      colors (text selection, form controls) onto the light theme. */
   color-scheme: light;
-  --c-brand: #6d28d9;
-  --c-brand-hover: #5b21b6;
-  --c-brand-soft: rgba(139, 92, 246, 0.13);
+  --c-brand: #0f766e;
+  --c-brand-hover: #115e59;
+  --c-brand-soft: rgba(20, 184, 166, 0.13);
   --c-bg: #ffffff;
   --c-bg-alt: #f6f6f7;
   --c-bg-elv: #ffffff;
@@ -72,9 +72,9 @@
 }
 
 html.dark {
-  --c-brand: #c4b5fd;
-  --c-brand-hover: #ddd6fe;
-  --c-brand-soft: rgba(139, 92, 246, 0.18);
+  --c-brand: #5eead4;
+  --c-brand-hover: #99f6e4;
+  --c-brand-soft: rgba(20, 184, 166, 0.18);
   --c-bg: #1b1b1f;
   --c-bg-alt: #161618;
   --c-bg-elv: #202127;
@@ -98,10 +98,10 @@ html {
 }
 
 ::selection {
-  background: rgba(139, 92, 246, 0.22);
+  background: rgba(20, 184, 166, 0.22);
 }
 html.dark ::selection {
-  background: rgba(139, 92, 246, 0.45);
+  background: rgba(20, 184, 166, 0.45);
 }
 
 body {
@@ -602,7 +602,7 @@ html.dark .code-block {
 }
 /* A Marketplace listing. The whole card is one link, so every underline the
    prose link rules would add has to come back off, and the call to action is an
-   outline chip: a filled brand pill puts white on light lavender in dark mode,
+   outline chip: a filled brand pill puts white on light teal in dark mode,
    which does not pass contrast. */
 .doc a.ext-card,
 .doc a.ext-card:hover {
@@ -932,7 +932,7 @@ html.dark .code-block {
 }
 /* Same reason as the extension card: a background/colour transition on the
    resting rule animates the theme flip too, and axe sampled this link mid-flip
-   still painting the light-theme violet on the dark-theme page background. */
+   still painting the light-theme teal on the dark-theme page background. */
 .brand-link:hover,
 .brand-link:focus-visible {
   background: var(--c-bg-alt);
@@ -1290,10 +1290,10 @@ html.dark .doc td.bench-fail {
   margin-right: 8px;
   color: var(--c-text-3);
 }
-/* Hover is a fainter tint of the pressed purple so the pressed step still
+/* Hover is a fainter tint of the pressed teal so the pressed step still
    reads as the active one on both themes. */
 .hiw-steps button:hover {
-  background: rgba(139, 92, 246, 0.09);
+  background: rgba(20, 184, 166, 0.09);
   color: var(--c-text-1);
 }
 .hiw-steps button[aria-pressed="true"] {
@@ -1312,7 +1312,7 @@ html.dark .doc td.bench-fail {
 .hiw-steps .hiw-dim-toggle:hover {
   border-color: var(--c-text-3);
   color: var(--c-text-1);
-  background: rgba(139, 92, 246, 0.09);
+  background: rgba(20, 184, 166, 0.09);
 }
 .hiw-steps .hiw-dim-toggle[aria-pressed="true"] {
   border-color: var(--c-brand);
@@ -1626,21 +1626,21 @@ html.dark .gs-terminal-line-error {
   inset: -80px -240px 0;
   z-index: -1;
   background:
-    radial-gradient(560px 320px at 30% 20%, rgba(168, 85, 247, 0.14), transparent 70%),
-    radial-gradient(640px 360px at 72% 62%, rgba(109, 40, 217, 0.12), transparent 70%);
+    radial-gradient(560px 320px at 30% 20%, rgba(20, 184, 166, 0.14), transparent 70%),
+    radial-gradient(640px 360px at 72% 62%, rgba(15, 118, 110, 0.12), transparent 70%);
   pointer-events: none;
 }
 html.dark .hero::before {
   background:
-    radial-gradient(560px 320px at 30% 20%, rgba(139, 92, 246, 0.17), transparent 70%),
-    radial-gradient(640px 360px at 72% 62%, rgba(91, 33, 182, 0.22), transparent 70%);
+    radial-gradient(560px 320px at 30% 20%, rgba(20, 184, 166, 0.17), transparent 70%),
+    radial-gradient(640px 360px at 72% 62%, rgba(17, 94, 89, 0.22), transparent 70%);
 }
 .hero-logo {
   width: 64px;
   height: 64px;
   margin: 0 auto 20px;
   display: block;
-  filter: drop-shadow(0 8px 24px rgba(124, 58, 237, 0.35));
+  filter: drop-shadow(0 8px 24px rgba(13, 148, 136, 0.35));
 }
 .hero-name {
   margin: 0;
@@ -1649,13 +1649,13 @@ html.dark .hero::before {
   font-size: clamp(42px, 7vw, 68px);
   line-height: 1.1;
   letter-spacing: -0.03em;
-  background: linear-gradient(115deg, #7c3aed 20%, #a855f7 55%, #6d28d9 90%);
+  background: linear-gradient(115deg, #0d9488 20%, #14b8a6 55%, #0f766e 90%);
   background-clip: text;
   -webkit-background-clip: text;
   color: transparent;
 }
 html.dark .hero-name {
-  background-image: linear-gradient(115deg, #c4b5fd 15%, #e9d5ff 50%, #a78bfa 90%);
+  background-image: linear-gradient(115deg, #5eead4 15%, #ccfbf1 50%, #2dd4bf 90%);
 }
 .hero-text {
   margin: 10px 0 0;
@@ -1690,12 +1690,12 @@ html.dark .hero-name {
   text-decoration: none;
 }
 .action-brand {
-  background: linear-gradient(115deg, #7c3aed, #6d28d9);
+  background: linear-gradient(115deg, #0d9488, #0f766e);
   color: #fff;
-  box-shadow: 0 4px 16px rgba(109, 40, 217, 0.35);
+  box-shadow: 0 4px 16px rgba(15, 118, 110, 0.35);
 }
 .action-brand:hover {
-  background: linear-gradient(115deg, #6d28d9, #5b21b6);
+  background: linear-gradient(115deg, #0f766e, #115e59);
   color: #fff;
 }
 .action-alt {
@@ -1712,13 +1712,13 @@ html.dark .hero-name {
 .band {
   position: relative;
   padding: 72px 24px;
-  background: #4c1d95 url("./hero-rays.svg") center / cover no-repeat;
+  background: #134e4a url("./hero-rays.svg") center / cover no-repeat;
 }
 /* Sits on the dark band, so it cannot inherit .pg-note's body-text colour. */
 .band .demo-scenario-note {
   max-width: 760px;
   margin: 12px auto 0;
-  color: rgba(233, 213, 255, 0.86);
+  color: rgba(204, 251, 241, 0.86);
   font-size: 12.5px;
   line-height: 1.5;
   text-align: center;
@@ -1731,10 +1731,10 @@ html.dark .hero-name {
 .code-panel {
   max-width: 760px;
   margin: 0 auto;
-  border: 1px solid rgba(233, 213, 255, 0.28);
+  border: 1px solid rgba(204, 251, 241, 0.28);
   border-radius: 14px;
-  background: #161022;
-  box-shadow: 0 32px 80px rgba(23, 8, 55, 0.55);
+  background: #0f1a19;
+  box-shadow: 0 32px 80px rgba(4, 47, 46, 0.55);
   overflow: hidden;
 }
 .code-panel-bar {
@@ -1742,7 +1742,7 @@ html.dark .hero-name {
   align-items: center;
   gap: 12px;
   padding: 12px 16px;
-  border-bottom: 1px solid rgba(233, 213, 255, 0.14);
+  border-bottom: 1px solid rgba(204, 251, 241, 0.14);
 }
 .code-panel-dots {
   display: inline-flex;
@@ -1752,12 +1752,12 @@ html.dark .hero-name {
   width: 11px;
   height: 11px;
   border-radius: 50%;
-  background: rgba(233, 213, 255, 0.22);
+  background: rgba(204, 251, 241, 0.22);
 }
 .code-panel-file {
   font-family: var(--font-mono);
   font-size: 12.5px;
-  color: #b7aed4;
+  color: #9fd8cf;
 }
 .code-panel pre {
   margin: 0;
@@ -1766,7 +1766,7 @@ html.dark .hero-name {
   font-family: var(--font-mono);
   font-size: 13.5px;
   line-height: 1.75;
-  color: #d6d3e1;
+  color: #cfe8e3;
 }
 /* The hero panel is always dark: use each token's dark-theme color. */
 .code-panel .shiki,
@@ -1787,7 +1787,7 @@ html.dark .hero-name {
   width: 2.2em;
   margin-right: 1.1em;
   text-align: right;
-  color: #8f88ab;
+  color: #7fb3ab;
   user-select: none;
 }
 .code-panel-status {
@@ -1796,13 +1796,13 @@ html.dark .hero-name {
   gap: 16px;
   flex-wrap: wrap;
   padding: 10px 16px;
-  border-top: 1px solid rgba(233, 213, 255, 0.14);
+  border-top: 1px solid rgba(204, 251, 241, 0.14);
   font-family: var(--font-mono);
   font-size: 12px;
-  color: #b7aed4;
+  color: #9fd8cf;
 }
 .demo-times {
-  color: #8f88ab;
+  color: #7fb3ab;
 }
 .hp-ok {
   color: #6ee7a0;
@@ -1818,7 +1818,7 @@ html.dark .hero-name {
 .code-panel-hint {
   margin-left: auto;
   font-size: 12px;
-  color: #8f88ab;
+  color: #7fb3ab;
   /* Collapse first when the bar gets tight, instead of wrapping. */
   flex: 0 999999 auto;
   min-width: 0;
@@ -1837,15 +1837,15 @@ html.dark .hero-name {
   font: inherit;
   font-size: 12px;
   font-weight: 600;
-  color: #e9d5ff;
-  background: rgba(139, 92, 246, 0.22);
-  border: 1px solid rgba(196, 181, 253, 0.4);
+  color: #ccfbf1;
+  background: rgba(20, 184, 166, 0.22);
+  border: 1px solid rgba(94, 234, 212, 0.4);
   border-radius: 6px;
   padding: 3px 10px;
   cursor: pointer;
 }
 .demo-button:hover {
-  background: rgba(139, 92, 246, 0.4);
+  background: rgba(20, 184, 166, 0.4);
 }
 .demo-button:disabled {
   opacity: 0.5;
@@ -1897,10 +1897,10 @@ html.dark .hero-name {
   tab-size: 2;
 }
 .demo-input::selection {
-  background: rgba(139, 92, 246, 0.45);
+  background: rgba(20, 184, 166, 0.45);
 }
 .demo-input:focus-visible {
-  outline: 2px solid rgba(196, 181, 253, 0.6);
+  outline: 2px solid rgba(94, 234, 212, 0.6);
   outline-offset: -2px;
 }
 .demo-tooltip {
@@ -1908,9 +1908,9 @@ html.dark .hero-name {
   z-index: 60;
   max-width: 380px;
   padding: 8px 12px;
-  border: 1px solid rgba(233, 213, 255, 0.3);
+  border: 1px solid rgba(204, 251, 241, 0.3);
   border-radius: 8px;
-  background: #0d0819;
+  background: #0b1413;
   color: #e1e4e8;
   font-family: var(--font-body);
   font-size: 12.5px;
@@ -1920,11 +1920,11 @@ html.dark .hero-name {
 }
 .demo-tooltip-rule {
   display: block;
-  color: #b7aed4;
+  color: #9fd8cf;
 }
 .demo-tooltip-rule code {
   font-family: var(--font-mono);
-  color: #f0abfc;
+  color: #5eead4;
 }
 .demo-tooltip-message {
   display: block;
@@ -2106,7 +2106,7 @@ p.home-upstream-link {
 }
 .tsrx-hover:hover,
 .tsrx-hover:focus-visible {
-  background: rgba(139, 92, 246, 0.22);
+  background: rgba(20, 184, 166, 0.22);
 }
 .chart-tooltip span {
   color: var(--c-text-2);
@@ -2219,7 +2219,7 @@ html.dark .chart-tooltip .chart-tooltip-fail {
   box-shadow: none;
 }
 .pg-panel {
-  border-right: 1px solid rgba(233, 213, 255, 0.18) !important;
+  border-right: 1px solid rgba(204, 251, 241, 0.18) !important;
 }
 .pg-panel .code-panel-editor {
   flex: 1;
@@ -2233,7 +2233,7 @@ html.dark .chart-tooltip .chart-tooltip-fail {
   font-weight: 700;
   letter-spacing: 0.1em;
   text-transform: uppercase;
-  color: #8f88ab;
+  color: #7fb3ab;
   margin-right: 10px;
 }
 .pg-output-tabs {
@@ -2243,7 +2243,7 @@ html.dark .chart-tooltip .chart-tooltip-fail {
   font: inherit;
   font-size: 12.5px;
   font-weight: 600;
-  color: #b7aed4;
+  color: #9fd8cf;
   background: none;
   border: none;
   border-bottom: 2px solid transparent;
@@ -2251,8 +2251,8 @@ html.dark .chart-tooltip .chart-tooltip-fail {
   cursor: pointer;
 }
 .pg-output-tabs [role="tab"][aria-selected="true"] {
-  color: #e9d5ff;
-  border-bottom-color: #a855f7;
+  color: #ccfbf1;
+  border-bottom-color: #14b8a6;
 }
 .pg-output-body {
   flex: 1;
@@ -2261,7 +2261,7 @@ html.dark .chart-tooltip .chart-tooltip-fail {
 }
 .pg-output-note {
   margin: 10px 16px 0;
-  color: #8f88ab;
+  color: #7fb3ab;
 }
 .pg-output-error {
   margin: 12px 16px;
@@ -2309,18 +2309,18 @@ html.dark .chart-tooltip .chart-tooltip-fail {
   font-family: var(--font-mono);
   font-size: 12.5px;
   line-height: 1.65;
-  color: #d6d3e1;
+  color: #cfe8e3;
 }
 .pg-structure-table {
   width: calc(100% - 32px);
   margin: 12px 16px;
   border-collapse: collapse;
   font-size: 12.5px;
-  color: #d6d3e1;
+  color: #cfe8e3;
 }
 .pg-structure-table th,
 .pg-structure-table td {
-  border-bottom: 1px solid rgba(233, 213, 255, 0.12);
+  border-bottom: 1px solid rgba(204, 251, 241, 0.12);
   padding: 5px 8px;
   text-align: left;
 }
@@ -2330,12 +2330,12 @@ html.dark .chart-tooltip .chart-tooltip-fail {
 }
 .pg-structure-table code {
   font-family: var(--font-mono);
-  color: #f0abfc;
+  color: #5eead4;
 }
 .pg-output .pg-note {
   padding: 0 16px 8px;
   margin: 8px 0 0;
-  color: #8f88ab;
+  color: #7fb3ab;
 }
 .pg-note {
   margin: 0 0 10px;
@@ -2453,7 +2453,7 @@ html.dark .chart-tooltip .chart-tooltip-fail {
   align-items: center;
   gap: 6px;
   font-size: 12px;
-  color: #b7aed4;
+  color: #9fd8cf;
 }
 .demo-check[hidden] {
   display: none;
@@ -2467,8 +2467,8 @@ html.dark .chart-tooltip .chart-tooltip-fail {
   padding: 4px;
   list-style: none;
   min-width: 190px;
-  background: #0d0819;
-  border: 1px solid rgba(233, 213, 255, 0.3);
+  background: #0b1413;
+  border: 1px solid rgba(204, 251, 241, 0.3);
   border-radius: 8px;
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
   font-size: 12.5px;
@@ -2480,20 +2480,20 @@ html.dark .chart-tooltip .chart-tooltip-fail {
   padding: 4px 10px;
   border-radius: 5px;
   cursor: pointer;
-  color: #d6d3e1;
+  color: #cfe8e3;
 }
 .demo-completions li[aria-selected="true"] {
-  background: rgba(139, 92, 246, 0.35);
+  background: rgba(20, 184, 166, 0.35);
 }
 .demo-completions code {
   font-family: var(--font-mono);
-  color: #f0abfc;
+  color: #5eead4;
 }
 
 /* ---------- format diff preview ---------- */
 .demo-diff {
-  border-top: 1px solid rgba(233, 213, 255, 0.14);
-  background: #100b1c;
+  border-top: 1px solid rgba(204, 251, 241, 0.14);
+  background: #0d1615;
 }
 .demo-diff[hidden] {
   display: none;
@@ -2522,7 +2522,7 @@ html.dark .chart-tooltip .chart-tooltip-fail {
 .demo-diff-line {
   padding: 0 16px;
   white-space: pre;
-  color: #b7aed4;
+  color: #9fd8cf;
 }
 .demo-diff-line span {
   display: inline-block;
@@ -2980,7 +2980,7 @@ html:not(.dark) .comp-track::after {
     #ffa726 32%,
     #ff7a1a 55%,
     #ff3a5e 78%,
-    #e912a8 100%
+    #0d9488 100%
   );
   mask-image: linear-gradient(90deg, #000 0%, #000 48%, transparent 100%);
 }
@@ -2994,7 +2994,7 @@ html:not(.dark) .comp-track::after {
     #3eb3c4 32%,
     #338acc 55%,
     #305cb3 78%,
-    #342e79 100%
+    #134e4a 100%
   );
   mask-image: linear-gradient(90deg, #000 0%, #000 48%, transparent 100%);
 }
@@ -3050,17 +3050,17 @@ html.dark .comp-fill.comp-other {
   );
 }
 .comp-fill.comp-ours {
-  background: linear-gradient(90deg, #7c3aed, #a855f7);
+  background: linear-gradient(90deg, #0d9488, #14b8a6);
 }
 html.dark .comp-fill.comp-ours {
-  background: linear-gradient(90deg, #a78bfa, #c4b5fd);
+  background: linear-gradient(90deg, #2dd4bf, #5eead4);
 }
 .comp-fill.comp-mixed {
-  background: linear-gradient(90deg, #7c3aed, #a855f7);
+  background: linear-gradient(90deg, #0d9488, #14b8a6);
   opacity: 0.55;
 }
 html.dark .comp-fill.comp-mixed {
-  background: linear-gradient(90deg, #a78bfa, #c4b5fd);
+  background: linear-gradient(90deg, #2dd4bf, #5eead4);
   opacity: 0.55;
 }
 .bench-fine {
@@ -3180,7 +3180,7 @@ html.dark .gate-meter::after {
    ramp is sized to the TRACK, not to the fill, via the --gate-pct the card
    emits: at 20% of the track the background is 500% of the fill, which is
    exactly one track width. So a gate far under budget samples only the cool
-   start and reads calm gold, and a gate near its budget runs hot into magenta.
+   start and reads calm gold, and a gate near its budget runs hot into teal.
    Colour temperature and length then encode the same thing. Missing or zero
    --gate-pct degrades to a fill-sized ramp rather than breaking. No mask-image
    here; fading the trailing edge is right for a decorative plume and wrong for
@@ -3220,7 +3220,7 @@ html.dark .gate-meter-fill {
     #ffa726 32%,
     #ff7a1a 55%,
     #ff3a5e 78%,
-    #e912a8 100%
+    #0d9488 100%
   );
 }
 /* A failing gate is signalled by flatness plus the glyph plus the FAILING aria
@@ -3287,7 +3287,7 @@ html.dark .gate-status {
 .demo-completion-kind {
   margin-left: auto;
   font-size: 11px;
-  color: #8f88ab;
+  color: #7fb3ab;
 }
 
 /* ---------- playground scenarios ---------- */
@@ -3579,10 +3579,10 @@ html.dark .explorer-panel .shiki span {
   margin-left: 8px;
   color: var(--c-text-3);
 }
-/* Hover is a fainter tint of the pressed purple so the pressed step still
+/* Hover is a fainter tint of the pressed teal so the pressed step still
    reads as the active one on both themes. */
 .diagram-steps button:hover {
-  background: rgba(139, 92, 246, 0.09);
+  background: rgba(20, 184, 166, 0.09);
   color: var(--c-text-1);
 }
 .diagram-steps button[aria-pressed="true"] {
@@ -3710,11 +3710,11 @@ html.dark .explorer-panel .shiki span {
 .matrix-badge-reuse { --mb: 16, 185, 129; --mb-fg: #065f46; }
 .matrix-badge-adapt { --mb: 245, 158, 11; --mb-fg: #92400e; }
 .matrix-badge-glue { --mb: 59, 130, 246; --mb-fg: #1d4ed8; }
-.matrix-badge-redesign { --mb: 139, 92, 246; --mb-fg: #6d28d9; }
+.matrix-badge-redesign { --mb: 20, 184, 166; --mb-fg: #0f766e; }
 html.dark .matrix-badge-reuse { --mb-fg: #34d399; }
 html.dark .matrix-badge-adapt { --mb-fg: #fbbf24; }
 html.dark .matrix-badge-glue { --mb-fg: #93c5fd; }
-html.dark .matrix-badge-redesign { --mb-fg: #c4b5fd; }
+html.dark .matrix-badge-redesign { --mb-fg: #5eead4; }
 .review-route {
   margin: 20px 0;
   padding: 16px 18px;
@@ -3729,7 +3729,7 @@ html.dark .matrix-badge-redesign { --mb-fg: #c4b5fd; }
 .review-step input { flex-shrink: 0; width: 16px; height: 16px; translate: 0 2px; accent-color: var(--c-brand); }
 .review-step-body { flex: 1; font-size: 14px; }
 .review-step-done .review-step-body { color: var(--c-text-3); text-decoration: line-through; }
-.review-step-minutes { --mb: 139, 92, 246; --mb-fg: var(--c-brand); flex-shrink: 0; }
+.review-step-minutes { --mb: 20, 184, 166; --mb-fg: var(--c-brand); flex-shrink: 0; }
 .review-step-optional { background: none; border: 1px dashed var(--c-divider); color: var(--c-text-3); }
 
 /* ---------- editor replay (Editor integration) ---------- */
@@ -3879,15 +3879,15 @@ html.dark .er-squiggle-error, html.dark .er-problem-error { --sq: #f87171; }
   border-radius: 999px;
   /* Same pill idiom as the classification badges: a tinted ground with a
      strong foreground, per theme, rather than white on a pale fill. */
-  background: rgba(139, 92, 246, 0.15);
-  color: #6d28d9;
+  background: rgba(20, 184, 166, 0.15);
+  color: #0f766e;
   font-size: 11px;
   font-weight: 650;
   letter-spacing: 0.06em;
   text-transform: uppercase;
 }
 html.dark .page-status-label {
-  color: #c4b5fd;
+  color: #5eead4;
 }
 .page-status-text {
   flex: 1;
