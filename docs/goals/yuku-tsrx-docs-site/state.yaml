@@ -62,7 +62,7 @@ visual_board:
     status: live
     url: http://goalbuddy.localhost:41737/yuku-tsrx-docs-site/
     command: node /Users/jacksm5pro/.claude/skills/goal-prep/surfaces/local-goal-board/scripts/local-goal-board.mjs --goal docs/goals/yuku-tsrx-docs-site
-active_task: T007
+active_task: T009
 tasks:
   - id: T001
     type: scout
@@ -427,7 +427,7 @@ tasks:
   - id: T007
     type: worker
     assignee: Worker
-    status: active
+    status: done
     reasoning_hint: default
     objective: Create Vercel project yuku-tsrx-docs in scope jack-shelton, link docs/dist to it non-interactively, deploy docs/dist to production (vercel project add yuku-tsrx-docs --scope jack-shelton; vercel link --cwd docs/dist --project yuku-tsrx-docs --scope jack-shelton --yes; vercel deploy --cwd docs/dist --prod --yes --scope jack-shelton), record the production URL https://yuku-tsrx-docs.vercel.app/yuku-tsrx and deployment id, and prove every nav and sidebar page plus logo and social card return 200; note the compiled.run/yuku-tsrx rewrite as an owner follow-up in oxc-tsrx.
     allowed_files:
@@ -445,11 +445,32 @@ tasks:
       - Vercel prompts for login, scope selection, or team authorization that --yes --scope jack-shelton does not satisfy; record the exact prompt.
       - yuku-tsrx-docs already exists with prior deployments not made by this task, or vercel link offers any project other than yuku-tsrx-docs.
       - Verification fails twice.
-    receipt: null
+    receipt:
+      result: done
+      harness: claude-code
+      changed_files:
+        - docs/README.md
+        - docs/goals/yuku-tsrx-docs-site/notes/T007-deploy.md
+        - docs/dist/.vercel/project.json
+      commands:
+        - cmd: vercel project add yuku-tsrx-docs --scope jack-shelton
+          status: pass
+        - cmd: vercel link --cwd docs/dist --project yuku-tsrx-docs --scope jack-shelton --yes
+          status: pass
+        - cmd: vercel deploy --cwd docs/dist --prod --yes --scope jack-shelton
+          status: pass
+        - cmd: "PM: all 15 paths 200 on https://yuku-tsrx-docs.vercel.app (one transient curl 000, 3 retries 200)"
+          status: pass
+        - cmd: "PM: root 307 -> /yuku-tsrx; vercel inspect target production, status Ready"
+          status: pass
+        - cmd: "PM: headless-Chrome screenshot of the live home page"
+          status: pass
+      summary: "Production deploy live at https://yuku-tsrx-docs.vercel.app/yuku-tsrx. New project yuku-tsrx-docs (prj_6vMmCmo9ARaA4hKUlWWaY8VhwiaY) in scope jack-shelton; deployment dpl_UNcnyCY3pyerN1Py4wZyWGx5UUVb, target production, Ready. No other project, domain, or env touched. Worker returned blocked only on two PM-authored verify lines that were wrong (CLI prints project table to stderr; docs:build wipes docs/dist/.vercel); card verify amended; PM verified the substance independently. Owner follow-up recorded in notes/T007-deploy.md: compiled.run/yuku-tsrx needs a rewrite pair in oxc-tsrx docs/build.mjs pointing at the alias; no rebuild needed."
+      note: notes/T007-deploy.md
   - id: T008
     type: judge
     assignee: Judge
-    status: queued
+    status: done
     reasoning_hint: high
     objective: "Visual and content audit of the deployed site against compiled.run/oxc-tsrx: same structure and components, clearly re-colored logo with the yuku-tsrx wordmark, no lint/format/editor claims, no em dashes, no unverifiable facts, mobile layout, working nav and links."
     inputs:
@@ -461,6 +482,44 @@ tasks:
       - Name each defect with page and element; spec a Worker fix package if any.
     expected_output:
       - pass | defects with fix package
+    receipt:
+      result: done
+      harness: claude-code
+      decision: defects
+      full_outcome_complete: false
+      rationale: "Live site verified against compiled.run/oxc-tsrx: same nav/search/sidebar/outline/copy-page/pager/hero/code-panel/metric-cards/feature-grid/footer, dark toggle works, mobile 390px no overflow, teal logo with yuku-tsrx wordmark clearly a different product, 13 pages and 36 internal hrefs 200, zero em dashes, no lint/format/editor claims, no AI attribution, 26 claims traced to source lines. One blocking defect: home footer says 'MIT Licensed' (docs/site.config.mjs:95, copied from oxc-tsrx) but the repo has no LICENSE and GitHub reports none. Fix package T009 added. Cosmetic: quotes 'shortest'/minify:true throw at the native boundary (product bug, out of scope; caveat sentence added to T009), encode.js header wording, trailing hero line, unused playground CSS shell."
+      blocked_tasks: []
+      spawned_tasks:
+        - T009
+      note: notes/T008-audit.md
+  - id: T009
+    type: worker
+    assignee: Worker
+    status: active
+    reasoning_hint: default
+    objective: Remove the unverifiable 'MIT Licensed' claim from the home footer (docs/site.config.mjs footer.copyright; drop it or make build.mjs skip an empty footer-badge), fix the encode.js header wording in docs/architecture/yuku-dialect.md ('encoder.zig' for encode.js), add one caveat sentence to docs/guide/codegen.md that quotes 'shortest' and minify:true currently fail at the native boundary with 'invalid enum value for codegen.Quotes' (codegen.zig Quotes enum has preserve/double/single), trim the trailing newline from heroCode in docs/demo-sources.mjs, rebuild, redeploy docs/dist to production, and prove the live home footer no longer contains 'MIT'.
+    allowed_files:
+      - docs/site.config.mjs
+      - docs/build.mjs
+      - docs/demo-sources.mjs
+      - docs/architecture/yuku-dialect.md
+      - docs/guide/codegen.md
+      - docs/dist/**
+      - docs/goals/yuku-tsrx-docs-site/notes/T009-footer-fix.md
+    verify:
+      - pnpm run docs:build
+      - "! grep -q 'MIT' docs/dist/yuku-tsrx/index.html"
+      - "! grep -rIl -e '—' docs --exclude-dir=goals --exclude-dir=node_modules --exclude-dir=dist"
+      - grep -q 'encoder.zig' docs/architecture/yuku-dialect.md && grep -qi 'invalid enum value for codegen.Quotes' docs/guide/codegen.md
+      - "! grep -rIil -e 'npm install yuku-tsrx' -e oxlint -e oxfmt -e 'language server' -e 'VS Code extension' docs/guide docs/architecture docs/reference docs/index.md docs/site.config.mjs"
+      - test -z "$(git status --porcelain -- src build.zig npm test README.md)"
+      - vercel deploy --cwd docs/dist --prod --yes --scope jack-shelton
+      - sleep 5; c=$(curl -s https://yuku-tsrx-docs.vercel.app/yuku-tsrx); echo "$c" | grep -q 'yuku-tsrx' && ! echo "$c" | grep -q 'MIT'
+      - for p in /yuku-tsrx /yuku-tsrx/guide/introduction /yuku-tsrx/guide/getting-started /yuku-tsrx/guide/tsrx-syntax /yuku-tsrx/guide/parser /yuku-tsrx/guide/analyzer /yuku-tsrx/guide/codegen /yuku-tsrx/architecture/yuku-dialect /yuku-tsrx/architecture/upstreaming-to-yuku /yuku-tsrx/reference/api /yuku-tsrx/reference/benchmarks /yuku-tsrx/reference/platform-support /yuku-tsrx/reference/limitations; do code=$(curl -s -o /dev/null -w '%{http_code}' "https://yuku-tsrx-docs.vercel.app$p"); [ "$code" = 200 ] || { echo "$p $code"; exit 1; }; done
+    stop_if:
+      - "Need files outside allowed_files (in particular any LICENSE file, package.json license field, or src/npm code: adding a license is an owner decision)."
+      - vercel link or deploy offers or targets any project other than yuku-tsrx-docs in scope jack-shelton, or prompts for auth that --yes --scope does not satisfy; record the exact prompt.
+      - Verification fails twice.
     receipt: null
   - id: T999
     type: judge
