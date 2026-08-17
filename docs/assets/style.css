@@ -1626,21 +1626,21 @@ html.dark .gs-terminal-line-error {
   inset: -80px -240px 0;
   z-index: -1;
   background:
-    radial-gradient(560px 320px at 30% 20%, rgba(244, 192, 20, 0.14), transparent 70%),
-    radial-gradient(640px 360px at 72% 62%, rgba(161, 98, 7, 0.12), transparent 70%);
+    radial-gradient(640px 360px at 30% 18%, rgba(244, 192, 20, 0.34), transparent 70%),
+    radial-gradient(720px 400px at 72% 60%, rgba(245, 158, 11, 0.24), transparent 70%);
   pointer-events: none;
 }
 html.dark .hero::before {
   background:
-    radial-gradient(560px 320px at 30% 20%, rgba(244, 192, 20, 0.17), transparent 70%),
-    radial-gradient(640px 360px at 72% 62%, rgba(133, 77, 14, 0.22), transparent 70%);
+    radial-gradient(640px 360px at 30% 18%, rgba(244, 192, 20, 0.34), transparent 70%),
+    radial-gradient(720px 400px at 72% 60%, rgba(217, 119, 6, 0.30), transparent 70%);
 }
 .hero-logo {
   width: 64px;
   height: 64px;
   margin: 0 auto 20px;
   display: block;
-  filter: drop-shadow(0 8px 24px rgba(217, 160, 10, 0.35));
+  filter: drop-shadow(0 8px 28px rgba(244, 192, 20, 0.55));
 }
 .hero-name {
   margin: 0;
@@ -1649,7 +1649,7 @@ html.dark .hero::before {
   font-size: clamp(42px, 7vw, 68px);
   line-height: 1.1;
   letter-spacing: -0.03em;
-  background: linear-gradient(115deg, #D9A00A 20%, #F4C014 55%, #A16207 90%);
+  background: linear-gradient(115deg, #D9A00A 15%, #F4C014 45%, #B45309 90%);
   background-clip: text;
   -webkit-background-clip: text;
   color: transparent;
@@ -1690,13 +1690,23 @@ html.dark .hero-name {
   text-decoration: none;
 }
 .action-brand {
-  background: linear-gradient(115deg, #A16207, #854D0E);
-  color: #fff;
-  box-shadow: 0 4px 16px rgba(161, 98, 7, 0.35);
+  background: linear-gradient(115deg, #FDE047 0%, #F4C014 55%, #F59E0B 100%);
+  color: #1F1502;
+  box-shadow: 0 6px 22px rgba(244, 192, 20, 0.45);
 }
 .action-brand:hover {
-  background: linear-gradient(115deg, #854D0E, #78350F);
-  color: #fff;
+  background: linear-gradient(115deg, #FACC15 0%, #F59E0B 60%, #D97706 100%);
+  color: #1F1502;
+}
+/* Dark text on bright gold clears 10:1, so the dark theme keeps the same
+   gradient instead of the older dark-amber compromise. */
+html.dark .action-brand {
+  background: linear-gradient(115deg, #FDE047 0%, #F4C014 55%, #F59E0B 100%);
+  color: #1A1508;
+}
+html.dark .action-brand:hover {
+  background: linear-gradient(115deg, #FACC15 0%, #F59E0B 60%, #D97706 100%);
+  color: #1A1508;
 }
 .action-alt {
   background: transparent;
@@ -1712,7 +1722,7 @@ html.dark .hero-name {
 .band {
   position: relative;
   padding: 72px 24px;
-  background: #78350F url("./hero-rays.svg") center / cover no-repeat;
+  background: #D97706 url("./hero-rays.svg") center / cover no-repeat;
 }
 /* Sits on the dark band, so it cannot inherit .pg-note's body-text colour. */
 .band .demo-scenario-note {

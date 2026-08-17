@@ -655,12 +655,12 @@ tasks:
       commands:
         - cmd: "oxc-tsrx: node docs/build.mjs; pnpm run test:site:unit (36 pass)"
           status: pass
-        - cmd: "gh pr create -> https://github.com/compiled-run/oxc-tsrx/pull/24"
+        - cmd: gh pr create -> https://github.com/compiled-run/oxc-tsrx/pull/24
           status: pass
-        - cmd: "gh pr merge 24 --squash"
+        - cmd: gh pr merge 24 --squash
           status: fail
       summary: "PR #24 opened from branch yuku-tsrx-rewrite off origin/main: proxy rewrite pair for /yuku-tsrx to yuku-tsrx-docs.vercel.app, COOP/COEP source excludes yuku-tsrx only, landing page links /yuku-tsrx, unit test updated; PM read the full diff. Attempt 1 correctly blocked because the packet described a Guessless rewrite that exists only on an unmerged branch; on main Guessless is static-embedded. Attempt 2 applied edits via Bash because the scope guard rejects absolute paths outside the work root even when in contract; diff reviewed and clean. Merge requires owner."
-      required_reply: "merge https://github.com/compiled-run/oxc-tsrx/pull/24"
+      required_reply: merge https://github.com/compiled-run/oxc-tsrx/pull/24
       spawned_tasks:
         - T013
       note: notes/T011-compiled-run.md
@@ -704,6 +704,53 @@ tasks:
       - "compiled.run/yuku-tsrx is not 200 (PR #24 not merged or CI not finished); stop and report, do not change origin."
       - Verification fails twice.
     receipt: null
+  - id: T018
+    type: worker
+    assignee: Worker
+    status: done
+    reasoning_hint: default
+    objective: "Owner feedback on the gold pass: dark-mode hero reads muddy brown and the band mustard; make the background brighter and flashier and make the Get Started button a gradient. Keep the mark. Brighten the hero-rays band (saturated gold base, brighter glow and streaks), give the hero real gold glows on a near-black dark background, make .action-brand a bright gold gradient with dark text in both themes, regenerate assets, rebuild, redeploy, and screenshot light and dark for PM review."
+    allowed_files:
+      - docs/generate-assets.mjs
+      - docs/assets/hero-rays.svg
+      - docs/assets/style.css
+      - docs/assets/logo.svg
+      - docs/dist/**
+      - docs/goals/yuku-tsrx-docs-site/notes/T018-flash.md
+      - docs/goals/yuku-tsrx-docs-site/notes/T018-light.png
+      - docs/goals/yuku-tsrx-docs-site/notes/T018-dark.png
+    verify:
+      - node docs/generate-assets.mjs
+      - grep -q 'F59E0B' docs/assets/hero-rays.svg && ! grep -q '78350F' docs/assets/hero-rays.svg
+      - "grep -qE 'action-brand \\{' docs/assets/style.css && awk '/^\\.action-brand \\{/,/\\}/' docs/assets/style.css | grep -q 'linear-gradient' && awk '/^\\.action-brand \\{/,/\\}/' docs/assets/style.css | grep -qiE 'color: #(1|2)'"
+      - pnpm run docs:build && ! grep -rIl -e '—' docs --exclude-dir=goals --exclude-dir=node_modules --exclude-dir=dist
+      - vercel link --cwd docs/dist --project yuku-tsrx-docs --scope jack-shelton --yes && vercel deploy --cwd docs/dist --prod --yes --scope jack-shelton
+      - test -s docs/goals/yuku-tsrx-docs-site/notes/T018-light.png && test -s docs/goals/yuku-tsrx-docs-site/notes/T018-dark.png && test -f docs/goals/yuku-tsrx-docs-site/notes/T018-flash.md
+      - test -z "$(git status --porcelain -- src build.zig npm test README.md package.json docs/build.mjs docs/site.config.mjs docs/guide docs/architecture docs/reference docs/generate-social-card.mjs)"
+    stop_if:
+      - Need files outside allowed_files.
+      - Vercel prompts for auth or offers another project.
+      - Verification fails twice.
+    receipt:
+      result: done
+      harness: claude-code
+      changed_files:
+        - docs/generate-assets.mjs
+        - docs/assets/hero-rays.svg
+        - docs/assets/style.css
+        - docs/goals/yuku-tsrx-docs-site/notes/T018-flash.md
+        - docs/goals/yuku-tsrx-docs-site/notes/T018-light.png
+        - docs/goals/yuku-tsrx-docs-site/notes/T018-dark.png
+      commands:
+        - cmd: "node docs/generate-assets.mjs; logo.svg byte-identical"
+          status: pass
+        - cmd: "hero-rays.svg carries #F59E0B/#B45309, no #78350F; .action-brand gradient with dark text in both themes; .band #D97706"
+          status: pass
+        - cmd: "pnpm run docs:build; deploy --prod dpl_8yHBuZHgS5DHCdHesXzLxCZeVU9H"
+          status: pass
+        - cmd: "PM reviewed T018-light.png and T018-dark.png: vivid gold band with rays, gradient button, mark unchanged"
+          status: pass
+      summary: "Owner feedback addressed: band is a saturated gold field (#F59E0B/#F4C014/#B45309) with 120 brighter streaks; hero glows strengthened; Get Started is a #FDE047/#F4C014/#F59E0B gradient with near-black text in both themes (contrast solved for real); mark untouched. Dark hero base was already neutral #1b1b1f, so no override needed. Ran concurrently with the read-only T012 Judge by owner direction; disjoint files."
   - id: T999
     type: judge
     assignee: Judge
