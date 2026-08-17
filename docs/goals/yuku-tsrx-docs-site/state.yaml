@@ -62,7 +62,7 @@ visual_board:
     status: live
     url: http://goalbuddy.localhost:41737/yuku-tsrx-docs-site/
     command: node /Users/jacksm5pro/.claude/skills/goal-prep/surfaces/local-goal-board/scripts/local-goal-board.mjs --goal docs/goals/yuku-tsrx-docs-site
-active_task: T005
+active_task: T006
 tasks:
   - id: T001
     type: scout
@@ -338,7 +338,7 @@ tasks:
   - id: T005
     type: worker
     assignee: Worker
-    status: active
+    status: done
     reasoning_hint: default
     objective: "Replace every stub with real content per notes/T002-package-spec.md section 4 (introduction, getting-started, tsrx-syntax, parser, analyzer, codegen, yuku-dialect, upstreaming-to-yuku, api, benchmarks, platform-support, limitations, plus index.md/home strings); every fact traceable to npm/yuku-tsrx/index.d.ts, src/dialect file names, test/parser/misc/tsrx fixture names, benchmarks/m6-baseline.json, README.md, or goal.md; no lint/format/LSP/editor claims for yuku-tsrx; unpublished npm and PR #164 stated on Getting Started and Platform Support."
     allowed_files:
@@ -362,11 +362,44 @@ tasks:
       - Need files outside allowed_files.
       - A page needs a fact that cannot be verified from the repo; omit the sentence rather than invent it, and stop if the page cannot stand without it.
       - Verification fails twice.
-    receipt: null
+    receipt:
+      result: done
+      harness: claude-code
+      changed_files:
+        - docs/guide/introduction.md
+        - docs/guide/getting-started.md
+        - docs/guide/tsrx-syntax.md
+        - docs/guide/parser.md
+        - docs/guide/analyzer.md
+        - docs/guide/codegen.md
+        - docs/architecture/yuku-dialect.md
+        - docs/architecture/upstreaming-to-yuku.md
+        - docs/reference/api.md
+        - docs/reference/benchmarks.md
+        - docs/reference/platform-support.md
+        - docs/reference/limitations.md
+      commands:
+        - cmd: "pnpm run docs:build"
+          status: pass
+        - cmd: "api.md names all 11 exports"
+          status: pass
+        - cmd: "parser.md/codegen.md/analyzer.md name every option and SemanticView"
+          status: pass
+        - cmd: "benchmarks.md carries 29666/0.2878"
+          status: pass
+        - cmd: "getting-started.md links yuku/pull/164 and states nothing is published"
+          status: pass
+        - cmd: "no stubs, no lint/format/editor claims, no em dashes"
+          status: pass
+        - cmd: "all 13 pages emitted in dist"
+          status: pass
+        - cmd: "PM read getting-started.md and screenshot reference/api: register, honesty, and rendering confirmed"
+          status: pass
+      summary: "All 12 stub pages replaced with real content (2021 lines), every claim traced to index.d.ts, index.js, src/dialect, fixtures, m6-baseline.json, README, goal.md, build.zig.zon, or npm package.json. index.md/site.config/build.mjs needed no change. Cockpit unit T005-content completed with harness verify green, no scope events. Worker flagged two repo facts for later, out of this goal's scope: abi.zig Hook enum has 19 entries vs 20 hook fns in parser_extension.zig; index.d.ts declares quotes 'shortest' while codegen.zig Quotes enum lacks it."
   - id: T006
     type: worker
     assignee: Worker
-    status: queued
+    status: active
     reasoning_hint: default
     objective: Trim README.md to far fewer words with the same facts; add .github/assets/readme-hero.png at the top and a Docs link to https://yuku-tsrx-docs.vercel.app/yuku-tsrx; keep 'no linter, no formatter, no editor integration' but remove 'no docs site'; no em dashes.
     allowed_files:
