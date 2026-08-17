@@ -942,6 +942,61 @@ tasks:
         wasm_fetch_ms: 97
         first_parse_ms: 8.3
       note: notes/T019-audit.md
+  - id: T020
+    type: worker
+    assignee: Worker
+    status: done
+    reasoning_hint: default
+    objective: "Owner: the yellow looks bad; make it orange. Recolor the mark, hero, band, button, and stylesheet from the gold ramp to an orange ramp with a deep band (so the dark code panels sit on it), regenerate assets, rebuild, redeploy, screenshot both themes for PM review."
+    allowed_files:
+      - docs/generate-assets.mjs
+      - docs/generate-social-card.mjs
+      - docs/assets/logo.svg
+      - docs/assets/hero-rays.svg
+      - docs/assets/social-card.png
+      - docs/assets/style.css
+      - .github/assets/readme-hero.png
+      - docs/dist/**
+      - docs/goals/yuku-tsrx-docs-site/notes/T020-orange.md
+      - docs/goals/yuku-tsrx-docs-site/notes/T020-light.png
+      - docs/goals/yuku-tsrx-docs-site/notes/T020-dark.png
+    verify:
+      - node docs/generate-assets.mjs && node docs/generate-social-card.mjs
+      - grep -qi 'F97316' docs/assets/logo.svg && ! grep -qi 'F4C014' docs/assets/logo.svg
+      - "! grep -qi -e 'F4C014' -e 'D9A00A' -e 'A16207' -e 'FCD34D' -e 'F59E0B' -e 'B45309' -e '244, 192, 20' docs/assets/style.css docs/generate-assets.mjs docs/generate-social-card.mjs docs/assets/hero-rays.svg"
+      - grep -qi 'C2410C' docs/assets/style.css && grep -qi 'FB923C' docs/assets/style.css
+      - magick identify docs/assets/social-card.png | grep -q '1200x630' && test -s .github/assets/readme-hero.png
+      - pnpm run docs:build && ! grep -rIl -e '—' docs --exclude-dir=goals --exclude-dir=node_modules --exclude-dir=dist
+      - vercel link --cwd docs/dist --project yuku-tsrx-docs --scope jack-shelton --yes && vercel deploy --cwd docs/dist --prod --yes --scope jack-shelton
+      - test -s docs/goals/yuku-tsrx-docs-site/notes/T020-light.png && test -s docs/goals/yuku-tsrx-docs-site/notes/T020-dark.png && test -f docs/goals/yuku-tsrx-docs-site/notes/T020-orange.md
+      - test -z "$(git status --porcelain -- src build.zig npm test README.md package.json docs/build.mjs docs/site.config.mjs docs/guide docs/architecture docs/reference docs/assets/yuku-wasm.js docs/assets/yuku-playground.js docs/assets/app.js)"
+    stop_if:
+      - Need files outside allowed_files.
+      - Chrome or magick fail after one retry.
+      - Vercel prompts for auth or offers another project.
+      - Verification fails twice.
+    receipt:
+      result: done
+      harness: claude-code
+      changed_files:
+        - docs/generate-assets.mjs
+        - docs/generate-social-card.mjs
+        - docs/assets/style.css
+        - docs/assets/logo.svg
+        - docs/assets/hero-rays.svg
+        - docs/assets/social-card.png
+        - .github/assets/readme-hero.png
+        - docs/goals/yuku-tsrx-docs-site/notes/T020-orange.md
+        - docs/goals/yuku-tsrx-docs-site/notes/T020-light.png
+        - docs/goals/yuku-tsrx-docs-site/notes/T020-dark.png
+      commands:
+        - cmd: "generators; logo carries #F97316, no gold tokens in the five color files"
+          status: pass
+        - cmd: "pnpm run docs:build; deploy --prod dpl_5BZtBGJp424yL7ZrhSJDcrsKWM18"
+          status: pass
+        - cmd: "PM reviewed light and dark screenshots: deep orange band, panels sit on it, mark/button/hero coherent"
+          status: pass
+      summary: "Brand moved from gold to orange with a deep band (#C2410C/#EA580C/#7C2D12) so the dark panels sit on it; mark, hero glows, gradient button, social card, README hero, stylesheet all follow. Warn tokens and the perf heat ramp intentionally left yellow as functional palettes."
   - id: T999
     type: judge
     assignee: Judge

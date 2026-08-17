@@ -40,9 +40,9 @@
   /* Without this, the "light dark" meta lets a dark-mode OS paint dark UA
      colors (text selection, form controls) onto the light theme. */
   color-scheme: light;
-  --c-brand: #A16207;
-  --c-brand-hover: #854D0E;
-  --c-brand-soft: rgba(244, 192, 20, 0.13);
+  --c-brand: #C2410C;
+  --c-brand-hover: #9A3412;
+  --c-brand-soft: rgba(249, 115, 22, 0.13);
   --c-bg: #ffffff;
   --c-bg-alt: #f6f6f7;
   --c-bg-elv: #ffffff;
@@ -51,7 +51,7 @@
   --c-text-2: #545560;
   --c-text-3: #6e6e76;
   --c-code-bg: #ffffff;
-  --c-mark: #fff3b8;
+  --c-mark: #FFDCC0;
   /* State colours, for the components that mirror what a CLI prints. */
   --c-ok: #1a7f37;
   --c-warn: #9a6700;
@@ -72,9 +72,9 @@
 }
 
 html.dark {
-  --c-brand: #FCD34D;
-  --c-brand-hover: #FDE68A;
-  --c-brand-soft: rgba(244, 192, 20, 0.18);
+  --c-brand: #FB923C;
+  --c-brand-hover: #FDBA74;
+  --c-brand-soft: rgba(249, 115, 22, 0.18);
   --c-bg: #1b1b1f;
   --c-bg-alt: #161618;
   --c-bg-elv: #202127;
@@ -83,7 +83,7 @@ html.dark {
   --c-text-2: #b5b5ad;
   --c-text-3: #98989f;
   --c-code-bg: #161618;
-  --c-mark: #5c4d00;
+  --c-mark: #5C2A0E;
   --c-ok: #3fb950;
   --c-warn: #d29922;
   --dg-surface: var(--c-bg);
@@ -98,10 +98,10 @@ html {
 }
 
 ::selection {
-  background: rgba(244, 192, 20, 0.22);
+  background: rgba(249, 115, 22, 0.22);
 }
 html.dark ::selection {
-  background: rgba(244, 192, 20, 0.45);
+  background: rgba(249, 115, 22, 0.45);
 }
 
 body {
@@ -602,7 +602,7 @@ html.dark .code-block {
 }
 /* A Marketplace listing. The whole card is one link, so every underline the
    prose link rules would add has to come back off, and the call to action is an
-   outline chip: a filled brand pill puts white on light gold in dark mode,
+   outline chip: a filled brand pill puts white on light orange in dark mode,
    which does not pass contrast. */
 .doc a.ext-card,
 .doc a.ext-card:hover {
@@ -932,7 +932,7 @@ html.dark .code-block {
 }
 /* Same reason as the extension card: a background/colour transition on the
    resting rule animates the theme flip too, and axe sampled this link mid-flip
-   still painting the light-theme gold on the dark-theme page background. */
+   still painting the light-theme orange on the dark-theme page background. */
 .brand-link:hover,
 .brand-link:focus-visible {
   background: var(--c-bg-alt);
@@ -1290,10 +1290,10 @@ html.dark .doc td.bench-fail {
   margin-right: 8px;
   color: var(--c-text-3);
 }
-/* Hover is a fainter tint of the pressed gold so the pressed step still
+/* Hover is a fainter tint of the pressed orange so the pressed step still
    reads as the active one on both themes. */
 .hiw-steps button:hover {
-  background: rgba(244, 192, 20, 0.09);
+  background: rgba(249, 115, 22, 0.09);
   color: var(--c-text-1);
 }
 .hiw-steps button[aria-pressed="true"] {
@@ -1312,7 +1312,7 @@ html.dark .doc td.bench-fail {
 .hiw-steps .hiw-dim-toggle:hover {
   border-color: var(--c-text-3);
   color: var(--c-text-1);
-  background: rgba(244, 192, 20, 0.09);
+  background: rgba(249, 115, 22, 0.09);
 }
 .hiw-steps .hiw-dim-toggle[aria-pressed="true"] {
   border-color: var(--c-brand);
@@ -1626,21 +1626,21 @@ html.dark .gs-terminal-line-error {
   inset: -80px -240px 0;
   z-index: -1;
   background:
-    radial-gradient(640px 360px at 30% 18%, rgba(244, 192, 20, 0.34), transparent 70%),
-    radial-gradient(720px 400px at 72% 60%, rgba(245, 158, 11, 0.24), transparent 70%);
+    radial-gradient(640px 360px at 30% 18%, rgba(249, 115, 22, 0.34), transparent 70%),
+    radial-gradient(720px 400px at 72% 60%, rgba(249, 115, 22, 0.24), transparent 70%);
   pointer-events: none;
 }
 html.dark .hero::before {
   background:
-    radial-gradient(640px 360px at 30% 18%, rgba(244, 192, 20, 0.34), transparent 70%),
-    radial-gradient(720px 400px at 72% 60%, rgba(217, 119, 6, 0.30), transparent 70%);
+    radial-gradient(640px 360px at 30% 18%, rgba(249, 115, 22, 0.34), transparent 70%),
+    radial-gradient(720px 400px at 72% 60%, rgba(234, 88, 12, 0.30), transparent 70%);
 }
 .hero-logo {
   width: 64px;
   height: 64px;
   margin: 0 auto 20px;
   display: block;
-  filter: drop-shadow(0 8px 28px rgba(244, 192, 20, 0.55));
+  filter: drop-shadow(0 8px 28px rgba(249, 115, 22, 0.55));
 }
 .hero-name {
   margin: 0;
@@ -1649,13 +1649,13 @@ html.dark .hero::before {
   font-size: clamp(42px, 7vw, 68px);
   line-height: 1.1;
   letter-spacing: -0.03em;
-  background: linear-gradient(115deg, #D9A00A 15%, #F4C014 45%, #B45309 90%);
+  background: linear-gradient(115deg, #EA580C 15%, #F97316 45%, #9A3412 90%);
   background-clip: text;
   -webkit-background-clip: text;
   color: transparent;
 }
 html.dark .hero-name {
-  background-image: linear-gradient(115deg, #FCD34D 15%, #FEF3C7 50%, #FBBF24 90%);
+  background-image: linear-gradient(115deg, #FB923C 15%, #FFEDD5 50%, #FB923C 90%);
 }
 .hero-text {
   margin: 10px 0 0;
@@ -1690,23 +1690,23 @@ html.dark .hero-name {
   text-decoration: none;
 }
 .action-brand {
-  background: linear-gradient(115deg, #FDE047 0%, #F4C014 55%, #F59E0B 100%);
-  color: #1F1502;
-  box-shadow: 0 6px 22px rgba(244, 192, 20, 0.45);
+  background: linear-gradient(115deg, #FDBA74 0%, #F97316 55%, #EA580C 100%);
+  color: #431407;
+  box-shadow: 0 6px 22px rgba(249, 115, 22, 0.45);
 }
 .action-brand:hover {
-  background: linear-gradient(115deg, #FACC15 0%, #F59E0B 60%, #D97706 100%);
-  color: #1F1502;
+  background: linear-gradient(115deg, #FB923C 0%, #EA580C 60%, #C2410C 100%);
+  color: #431407;
 }
-/* Dark text on bright gold clears 10:1, so the dark theme keeps the same
+/* Dark text on bright orange clears 10:1, so the dark theme keeps the same
    gradient instead of the older dark-amber compromise. */
 html.dark .action-brand {
-  background: linear-gradient(115deg, #FDE047 0%, #F4C014 55%, #F59E0B 100%);
-  color: #1A1508;
+  background: linear-gradient(115deg, #FDBA74 0%, #F97316 55%, #EA580C 100%);
+  color: #2A1207;
 }
 html.dark .action-brand:hover {
-  background: linear-gradient(115deg, #FACC15 0%, #F59E0B 60%, #D97706 100%);
-  color: #1A1508;
+  background: linear-gradient(115deg, #FB923C 0%, #EA580C 60%, #C2410C 100%);
+  color: #2A1207;
 }
 .action-alt {
   background: transparent;
@@ -1722,13 +1722,13 @@ html.dark .action-brand:hover {
 .band {
   position: relative;
   padding: 72px 24px;
-  background: #D97706 url("./hero-rays.svg") center / cover no-repeat;
+  background: #C2410C url("./hero-rays.svg") center / cover no-repeat;
 }
 /* Sits on the dark band, so it cannot inherit .pg-note's body-text colour. */
 .band .demo-scenario-note {
   max-width: 760px;
   margin: 12px auto 0;
-  color: rgba(254, 243, 199, 0.86);
+  color: rgba(255, 237, 213, 0.86);
   font-size: 12.5px;
   line-height: 1.5;
   text-align: center;
@@ -1741,10 +1741,10 @@ html.dark .action-brand:hover {
 .code-panel {
   max-width: 760px;
   margin: 0 auto;
-  border: 1px solid rgba(254, 243, 199, 0.28);
+  border: 1px solid rgba(255, 237, 213, 0.28);
   border-radius: 14px;
-  background: #1A1508;
-  box-shadow: 0 32px 80px rgba(69, 26, 3, 0.55);
+  background: #1A0F08;
+  box-shadow: 0 32px 80px rgba(67, 20, 7, 0.55);
   overflow: hidden;
 }
 .code-panel-bar {
@@ -1752,7 +1752,7 @@ html.dark .action-brand:hover {
   align-items: center;
   gap: 12px;
   padding: 12px 16px;
-  border-bottom: 1px solid rgba(254, 243, 199, 0.14);
+  border-bottom: 1px solid rgba(255, 237, 213, 0.14);
 }
 .code-panel-dots {
   display: inline-flex;
@@ -1762,12 +1762,12 @@ html.dark .action-brand:hover {
   width: 11px;
   height: 11px;
   border-radius: 50%;
-  background: rgba(254, 243, 199, 0.22);
+  background: rgba(255, 237, 213, 0.22);
 }
 .code-panel-file {
   font-family: var(--font-mono);
   font-size: 12.5px;
-  color: #DCCB98;
+  color: #DCB89A;
 }
 .code-panel pre {
   margin: 0;
@@ -1776,7 +1776,7 @@ html.dark .action-brand:hover {
   font-family: var(--font-mono);
   font-size: 13.5px;
   line-height: 1.75;
-  color: #EFE6C8;
+  color: #F2E2D2;
 }
 /* The hero panel is always dark: use each token's dark-theme color. */
 .code-panel .shiki,
@@ -1797,7 +1797,7 @@ html.dark .action-brand:hover {
   width: 2.2em;
   margin-right: 1.1em;
   text-align: right;
-  color: #B0A070;
+  color: #B08A70;
   user-select: none;
 }
 .code-panel-status {
@@ -1806,13 +1806,13 @@ html.dark .action-brand:hover {
   gap: 16px;
   flex-wrap: wrap;
   padding: 10px 16px;
-  border-top: 1px solid rgba(254, 243, 199, 0.14);
+  border-top: 1px solid rgba(255, 237, 213, 0.14);
   font-family: var(--font-mono);
   font-size: 12px;
-  color: #DCCB98;
+  color: #DCB89A;
 }
 .demo-times {
-  color: #B0A070;
+  color: #B08A70;
 }
 .hp-ok {
   color: #6ee7a0;
@@ -1828,7 +1828,7 @@ html.dark .action-brand:hover {
 .code-panel-hint {
   margin-left: auto;
   font-size: 12px;
-  color: #B0A070;
+  color: #B08A70;
   /* Collapse first when the bar gets tight, instead of wrapping. */
   flex: 0 999999 auto;
   min-width: 0;
@@ -1847,15 +1847,15 @@ html.dark .action-brand:hover {
   font: inherit;
   font-size: 12px;
   font-weight: 600;
-  color: #FEF3C7;
-  background: rgba(244, 192, 20, 0.22);
-  border: 1px solid rgba(252, 211, 77, 0.4);
+  color: #FFEDD5;
+  background: rgba(249, 115, 22, 0.22);
+  border: 1px solid rgba(251, 146, 60, 0.4);
   border-radius: 6px;
   padding: 3px 10px;
   cursor: pointer;
 }
 .demo-button:hover {
-  background: rgba(244, 192, 20, 0.4);
+  background: rgba(249, 115, 22, 0.4);
 }
 .demo-button:disabled {
   opacity: 0.5;
@@ -1907,10 +1907,10 @@ html.dark .action-brand:hover {
   tab-size: 2;
 }
 .demo-input::selection {
-  background: rgba(244, 192, 20, 0.45);
+  background: rgba(249, 115, 22, 0.45);
 }
 .demo-input:focus-visible {
-  outline: 2px solid rgba(252, 211, 77, 0.6);
+  outline: 2px solid rgba(251, 146, 60, 0.6);
   outline-offset: -2px;
 }
 .demo-tooltip {
@@ -1918,9 +1918,9 @@ html.dark .action-brand:hover {
   z-index: 60;
   max-width: 380px;
   padding: 8px 12px;
-  border: 1px solid rgba(254, 243, 199, 0.3);
+  border: 1px solid rgba(255, 237, 213, 0.3);
   border-radius: 8px;
-  background: #141005;
+  background: #140A05;
   color: #e1e4e8;
   font-family: var(--font-body);
   font-size: 12.5px;
@@ -1930,11 +1930,11 @@ html.dark .action-brand:hover {
 }
 .demo-tooltip-rule {
   display: block;
-  color: #DCCB98;
+  color: #DCB89A;
 }
 .demo-tooltip-rule code {
   font-family: var(--font-mono);
-  color: #FCD34D;
+  color: #FB923C;
 }
 .demo-tooltip-message {
   display: block;
@@ -2116,7 +2116,7 @@ p.home-upstream-link {
 }
 .tsrx-hover:hover,
 .tsrx-hover:focus-visible {
-  background: rgba(244, 192, 20, 0.22);
+  background: rgba(249, 115, 22, 0.22);
 }
 .chart-tooltip span {
   color: var(--c-text-2);
@@ -2229,7 +2229,7 @@ html.dark .chart-tooltip .chart-tooltip-fail {
   box-shadow: none;
 }
 .pg-panel {
-  border-right: 1px solid rgba(254, 243, 199, 0.18) !important;
+  border-right: 1px solid rgba(255, 237, 213, 0.18) !important;
 }
 .pg-panel .code-panel-editor {
   flex: 1;
@@ -2243,7 +2243,7 @@ html.dark .chart-tooltip .chart-tooltip-fail {
   font-weight: 700;
   letter-spacing: 0.1em;
   text-transform: uppercase;
-  color: #B0A070;
+  color: #B08A70;
   margin-right: 10px;
 }
 .pg-output-tabs {
@@ -2253,7 +2253,7 @@ html.dark .chart-tooltip .chart-tooltip-fail {
   font: inherit;
   font-size: 12.5px;
   font-weight: 600;
-  color: #DCCB98;
+  color: #DCB89A;
   background: none;
   border: none;
   border-bottom: 2px solid transparent;
@@ -2261,8 +2261,8 @@ html.dark .chart-tooltip .chart-tooltip-fail {
   cursor: pointer;
 }
 .pg-output-tabs [role="tab"][aria-selected="true"] {
-  color: #FEF3C7;
-  border-bottom-color: #F4C014;
+  color: #FFEDD5;
+  border-bottom-color: #F97316;
 }
 .pg-output-body {
   flex: 1;
@@ -2271,7 +2271,7 @@ html.dark .chart-tooltip .chart-tooltip-fail {
 }
 .pg-output-note {
   margin: 10px 16px 0;
-  color: #B0A070;
+  color: #B08A70;
 }
 .pg-output-error {
   margin: 12px 16px;
@@ -2319,18 +2319,18 @@ html.dark .chart-tooltip .chart-tooltip-fail {
   font-family: var(--font-mono);
   font-size: 12.5px;
   line-height: 1.65;
-  color: #EFE6C8;
+  color: #F2E2D2;
 }
 .pg-structure-table {
   width: calc(100% - 32px);
   margin: 12px 16px;
   border-collapse: collapse;
   font-size: 12.5px;
-  color: #EFE6C8;
+  color: #F2E2D2;
 }
 .pg-structure-table th,
 .pg-structure-table td {
-  border-bottom: 1px solid rgba(254, 243, 199, 0.12);
+  border-bottom: 1px solid rgba(255, 237, 213, 0.12);
   padding: 5px 8px;
   text-align: left;
 }
@@ -2340,12 +2340,12 @@ html.dark .chart-tooltip .chart-tooltip-fail {
 }
 .pg-structure-table code {
   font-family: var(--font-mono);
-  color: #FCD34D;
+  color: #FB923C;
 }
 .pg-output .pg-note {
   padding: 0 16px 8px;
   margin: 8px 0 0;
-  color: #B0A070;
+  color: #B08A70;
 }
 .pg-note {
   margin: 0 0 10px;
@@ -2463,7 +2463,7 @@ html.dark .chart-tooltip .chart-tooltip-fail {
   align-items: center;
   gap: 6px;
   font-size: 12px;
-  color: #DCCB98;
+  color: #DCB89A;
 }
 .demo-check[hidden] {
   display: none;
@@ -2477,8 +2477,8 @@ html.dark .chart-tooltip .chart-tooltip-fail {
   padding: 4px;
   list-style: none;
   min-width: 190px;
-  background: #141005;
-  border: 1px solid rgba(254, 243, 199, 0.3);
+  background: #140A05;
+  border: 1px solid rgba(255, 237, 213, 0.3);
   border-radius: 8px;
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
   font-size: 12.5px;
@@ -2490,20 +2490,20 @@ html.dark .chart-tooltip .chart-tooltip-fail {
   padding: 4px 10px;
   border-radius: 5px;
   cursor: pointer;
-  color: #EFE6C8;
+  color: #F2E2D2;
 }
 .demo-completions li[aria-selected="true"] {
-  background: rgba(244, 192, 20, 0.35);
+  background: rgba(249, 115, 22, 0.35);
 }
 .demo-completions code {
   font-family: var(--font-mono);
-  color: #FCD34D;
+  color: #FB923C;
 }
 
 /* ---------- format diff preview ---------- */
 .demo-diff {
-  border-top: 1px solid rgba(254, 243, 199, 0.14);
-  background: #171206;
+  border-top: 1px solid rgba(255, 237, 213, 0.14);
+  background: #170D07;
 }
 .demo-diff[hidden] {
   display: none;
@@ -2532,7 +2532,7 @@ html.dark .chart-tooltip .chart-tooltip-fail {
 .demo-diff-line {
   padding: 0 16px;
   white-space: pre;
-  color: #DCCB98;
+  color: #DCB89A;
 }
 .demo-diff-line span {
   display: inline-block;
@@ -2990,7 +2990,7 @@ html:not(.dark) .comp-track::after {
     #ffa726 32%,
     #ff7a1a 55%,
     #ff3a5e 78%,
-    #D9A00A 100%
+    #EA580C 100%
   );
   mask-image: linear-gradient(90deg, #000 0%, #000 48%, transparent 100%);
 }
@@ -3004,7 +3004,7 @@ html:not(.dark) .comp-track::after {
     #3eb3c4 32%,
     #338acc 55%,
     #305cb3 78%,
-    #78350F 100%
+    #7C2D12 100%
   );
   mask-image: linear-gradient(90deg, #000 0%, #000 48%, transparent 100%);
 }
@@ -3060,17 +3060,17 @@ html.dark .comp-fill.comp-other {
   );
 }
 .comp-fill.comp-ours {
-  background: linear-gradient(90deg, #D9A00A, #F4C014);
+  background: linear-gradient(90deg, #EA580C, #F97316);
 }
 html.dark .comp-fill.comp-ours {
-  background: linear-gradient(90deg, #FBBF24, #FCD34D);
+  background: linear-gradient(90deg, #FB923C, #FB923C);
 }
 .comp-fill.comp-mixed {
-  background: linear-gradient(90deg, #D9A00A, #F4C014);
+  background: linear-gradient(90deg, #EA580C, #F97316);
   opacity: 0.55;
 }
 html.dark .comp-fill.comp-mixed {
-  background: linear-gradient(90deg, #FBBF24, #FCD34D);
+  background: linear-gradient(90deg, #FB923C, #FB923C);
   opacity: 0.55;
 }
 .bench-fine {
@@ -3230,7 +3230,7 @@ html.dark .gate-meter-fill {
     #ffa726 32%,
     #ff7a1a 55%,
     #ff3a5e 78%,
-    #D9A00A 100%
+    #EA580C 100%
   );
 }
 /* A failing gate is signalled by flatness plus the glyph plus the FAILING aria
@@ -3297,7 +3297,7 @@ html.dark .gate-status {
 .demo-completion-kind {
   margin-left: auto;
   font-size: 11px;
-  color: #B0A070;
+  color: #B08A70;
 }
 
 /* ---------- playground scenarios ---------- */
@@ -3589,10 +3589,10 @@ html.dark .explorer-panel .shiki span {
   margin-left: 8px;
   color: var(--c-text-3);
 }
-/* Hover is a fainter tint of the pressed gold so the pressed step still
+/* Hover is a fainter tint of the pressed orange so the pressed step still
    reads as the active one on both themes. */
 .diagram-steps button:hover {
-  background: rgba(244, 192, 20, 0.09);
+  background: rgba(249, 115, 22, 0.09);
   color: var(--c-text-1);
 }
 .diagram-steps button[aria-pressed="true"] {
@@ -3718,13 +3718,13 @@ html.dark .explorer-panel .shiki span {
    one shade up lands at 4.2 to 4.45:1 against it, which reads fine and fails
    the contrast rule at this size. */
 .matrix-badge-reuse { --mb: 16, 185, 129; --mb-fg: #065f46; }
-.matrix-badge-adapt { --mb: 245, 158, 11; --mb-fg: #92400e; }
+.matrix-badge-adapt { --mb: 249, 115, 22; --mb-fg: #9A3412; }
 .matrix-badge-glue { --mb: 59, 130, 246; --mb-fg: #1d4ed8; }
-.matrix-badge-redesign { --mb: 244, 192, 20; --mb-fg: #A16207; }
+.matrix-badge-redesign { --mb: 249, 115, 22; --mb-fg: #C2410C; }
 html.dark .matrix-badge-reuse { --mb-fg: #34d399; }
-html.dark .matrix-badge-adapt { --mb-fg: #fbbf24; }
+html.dark .matrix-badge-adapt { --mb-fg: #FB923C; }
 html.dark .matrix-badge-glue { --mb-fg: #93c5fd; }
-html.dark .matrix-badge-redesign { --mb-fg: #FCD34D; }
+html.dark .matrix-badge-redesign { --mb-fg: #FB923C; }
 .review-route {
   margin: 20px 0;
   padding: 16px 18px;
@@ -3739,7 +3739,7 @@ html.dark .matrix-badge-redesign { --mb-fg: #FCD34D; }
 .review-step input { flex-shrink: 0; width: 16px; height: 16px; translate: 0 2px; accent-color: var(--c-brand); }
 .review-step-body { flex: 1; font-size: 14px; }
 .review-step-done .review-step-body { color: var(--c-text-3); text-decoration: line-through; }
-.review-step-minutes { --mb: 244, 192, 20; --mb-fg: var(--c-brand); flex-shrink: 0; }
+.review-step-minutes { --mb: 249, 115, 22; --mb-fg: var(--c-brand); flex-shrink: 0; }
 .review-step-optional { background: none; border: 1px dashed var(--c-divider); color: var(--c-text-3); }
 
 /* ---------- editor replay (Editor integration) ---------- */
@@ -3769,7 +3769,7 @@ html.dark .matrix-badge-redesign { --mb-fg: #FCD34D; }
 }
 .er-dot { width: 10px; height: 10px; border-radius: 50%; }
 .er-dot:nth-child(1) { background: #f87171; }
-.er-dot:nth-child(2) { background: #fbbf24; }
+.er-dot:nth-child(2) { background: #FB923C; }
 .er-dot:nth-child(3) { background: #34d399; }
 .er-filetab { margin-left: 10px; color: var(--c-text-1); font-family: var(--font-mono); font-size: 12px; }
 .er-squiggle {
@@ -3777,9 +3777,9 @@ html.dark .matrix-badge-redesign { --mb-fg: #FCD34D; }
   text-decoration-skip-ink: none;
   text-underline-offset: 4px;
 }
-.er-squiggle-warning, .er-problem-warning { --sq: #d97706; }
+.er-squiggle-warning, .er-problem-warning { --sq: #C2410C; }
 .er-squiggle-error, .er-problem-error { --sq: #dc2626; }
-html.dark .er-squiggle-warning, html.dark .er-problem-warning { --sq: #fbbf24; }
+html.dark .er-squiggle-warning, html.dark .er-problem-warning { --sq: #FB923C; }
 html.dark .er-squiggle-error, html.dark .er-problem-error { --sq: #f87171; }
 .er-problems { padding: 8px 14px 10px; border-top: 1px solid var(--c-divider); background: var(--c-bg-alt); }
 .er-problems-title { margin: 0 0 4px; color: var(--c-text-3); font-size: 11px; font-weight: 700; text-transform: uppercase; }
@@ -3889,15 +3889,15 @@ html.dark .er-squiggle-error, html.dark .er-problem-error { --sq: #f87171; }
   border-radius: 999px;
   /* Same pill idiom as the classification badges: a tinted ground with a
      strong foreground, per theme, rather than white on a pale fill. */
-  background: rgba(244, 192, 20, 0.15);
-  color: #A16207;
+  background: rgba(249, 115, 22, 0.15);
+  color: #C2410C;
   font-size: 11px;
   font-weight: 650;
   letter-spacing: 0.06em;
   text-transform: uppercase;
 }
 html.dark .page-status-label {
-  color: #FCD34D;
+  color: #FB923C;
 }
 .page-status-text {
   flex: 1;
