@@ -160,6 +160,23 @@ pub fn build(b: *std.Build) void {
             },
         });
         installNpmHostWrapper(b);
+        installNpmHostAddon(b, "yuku-tsrx", "@yuku-tsrx", target);
+
+        napi_zig.addLib(b, napi_dep, .{
+            .name = "yuku-tsrx-performance",
+            .root = b.path("src/ffi/performance.zig"),
+            .target = target,
+            .optimize = optimize,
+            .imports = &.{
+                .{ .name = "parser", .module = production_parser_module },
+            },
+            .npm = null,
+        });
+        const performance_step = b.step(
+            "performance-addon",
+            "Build the private production-parser performance probe",
+        );
+        performance_step.dependOn(b.getInstallStep());
 
         addEstreeGenerator(b, yuku, production_parser_module, production_transfer_module, .{
             .step = "gen-parser-decoder",
@@ -511,6 +528,39 @@ fn installNpmHostWrapper(b: *std.Build) void {
     const binding_overlay = b.addInstallFile(host_binding, "npm/yuku-tsrx/binding.js");
     for (generated_steps) |generated| binding_overlay.step.dependOn(generated);
     install_step.dependOn(&binding_overlay.step);
+}
+
+fn installNpmHostAddon(
+    b: *std.Build,
+    name: []const u8,
+    scope: []const u8,
+    target: std.Build.ResolvedTarget,
+) void {
+    if (npmReleaseRequested(b)) return;
+    const platform = napi_zig.Platform.fromTarget(target.result) orelse return;
+    const install_step = b.getInstallStep();
+    const addon = for (install_step.dependencies.items) |dependency| {
+        const artifact = dependency.cast(std.Build.Step.InstallArtifact) orelse continue;
+        if (!std.mem.eql(u8, artifact.artifact.name, name)) continue;
+        switch (artifact.dest_dir orelse continue) {
+            .lib => break artifact.artifact.getEmittedBin(),
+            else => continue,
+        }
+    } else return;
+    const addon_install = b.addInstallFile(addon, b.fmt(
+        "npm/{s}/{s}/binding-{s}/{s}.node",
+        .{ name, scope, platform.suffix(), name },
+    ));
+    install_step.dependOn(&addon_install.step);
+}
+
+fn npmReleaseRequested(b: *std.Build) bool {
+    const option = b.user_input_options.getPtr("npm") orelse return false;
+    return switch (option.value) {
+        .flag => true,
+        .scalar => |value| std.mem.eql(u8, value, "true"),
+        else => false,
+    };
 }
 
 fn cloneModule(
