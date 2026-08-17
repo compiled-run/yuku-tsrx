@@ -5,7 +5,7 @@ goal:
   slug: yuku-tsrx-docs-site
   kind: specific
   tranche: "tranche 2 (owner follow-up 2026-08-17): re-color to Yuku gold; serve at compiled.run/yuku-tsrx with a link from the compiled.run home; add real interactivity (editable hero editor and playground backed by a wasm build of the dialect); final audit"
-  status: active
+  status: blocked
   oracle:
     signal: A production Vercel URL for yuku-tsrx serves a docs site whose structure, components, and styling match compiled.run/oxc-tsrx, with a re-colored logo bearing the yuku-tsrx wordmark, whose guides cover the parser, analyzer, and codegen (not lint/format), and whose every stated fact is checkable in the yuku-tsrx repo; the local docs build passes; README.md is materially shorter than 143 lines with the same facts.
     cadence: after each Worker package and at final audit
@@ -62,7 +62,7 @@ visual_board:
     status: live
     url: http://goalbuddy.localhost:41737/yuku-tsrx-docs-site/
     command: node /Users/jacksm5pro/.claude/skills/goal-prep/surfaces/local-goal-board/scripts/local-goal-board.mjs --goal docs/goals/yuku-tsrx-docs-site
-active_task: T019
+active_task: null
 tasks:
   - id: T001
     type: scout
@@ -695,7 +695,7 @@ tasks:
   - id: T013
     type: worker
     assignee: Worker
-    status: queued
+    status: active
     reasoning_hint: default
     objective: "After the owner merges compiled-run/oxc-tsrx PR #24 and CI deploys: confirm https://compiled.run/yuku-tsrx and https://compiled.run/yuku-tsrx/guide/introduction return 200 and https://compiled.run/ links /yuku-tsrx; then set docs/site.config.mjs origin to https://compiled.run, rebuild, redeploy yuku-tsrx-docs to production, and update README.md docs links from yuku-tsrx-docs.vercel.app/yuku-tsrx to compiled.run/yuku-tsrx."
     allowed_files:
@@ -797,19 +797,19 @@ tasks:
         - package.json
         - docs/guide/tsrx-syntax.md
       commands:
-        - cmd: "zig fmt --check build.zig src/ffi/wasm.zig"
+        - cmd: zig fmt --check build.zig src/ffi/wasm.zig
           status: pass
-        - cmd: "zig build wasm -Doptimize=ReleaseSmall (1,275,960 bytes, zero imports)"
+        - cmd: zig build wasm -Doptimize=ReleaseSmall (1,275,960 bytes, zero imports)
           status: pass
-        - cmd: "node tools/wasm-smoke.mjs (hero 92 nodes 0 diags; semantic 9 scopes 4 symbols; generate 338 bytes 0 errors; 15 fixtures)"
+        - cmd: node tools/wasm-smoke.mjs (hero 92 nodes 0 diags; semantic 9 scopes 4 symbols; generate 338 bytes 0 errors; 15 fixtures)
           status: pass
-        - cmd: "node tools/wasm-smoke.mjs --fences (17 checked, 3 no-playground)"
+        - cmd: node tools/wasm-smoke.mjs --fences (17 checked, 3 no-playground)
           status: pass
-        - cmd: "zig build && zig build test"
+        - cmd: zig build && zig build test
           status: pass
         - cmd: "PM: shiki block count unchanged after marking fences"
           status: pass
-      summary: "Dialect compiled to a freestanding wasm32 module with alloc/free/parse/analyze/generate in a length-prefixed ABI that the existing generated decode.js/decode-analyzer.js read as-is; build.zig gained a factored production graph and a wasm step; Node smoke test proves parse/analyze/generate on the hero snippet, invalid-fixture diagnostics, and all fixtures. Worker blocked only on the --fences line because three deliberately invalid doc fences needed the no-playground marker in a T015-owned file; PM applied that 3-line edit and re-verified. No change under src/dialect, npm, test."
+      summary: Dialect compiled to a freestanding wasm32 module with alloc/free/parse/analyze/generate in a length-prefixed ABI that the existing generated decode.js/decode-analyzer.js read as-is; build.zig gained a factored production graph and a wasm step; Node smoke test proves parse/analyze/generate on the hero snippet, invalid-fixture diagnostics, and all fixtures. Worker blocked only on the --fences line because three deliberately invalid doc fences needed the no-playground marker in a T015-owned file; PM applied that 3-line edit and re-verified. No change under src/dialect, npm, test.
   - id: T015
     type: worker
     assignee: Worker
@@ -858,11 +858,11 @@ tasks:
         - docs/verify-playground.mjs
         - package.json
       commands:
-        - cmd: "pnpm run docs:wasm && node tools/wasm-smoke.mjs --fences"
+        - cmd: pnpm run docs:wasm && node tools/wasm-smoke.mjs --fences
           status: pass
-        - cmd: "pnpm run docs:build; playground.html, assets/wasm/{yuku-tsrx.wasm,decode.js,decode-analyzer.js}, yuku-wasm.js, yuku-playground.js in dist"
+        - cmd: pnpm run docs:build; playground.html, assets/wasm/{yuku-tsrx.wasm,decode.js,decode-analyzer.js}, yuku-wasm.js, yuku-playground.js in dist
           status: pass
-        - cmd: "4 tabs on playground and home; try-button on tsrx-syntax; /playground in sitemap; no COOP/COEP"
+        - cmd: 4 tabs on playground and home; try-button on tsrx-syntax; /playground in sitemap; no COOP/COEP
           status: pass
         - cmd: "node docs/verify-playground.mjs (PM re-ran: hero, playground, 4 tabs, try button, SPA round trip, 0 console errors)"
           status: pass
@@ -896,20 +896,20 @@ tasks:
         - docs/goals/yuku-tsrx-docs-site/notes/T016-playground-diagnostics.png
         - docs/goals/yuku-tsrx-docs-site/notes/T016-home-generated.png
       commands:
-        - cmd: "pnpm run docs:wasm && pnpm run docs:build"
+        - cmd: pnpm run docs:wasm && pnpm run docs:build
           status: pass
-        - cmd: "vercel link + deploy --prod (dpl_DdAXWkix1MvW4KvfkzEYiD9yqAkW)"
+        - cmd: vercel link + deploy --prod (dpl_DdAXWkix1MvW4KvfkzEYiD9yqAkW)
           status: pass
         - cmd: "curl: /playground 200; wasm 200 application/wasm; no COOP/COEP"
           status: pass
-        - cmd: "node docs/verify-playground.mjs --url https://yuku-tsrx-docs.vercel.app"
+        - cmd: node docs/verify-playground.mjs --url https://yuku-tsrx-docs.vercel.app
           status: pass
-      summary: "Interactive surfaces deployed to production and proven live by the headless verifier against the production origin. Executed by PM as Worker fallback within the card's allowed_files."
+      summary: Interactive surfaces deployed to production and proven live by the headless verifier against the production origin. Executed by PM as Worker fallback within the card's allowed_files.
       note: notes/T016-deploy.md
   - id: T019
     type: judge
     assignee: Judge
-    status: active
+    status: done
     reasoning_hint: high
     objective: "Judge audit on the production URL: hero editor is editable and its status changes with input; the four tabs show real wasm outputs (AST JSON containing a TSRX node type, diagnostics on the invalid fixture, generated code, semantic table); fixture buttons load committed fixture text; a Try in playground button from a guide page lands on /playground with the fence loaded; no lint/format claims; no COOP/COEP headers; wasm size and load time recorded; docs/verify-playground.mjs is the proof. Decide pass or name a fix package."
     inputs:
@@ -920,7 +920,17 @@ tasks:
       - Do not implement.
     expected_output:
       - pass | defects with fix package
-    receipt: null
+    receipt:
+      result: done
+      harness: claude-code
+      decision: pass
+      full_outcome_complete: false
+      rationale: "Production interactive surfaces verified twice: docs/verify-playground.mjs --url exits 0 with 0 console errors, and an independent Playwright audit confirmed editable hero (92 to 96 nodes), 7/7 fixtures byte-exact, 2 real diagnostics with underlines on Invalid switch, JSXCodeBlock in AST, real generated code, semantic table with 5 symbol rows, Try button landing on /playground with the exact fence, Share/Reset/Open working, no lint/format text, no COOP/COEP, wasm 1,275,960 bytes (277 KB brotli) in 97 ms, first parse 8.3 ms, mobile 390 clean, shape parity with oxc-tsrx minus intended Format/lint. Four cosmetic notes (codegen prints the block head on one line; no line gutter in generated pane; try buttons hover-reveal like oxc; wasm cache headers), none blocking."
+      measurements:
+        wasm_bytes: 1275960
+        wasm_fetch_ms: 97
+        first_parse_ms: 8.3
+      note: notes/T019-audit.md
   - id: T999
     type: judge
     assignee: Judge
