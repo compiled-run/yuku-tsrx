@@ -62,7 +62,7 @@ visual_board:
     status: live
     url: http://goalbuddy.localhost:41737/yuku-tsrx-docs-site/
     command: node /Users/jacksm5pro/.claude/skills/goal-prep/surfaces/local-goal-board/scripts/local-goal-board.mjs --goal docs/goals/yuku-tsrx-docs-site
-active_task: T014
+active_task: T015
 tasks:
   - id: T001
     type: scout
@@ -765,7 +765,7 @@ tasks:
   - id: T014
     type: worker
     assignee: Worker
-    status: active
+    status: done
     reasoning_hint: default
     objective: "Add src/ffi/wasm.zig (freestanding wasm32 entry: alloc/free/parse/analyze/generate with the flag and opts packing in notes/T012-interactivity-spec.md section 2, std.heap.wasm_allocator, length-prefixed buffers decodable by npm/yuku-tsrx/decode.js and decode-analyzer.js; generate parses from source and returns [u32 total][u32 code_len][code][u32 err_count]{start,end,msg_len,msg}*) and a `wasm` step in build.zig (wasm32-freestanding + bulk_memory/nontrapping_fptoint/sign_ext/simd128, a second production module graph on that target, ReleaseSmall, entry disabled, rdynamic, installed to zig-out/wasm/yuku-tsrx.wasm). Add package.json scripts docs:wasm and docs:wasm-smoke. Write tools/wasm-smoke.mjs per section 6/T014."
     allowed_files:
@@ -774,6 +774,7 @@ tasks:
       - tools/wasm-smoke.mjs
       - package.json
       - zig-out/**
+      - docs/guide/tsrx-syntax.md
     verify:
       - zig build wasm -Doptimize=ReleaseSmall && test -f zig-out/wasm/yuku-tsrx.wasm
       - node tools/wasm-smoke.mjs
@@ -786,11 +787,33 @@ tasks:
       - "heroCode yields any error-severity diagnostic: report, do not edit docs/demo-sources.mjs"
       - anything requires touching npm/yuku-tsrx generated files, src/dialect/transfer.zig, or the yuku checkout
       - zig build test fails after the change
-    receipt: null
+    receipt:
+      result: done
+      harness: claude-code
+      changed_files:
+        - build.zig
+        - src/ffi/wasm.zig
+        - tools/wasm-smoke.mjs
+        - package.json
+        - docs/guide/tsrx-syntax.md
+      commands:
+        - cmd: "zig fmt --check build.zig src/ffi/wasm.zig"
+          status: pass
+        - cmd: "zig build wasm -Doptimize=ReleaseSmall (1,275,960 bytes, zero imports)"
+          status: pass
+        - cmd: "node tools/wasm-smoke.mjs (hero 92 nodes 0 diags; semantic 9 scopes 4 symbols; generate 338 bytes 0 errors; 15 fixtures)"
+          status: pass
+        - cmd: "node tools/wasm-smoke.mjs --fences (17 checked, 3 no-playground)"
+          status: pass
+        - cmd: "zig build && zig build test"
+          status: pass
+        - cmd: "PM: shiki block count unchanged after marking fences"
+          status: pass
+      summary: "Dialect compiled to a freestanding wasm32 module with alloc/free/parse/analyze/generate in a length-prefixed ABI that the existing generated decode.js/decode-analyzer.js read as-is; build.zig gained a factored production graph and a wasm step; Node smoke test proves parse/analyze/generate on the hero snippet, invalid-fixture diagnostics, and all fixtures. Worker blocked only on the --fences line because three deliberately invalid doc fences needed the no-playground marker in a T015-owned file; PM applied that 3-line edit and re-verified. No change under src/dialect, npm, test."
   - id: T015
     type: worker
     assignee: Worker
-    status: queued
+    status: active
     reasoning_hint: default
     objective: "Browser host + playground + hero editor + try buttons per notes/T012-interactivity-spec.md sections 4-5: docs/assets/yuku-wasm.js, docs/assets/yuku-playground.js (rewrite of oxc playground.js keeping overlay editor, diagnostics underlines/tooltip, keys, share hash, scenario buttons; drop lint/format/api/completions), editable home hero with live status and an output panel with tabs AST | Diagnostics | Generated code | Semantic, renderPlaygroundPage in build.mjs in the oxc pg-panel shape with the named fixtures inlined, Try in playground buttons on tsrx fences (opt-out no-playground), build.mjs copies zig-out/wasm/yuku-tsrx.wasm + decode.js + decode-analyzer.js into assets/wasm/ and throws if missing, Playground nav item, /playground in sitemap, .wasm MIME in serve.mjs, style.css region opener so .pg-output rules ship to the home shell, docs/verify-playground.mjs headless-Chrome check failing on any console error."
     allowed_files:

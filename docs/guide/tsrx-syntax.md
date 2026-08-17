@@ -346,7 +346,7 @@ produces diagnostics rather than a plausible-looking tree.
 sits in child position is invalid, because the block is a template, not a
 function body:
 
-```tsrx
+```tsrx no-playground
 const child = (
     <section>
         @{
@@ -365,7 +365,7 @@ fixture shows the legal case: a `@{ }` that *is* a function body may return.
 `control-flow-switch-invalid.module.tsrx`. A `@case` body is not a JavaScript
 switch clause, so control transfer out of it is refused:
 
-```tsrx
+```tsrx no-playground
 const view = @switch (status) {
     @case "ready": {
         break;
@@ -388,7 +388,7 @@ is reported.
 `dynamic-tag-invalid.module.tsrx`. The expression in `<{ }>` has to resolve to
 something that can name an element, and these do not:
 
-```tsrx
+```tsrx no-playground
 const call_tag = <{getTag()} />;
 const concat_tag = <{"x" + name} />;
 const interpolated_tag = <{`x${name}`} />;

@@ -10,6 +10,8 @@
 		"docs:build": "node docs/build.mjs",
 		"docs:serve": "node docs/serve.mjs",
 		"docs:social-card": "node docs/generate-social-card.mjs",
+		"docs:wasm": "zig build wasm -Doptimize=ReleaseSmall",
+		"docs:wasm-smoke": "node tools/wasm-smoke.mjs",
 		"fmt": "vp fmt",
 		"gen:npm": "node tools/m3-generated.ts --sync",
 		"lint": "vp lint",

@@ -86,62 +86,11 @@ pub fn build(b: *std.Build) void {
     profile_step.dependOn(&profile_run.step);
 
     {
-        const dialect_abi_module = b.createModule(.{
-            .root_source_file = b.path("src/dialect/abi.zig"),
-            .target = target,
-            .optimize = optimize,
-        });
-        const production_schema_module = b.createModule(.{
-            .root_source_file = b.path("src/dialect/schema.zig"),
-            .target = target,
-            .optimize = optimize,
-        });
-        production_schema_module.addImport("dialect_abi", dialect_abi_module);
-        const production_dialect_module = b.createModule(.{
-            .root_source_file = b.path("src/dialect/parser_extension.zig"),
-            .target = target,
-            .optimize = optimize,
-        });
-        production_dialect_module.addImport("dialect_abi", dialect_abi_module);
-        production_dialect_module.addImport("dialect_schema", production_schema_module);
-        const production_parser_base = cloneModule(
-            b,
-            yuku.module("parser"),
-            yuku.path("src/parser/root.zig"),
-            target,
-            optimize,
-        );
-        production_parser_base.addImport("parser_extension", production_dialect_module);
-        const production_parser_module = b.createModule(.{
-            .root_source_file = b.path("src/dialect/root.zig"),
-            .target = target,
-            .optimize = optimize,
-        });
-        production_parser_module.addImport("yuku", production_parser_base);
-        production_parser_module.addImport("parser_extension", production_dialect_module);
-        production_parser_module.addImport("dialect_abi", dialect_abi_module);
-        const production_util_module = production_parser_base.import_table.get("util").?;
-        const production_codegen_options = production_parser_base.import_table.get(
-            "codegen_options",
-        ).?;
-        production_parser_module.addImport("util", production_util_module);
-        production_parser_module.addImport(
-            "codegen_options",
-            production_codegen_options,
-        );
-        const production_base_transfer_module = b.createModule(.{
-            .root_source_file = yuku.path("src/parser/ffi/transfer/root.zig"),
-            .target = target,
-            .optimize = optimize,
-        });
-        production_base_transfer_module.addImport("parser", production_parser_base);
-        const production_transfer_module = b.createModule(.{
-            .root_source_file = b.path("src/dialect/transfer.zig"),
-            .target = target,
-            .optimize = optimize,
-        });
-        production_transfer_module.addImport("parser", production_parser_module);
-        production_transfer_module.addImport("base_transfer", production_base_transfer_module);
+        const production = addProductionGraph(b, yuku, target, optimize);
+        const dialect_abi_module = production.dialect_abi;
+        const production_dialect_module = production.parser_extension;
+        const production_parser_module = production.parser;
+        const production_transfer_module = production.transfer;
 
         const napi_dep = b.dependency("napi_zig", .{});
         napi_zig.addLib(b, napi_dep, .{
@@ -479,6 +428,127 @@ pub fn build(b: *std.Build) void {
         );
         fixture_step.dependOn(&fixture_oracle.step);
     }
+
+    addWasm(b, yuku);
+}
+
+/// The production dialect module graph: the same wiring the napi addon uses,
+/// built once per target so the browser build cannot drift from the native one.
+const ProductionGraph = struct {
+    dialect_abi: *std.Build.Module,
+    schema: *std.Build.Module,
+    parser_extension: *std.Build.Module,
+    parser_base: *std.Build.Module,
+    parser: *std.Build.Module,
+    base_transfer: *std.Build.Module,
+    transfer: *std.Build.Module,
+};
+
+fn addProductionGraph(
+    b: *std.Build,
+    yuku: *std.Build.Dependency,
+    target: std.Build.ResolvedTarget,
+    optimize: std.builtin.OptimizeMode,
+) ProductionGraph {
+    const dialect_abi_module = b.createModule(.{
+        .root_source_file = b.path("src/dialect/abi.zig"),
+        .target = target,
+        .optimize = optimize,
+    });
+    const schema_module = b.createModule(.{
+        .root_source_file = b.path("src/dialect/schema.zig"),
+        .target = target,
+        .optimize = optimize,
+    });
+    schema_module.addImport("dialect_abi", dialect_abi_module);
+    const dialect_module = b.createModule(.{
+        .root_source_file = b.path("src/dialect/parser_extension.zig"),
+        .target = target,
+        .optimize = optimize,
+    });
+    dialect_module.addImport("dialect_abi", dialect_abi_module);
+    dialect_module.addImport("dialect_schema", schema_module);
+    const parser_base = cloneModule(
+        b,
+        yuku.module("parser"),
+        yuku.path("src/parser/root.zig"),
+        target,
+        optimize,
+    );
+    parser_base.addImport("parser_extension", dialect_module);
+    const parser_module = b.createModule(.{
+        .root_source_file = b.path("src/dialect/root.zig"),
+        .target = target,
+        .optimize = optimize,
+    });
+    parser_module.addImport("yuku", parser_base);
+    parser_module.addImport("parser_extension", dialect_module);
+    parser_module.addImport("dialect_abi", dialect_abi_module);
+    parser_module.addImport("util", parser_base.import_table.get("util").?);
+    parser_module.addImport(
+        "codegen_options",
+        parser_base.import_table.get("codegen_options").?,
+    );
+    const base_transfer_module = b.createModule(.{
+        .root_source_file = yuku.path("src/parser/ffi/transfer/root.zig"),
+        .target = target,
+        .optimize = optimize,
+    });
+    base_transfer_module.addImport("parser", parser_base);
+    const transfer_module = b.createModule(.{
+        .root_source_file = b.path("src/dialect/transfer.zig"),
+        .target = target,
+        .optimize = optimize,
+    });
+    transfer_module.addImport("parser", parser_module);
+    transfer_module.addImport("base_transfer", base_transfer_module);
+
+    return .{
+        .dialect_abi = dialect_abi_module,
+        .schema = schema_module,
+        .parser_extension = dialect_module,
+        .parser_base = parser_base,
+        .parser = parser_module,
+        .base_transfer = base_transfer_module,
+        .transfer = transfer_module,
+    };
+}
+
+/// `zig build wasm` only. The default install still writes just the napi addon
+/// and the npm package, so nothing here lands in a normal build.
+fn addWasm(b: *std.Build, yuku: *std.Build.Dependency) void {
+    const wasm_target = b.resolveTargetQuery(.{
+        .cpu_arch = .wasm32,
+        .os_tag = .freestanding,
+        .cpu_features_add = std.Target.wasm.featureSet(&.{
+            .bulk_memory,
+            .nontrapping_fptoint,
+            .sign_ext,
+            .simd128,
+        }),
+    });
+    const wasm_step = b.step(
+        "wasm",
+        "Build the yuku-tsrx dialect for the browser (zig-out/wasm/yuku-tsrx.wasm)",
+    );
+
+    const graph = addProductionGraph(b, yuku, wasm_target, .ReleaseSmall);
+    const wasm_module = b.createModule(.{
+        .root_source_file = b.path("src/ffi/wasm.zig"),
+        .target = wasm_target,
+        .optimize = .ReleaseSmall,
+        .strip = true,
+    });
+    wasm_module.addImport("parser", graph.parser);
+    wasm_module.addImport("transfer", graph.transfer);
+
+    const wasm_exe = b.addExecutable(.{ .name = "yuku-tsrx", .root_module = wasm_module });
+    wasm_exe.entry = .disabled;
+    wasm_exe.rdynamic = true;
+    const install = b.addInstallArtifact(wasm_exe, .{
+        .dest_dir = .{ .override = .{ .custom = "wasm" } },
+    });
+    wasm_step.dependOn(&install.step);
 }
 
 fn installNpmHostWrapper(b: *std.Build) void {
