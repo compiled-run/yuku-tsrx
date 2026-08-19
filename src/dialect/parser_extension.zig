@@ -1117,6 +1117,23 @@ fn isJsxTagNameByte(byte: u8) bool {
         byte == '.' or byte == ':' or byte == '$';
 }
 
+/// True when `byte` - the one directly after a `<` in child position - can begin
+/// a tag: a name start, `/` for a closing tag, `>` for a fragment, `{` for a
+/// TSRX dynamic tag name, or whitespace, which the tag lexer skips before the
+/// name. A byte >= 0x80 starts a non-ASCII identifier and counts as a name.
+fn canOpenJsxTag(byte: u8) bool {
+    return std.ascii.isAlphabetic(byte) or byte == '_' or byte == '$' or byte >= 0x80 or
+        byte == '/' or byte == '>' or byte == '{' or isJsxSpace(byte);
+}
+
+/// True when the byte at `at` is a `<` that cannot open a tag, so TSRX - like
+/// HTML, and like @tsrx/core - reads it as literal text: `<3`, `<= arrow`.
+fn literalLessThan(source: []const u8, at: u32) bool {
+    if (at >= source.len or source[at] != '<') return false;
+    const next: u8 = if (@as(usize, at) + 1 < source.len) source[@as(usize, at) + 1] else 0;
+    return !canOpenJsxTag(next);
+}
+
 /// Offset just past the `</style>` that closes a raw-text element whose opening
 /// tag ended at `from`.
 fn rawTextElementEnd(source: []const u8, from: u32) ?u32 {
@@ -1183,20 +1200,34 @@ const ChildrenScan = struct {
     /// a `@` appeared in child position of this very region, rather than
     /// inside one of its child elements
     directive: bool,
+    /// a `<` that cannot open a tag appeared in child position of this very
+    /// region; the host children loop would reject it, so the dialect owns
+    /// the element and reads that `<` as text
+    literal_lt: bool,
 };
 
 /// Walk a JSX children region from `from` to the closing tag of the element
-/// that encloses it, reporting whether that region holds a TSRX directive of
-/// its own.
+/// that encloses it, reporting whether that region holds a TSRX directive or a
+/// literal `<` of its own.
 fn scanJsxChildren(source: []const u8, from: u32, depth: u32) ?ChildrenScan {
     if (depth > max_jsx_scan_depth) return null;
     var cursor: usize = from;
     var directive = false;
+    var literal_lt = false;
     while (cursor < source.len) {
         switch (source[cursor]) {
             '<' => {
+                if (literalLessThan(source, @intCast(cursor))) {
+                    literal_lt = true;
+                    cursor += 1;
+                    continue;
+                }
                 const tag = scanJsxTag(source, @intCast(cursor)) orelse return null;
-                if (tag.closing) return .{ .close = @intCast(cursor), .directive = directive };
+                if (tag.closing) return .{
+                    .close = @intCast(cursor),
+                    .directive = directive,
+                    .literal_lt = literal_lt,
+                };
                 if (tag.self_closing) {
                     cursor = tag.end;
                     continue;
@@ -1268,14 +1299,22 @@ fn parseExtendedJsxChildren(
     var scan_from = from;
     while (true) {
         H.setLexerMode(parser, .normal);
-        const text_token = H.reScanJsxText(parser, scan_from);
-        if (text_token.len() > 0) {
-            var value = H.sourceSlice(parser, text_token.span.start, text_token.span.end);
-            switch (try text.value(H, parser, text_token.span)) {
+        const text_start = scan_from;
+        var text_token = H.reScanJsxText(parser, scan_from);
+        // The host lexer ends a text run at every `<`. TSRX only ends it at a
+        // `<` that can open a tag, so one that cannot - `<3`, `<= arrow` - is
+        // stepped over and the surrounding run stays a single text child.
+        while (literalLessThan(H.source(parser), text_token.span.end)) {
+            text_token = H.reScanJsxText(parser, text_token.span.end + 1);
+        }
+        const text_span: H.Span = .{ .start = text_start, .end = text_token.span.end };
+        if (text_span.end > text_span.start) {
+            var value = H.sourceSlice(parser, text_span.start, text_span.end);
+            switch (try text.value(H, parser, text_span)) {
                 .handled => |decoded| value = decoded,
                 .unhandled => {},
             }
-            const text_node = try H.addNode(parser, H.NodeData{ .jsx_text = .{ .value = value } }, text_token.span);
+            const text_node = try H.addNode(parser, H.NodeData{ .jsx_text = .{ .value = value } }, text_span);
             try children.append(H.allocator(parser), text_node);
         }
         if (!try H.advanceWithRescannedToken(parser, text_token)) return false;
@@ -1313,11 +1352,12 @@ fn parseExtendedJsxElement(comptime H: type, parser: anytype, opening: H.NodeInd
     const name_span = H.nodeSpan(parser, opening_data.name);
     const name = H.sourceText(parser, name_span);
     const source = H.source(parser);
-    // Own this element only when a directive sits directly among its own
-    // children: one nested inside a child element belongs to that child, which
-    // re-enters this hook when the host parses it.
+    // Own this element only when a directive - or a `<` the host would reject
+    // and TSRX keeps as text - sits directly among its own children: one nested
+    // inside a child element belongs to that child, which re-enters this hook
+    // when the host parses it.
     const region = scanJsxChildren(source, opening_span.end, 0) orelse return null;
-    if (!region.directive) return null;
+    if (!region.directive and !region.literal_lt) return null;
 
     // Declining halfway through leaves the host holding a parser that has
     // already consumed children, so every failure below rewinds to entry.
@@ -1381,7 +1421,7 @@ fn parseExtendedJsxFragment(comptime H: type, parser: anytype, opening: H.NodeIn
     const opening_span = H.nodeSpan(parser, opening);
     const source = H.source(parser);
     const region = scanJsxChildren(source, opening_span.end, 0) orelse return null;
-    if (!region.directive) return null;
+    if (!region.directive and !region.literal_lt) return null;
 
     const entry_parser = parser.checkpoint();
     const entry_store = container(parser).store.checkpoint();

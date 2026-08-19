@@ -49,6 +49,43 @@ test("loose parsing returns a usable tree and preserves collected comments", () 
 	);
 });
 
+test("a less-than that cannot open a tag stays literal JSX text", () => {
+	// Markless renders these through SSR and expects `&lt;3` / `&lt;= arrow`,
+	// so the `<` has to reach the tree as text rather than ending the parse.
+	for (const [source, text] of [
+		["export function App() @{ <span><3</span> }", "<3"],
+		["export function App() @{ <span><= arrow</span> }", "<= arrow"],
+		["export function App() @{ <span>a <3 b</span> }", "a <3 b"],
+	] as const) {
+		const errors: Diagnostic[] = [];
+		const program = parseModule(source, "LessThan.tsrx", { collect: true, errors });
+		expect(errors, source).toEqual([]);
+
+		const values: string[] = [];
+		walk(program, {
+			enter(node) {
+				if (node.type === "JSXText") values.push(node.value);
+			},
+		});
+		expect(values, source).toEqual([text]);
+	}
+});
+
+test("a literal less-than survives inside an expression container", () => {
+	const source = "export function App() @{ <div>{<span><3</span>}</div> }";
+	const errors: Diagnostic[] = [];
+	const program = parseModule(source, "LessThanContainer.tsrx", { collect: true, errors });
+	expect(errors).toEqual([]);
+
+	const values: string[] = [];
+	walk(program, {
+		enter(node) {
+			if (node.type === "JSXText") values.push(node.value);
+		},
+	});
+	expect(values).toEqual(["<3"]);
+});
+
 test("exports Markless-compatible event attribute helpers", () => {
 	expect(isEventAttribute("onClick")).toBe(true);
 	expect(isEventAttribute("onclick")).toBe(false);

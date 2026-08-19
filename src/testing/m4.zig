@@ -1082,3 +1082,77 @@ test "style siblings round-trip through codegen" {
         try std.testing.expect(!reparsed.hasErrors());
     }
 }
+
+test "a less-than that cannot open a tag is one literal text child" {
+    // TSRX follows HTML - and @tsrx/core - here: `<` opens a tag only when the
+    // byte after it can start one. In front of anything else it is the
+    // character it looks like, and the run around it stays a single text child
+    // rather than being cut in two. tsrx.dev's specification says nothing about
+    // the case, so the rule is pinned here.
+    for ([_]struct { source: []const u8, text: []const u8 }{
+        .{ .source = "const view = <span><3</span>;", .text = "<3" },
+        .{ .source = "const view = <span><= arrow</span>;", .text = "<= arrow" },
+        .{ .source = "const view = <span>a <3 b</span>;", .text = "a <3 b" },
+    }) |case| {
+        var tree = try parser.parse(std.testing.allocator, case.source, .{ .lang = .tsx });
+        defer tree.deinit();
+        try std.testing.expectEqual(@as(usize, 0), tree.diagnostics.items.len);
+        try std.testing.expect(!tree.hasErrors());
+
+        const element = declaredJsxElement(&tree);
+        try std.testing.expect(tree.data(element).jsx_element.closing_element != .null);
+        const nodes = tree.extra(tree.data(element).jsx_element.children);
+        try std.testing.expectEqual(@as(usize, 1), nodes.len);
+        try std.testing.expectEqual(.jsx_text, std.meta.activeTag(tree.data(nodes[0])));
+        try std.testing.expectEqualStrings(
+            case.text,
+            tree.string(tree.data(nodes[0]).jsx_text.value),
+        );
+    }
+}
+
+test "a literal less-than survives inside an expression container" {
+    // An element written inside `{ … }` has its children read through a
+    // different entry point than bare markup text, so the rule has to hold on
+    // that path too.
+    const source = "const view = <div>{<span><3</span>}</div>;";
+    var tree = try parser.parse(std.testing.allocator, source, .{ .lang = .tsx });
+    defer tree.deinit();
+    try std.testing.expectEqual(@as(usize, 0), tree.diagnostics.items.len);
+    try std.testing.expect(!tree.hasErrors());
+
+    const outer = tree.extra(tree.data(declaredJsxElement(&tree)).jsx_element.children);
+    try std.testing.expectEqual(@as(usize, 1), outer.len);
+    const inner = tree.data(outer[0]).jsx_expression_container.expression;
+    try std.testing.expectEqual(.jsx_element, std.meta.activeTag(tree.data(inner)));
+    const inner_children = tree.extra(tree.data(inner).jsx_element.children);
+    try std.testing.expectEqual(@as(usize, 1), inner_children.len);
+    try std.testing.expectEqualStrings(
+        "<3",
+        tree.string(tree.data(inner_children[0]).jsx_text.value),
+    );
+}
+
+test "a less-than that can open a tag still opens one" {
+    // The guard rail on the rule above: every byte the tag grammar accepts
+    // after `<` - a name start, `/`, `>` for a fragment, `{` for a TSRX dynamic
+    // tag name - keeps opening a tag rather than turning into text.
+    for ([_][]const u8{
+        "const view = <div><span>a</span></div>;",
+        "const view = <div><>a</></div>;",
+        "const view = <div><{Tag}>a</{Tag}></div>;",
+        "const view = <div><_leading>a</_leading></div>;",
+    }) |source| {
+        var tree = try parser.parse(std.testing.allocator, source, .{ .lang = .tsx });
+        defer tree.deinit();
+        try std.testing.expectEqual(@as(usize, 0), tree.diagnostics.items.len);
+        try std.testing.expect(!tree.hasErrors());
+
+        const nodes = tree.extra(tree.data(declaredJsxElement(&tree)).jsx_element.children);
+        try std.testing.expectEqual(@as(usize, 1), nodes.len);
+        try std.testing.expect(switch (tree.data(nodes[0])) {
+            .jsx_element, .jsx_fragment => true,
+            else => false,
+        });
+    }
+}
