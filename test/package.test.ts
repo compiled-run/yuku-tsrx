@@ -19,7 +19,15 @@ test("generated npm host composes the compatibility wrapper with package-relativ
 	expect(binding).toContain("@yuku-tsrx");
 
 	const manifest = JSON.parse(readFileSync(resolve(packageRoot, "package.json"), "utf8"));
-	expect(Object.keys(manifest.optionalDependencies)).toHaveLength(12);
+	// 0.1.0 ships exactly the two bindings that are built and exercised. The
+	// twelve this used to expect were entries in a template, not packages
+	// anyone had produced. Pinned to the release version, not a range, so a
+	// consumer cannot resolve an addon built from different source than the
+	// JavaScript that loads it.
+	expect(manifest.optionalDependencies).toEqual({
+		"@yuku-tsrx/binding-darwin-arm64": manifest.version,
+		"@yuku-tsrx/binding-linux-x64-gnu": manifest.version,
+	});
 	expect(manifest.files).toEqual(
 		expect.arrayContaining([
 			"index.js",

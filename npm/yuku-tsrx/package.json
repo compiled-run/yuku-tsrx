@@ -1,6 +1,25 @@
 {
 	"name": "yuku-tsrx",
-	"version": "0.0.0",
+	"version": "0.1.0",
+	"description": "TSRX parser, analyzer, and code generator: a compile-time dialect on Yuku, with a JavaScript API on a native addon",
+	"keywords": [
+		"analyzer",
+		"ast",
+		"codegen",
+		"estree",
+		"parser",
+		"tsrx",
+		"yuku"
+	],
+	"homepage": "https://compiled.run/yuku-tsrx",
+	"bugs": {
+		"url": "https://github.com/compiled-run/yuku-tsrx/issues"
+	},
+	"license": "UNLICENSED",
+	"repository": {
+		"type": "git",
+		"url": "git+https://github.com/compiled-run/yuku-tsrx.git"
+	},
 	"files": [
 		"index.js",
 		"index.d.ts",
@@ -19,18 +38,15 @@
 			"import": "./index.js"
 		}
 	},
+	"publishConfig": {
+		"access": "public",
+		"provenance": true
+	},
 	"optionalDependencies": {
-		"@yuku-tsrx/binding-android-arm64": "0.0.0",
-		"@yuku-tsrx/binding-darwin-arm64": "0.0.0",
-		"@yuku-tsrx/binding-darwin-x64": "0.0.0",
-		"@yuku-tsrx/binding-freebsd-x64": "0.0.0",
-		"@yuku-tsrx/binding-linux-arm-gnu": "0.0.0",
-		"@yuku-tsrx/binding-linux-arm-musl": "0.0.0",
-		"@yuku-tsrx/binding-linux-arm64-gnu": "0.0.0",
-		"@yuku-tsrx/binding-linux-arm64-musl": "0.0.0",
-		"@yuku-tsrx/binding-linux-x64-gnu": "0.0.0",
-		"@yuku-tsrx/binding-linux-x64-musl": "0.0.0",
-		"@yuku-tsrx/binding-win32-arm64": "0.0.0",
-		"@yuku-tsrx/binding-win32-x64": "0.0.0"
+		"@yuku-tsrx/binding-darwin-arm64": "0.1.0",
+		"@yuku-tsrx/binding-linux-x64-gnu": "0.1.0"
+	},
+	"engines": {
+		"node": ">=22"
 	}
 }

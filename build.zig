@@ -598,6 +598,28 @@ fn installNpmHostWrapper(b: *std.Build) void {
     const binding_overlay = b.addInstallFile(host_binding, "npm/yuku-tsrx/binding.js");
     for (generated_steps) |generated| binding_overlay.step.dependOn(generated);
     install_step.dependOn(&binding_overlay.step);
+
+    // The binding packages that 0.1.0 actually ships. napi-zig only scaffolds a
+    // per-platform package.json in its own `-Dnpm` release mode, which also
+    // forces ReleaseFast and hardcodes version 0.0.0. This tree publishes from
+    // the ordinary `zig build` / `zig build -Dtarget=...` path instead, so the
+    // manifests are checked in under npm/ and overlaid here. Each one is
+    // installed on every build, including builds that only produce the other
+    // platform's .node: a manifest without its addon beside it is what
+    // scripts/release-local.mjs and the publish workflow both refuse to
+    // publish, and a missing manifest would be harder to notice than a
+    // rejected one.
+    inline for ([_][]const u8{
+        "@yuku-tsrx/binding-darwin-arm64",
+        "@yuku-tsrx/binding-linux-x64-gnu",
+    }) |package| {
+        const manifest = b.addInstallFile(
+            b.path(b.fmt("npm/yuku-tsrx/{s}/package.json", .{package})),
+            b.fmt("npm/yuku-tsrx/{s}/package.json", .{package}),
+        );
+        for (generated_steps) |generated| manifest.step.dependOn(generated);
+        install_step.dependOn(&manifest.step);
+    }
 }
 
 fn installNpmHostAddon(
