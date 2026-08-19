@@ -215,14 +215,200 @@ export interface ParseModuleOptions extends Omit<ParseOptions, "sourceType"> {
 	comments?: Comment[];
 }
 
-export interface SemanticView {
-	reference: { count: number; name(index: number): string; symbolId(index: number): number | null };
-	scope: { count: number; kind(index: number): string };
-	symbol: { count: number; name(index: number): string };
+/**
+ * Position of a node in the analyzer's flat node table. Every semantic table
+ * refers to syntax by this index; `AnalyzerNodeAccess.nodeOf` materializes it.
+ */
+export type NodeIndex = number;
+
+/** Row index into `SemanticView.scope`. */
+export type ScopeId = number;
+/** Row index into `SemanticView.symbol`. */
+export type SymbolId = number;
+/** Row index into `SemanticView.reference`. */
+export type ReferenceId = number;
+
+export type ScopeKind =
+	| "global"
+	| "module"
+	| "function"
+	| "block"
+	| "class"
+	| "staticBlock"
+	| "expressionName"
+	| "tsModule"
+	| "functionBody";
+
+/** Which declaration space a reference resolves against. */
+export type ReferenceSpace = "value" | "type" | "namespace" | "typeof" | "any";
+
+export type ImportKind =
+	| "named"
+	| "namespace"
+	| "sideEffect"
+	| "importEquals"
+	| "dynamic"
+	| "require";
+
+export type ImportPhase = "source" | "defer";
+
+export type ExportKind = "named" | "reExport" | "namespace" | "star" | "equals" | "global";
+
+/**
+ * Lexical scopes, ordered so a scope's parent always precedes it. Scope 0 is
+ * the enclosing `global` scope; a module's own bindings live in scope 1.
+ */
+export interface SemanticScopeTable {
+	/** Number of rows. Valid ids are `0` through `count - 1`. */
+	count: number;
+	kind(id: ScopeId): ScopeKind;
+	/** Whether code in this scope runs in strict mode. */
+	strict(id: ScopeId): boolean;
+	/** The syntax node that introduced the scope. */
+	node(id: ScopeId): BaseNode;
+	nodeIndex(id: ScopeId): NodeIndex;
+	/** Enclosing scope, or `null` for the root `global` scope. */
+	parentId(id: ScopeId): ScopeId | null;
+	/** Scope that `var` and function declarations hoist into. */
+	hoistTargetId(id: ScopeId): ScopeId;
+	/** Source offset where `node(id)` starts. */
+	start(id: ScopeId): number;
+	/** Source offset where `node(id)` ends. */
+	end(id: ScopeId): number;
 }
 
-export interface AnalyzeResult extends ParseResult {
+/** Bindings introduced by declarations. */
+export interface SemanticSymbolTable {
+	/** Number of rows. Valid ids are `0` through `count - 1`. */
+	count: number;
+	name(id: SymbolId): string;
+	/**
+	 * Bit set describing the binding, as produced by the analyzer. The bit
+	 * meanings are owned by the analyzer, not described by this package.
+	 */
+	flags(id: SymbolId): number;
+	/** Scope that owns the binding. */
+	scopeId(id: SymbolId): ScopeId;
+	/** How many declarations bind this symbol. */
+	declCount(id: SymbolId): number;
+	/** Declaration site; `declIndex` runs `0` through `declCount(id) - 1`. */
+	declNode(id: SymbolId, declIndex: number): BaseNode;
+	declNodeIndex(id: SymbolId, declIndex: number): NodeIndex;
+}
+
+/** Identifier uses, each resolved to a symbol where one was found. */
+export interface SemanticReferenceTable {
+	/** Number of rows. Valid ids are `0` through `count - 1`. */
+	count: number;
+	name(id: ReferenceId): string;
+	/** Scope the reference was resolved from. */
+	scopeId(id: ReferenceId): ScopeId;
+	/** The identifier node making the reference. */
+	node(id: ReferenceId): BaseNode;
+	nodeIndex(id: ReferenceId): NodeIndex;
+	space(id: ReferenceId): ReferenceSpace;
+	/** True for the spaces that only occur in type position. */
+	inTypePosition(id: ReferenceId): boolean;
+	/** True when the reference is the target of an assignment. */
+	isWrite(id: ReferenceId): boolean;
+	/** Resolved binding, or `null` when the reference is unresolved. */
+	symbolId(id: ReferenceId): SymbolId | null;
+	/** Source offset where `node(id)` starts. */
+	start(id: ReferenceId): number;
+	/** Source offset where `node(id)` ends. */
+	end(id: ReferenceId): number;
+}
+
+/** One row per imported binding or import statement without bindings. */
+export interface SemanticImportTable {
+	/** Number of rows. Valid ids are `0` through `count - 1`. */
+	count: number;
+	kind(id: number): ImportKind;
+	/** Local binding, or `null` for forms that introduce none. */
+	symbolId(id: number): SymbolId | null;
+	/** Imported name; the empty string when the form carries none. */
+	name(id: number): string;
+	/** Module specifier as written in the source. */
+	specifier(id: number): string;
+	typeOnly(id: number): boolean;
+	/** Phase modifier, or `null` when none was written. */
+	phase(id: number): ImportPhase | null;
+	node(id: number): BaseNode;
+}
+
+/** One row per exported name. */
+export interface SemanticExportTable {
+	/** Number of rows. Valid ids are `0` through `count - 1`. */
+	count: number;
+	kind(id: number): ExportKind;
+	typeOnly(id: number): boolean;
+	/** Exported name; the empty string when the form carries none. */
+	name(id: number): string;
+	/** Local name behind a renamed export; the empty string when not applicable. */
+	fromName(id: number): string;
+	/** Source module of a re-export; the empty string for a local export. */
+	specifier(id: number): string;
+	/** Exported binding, or `null` when no local symbol backs the export. */
+	symbolId(id: number): SymbolId | null;
+	node(id: number): BaseNode;
+}
+
+/** Module-level facts collected while analyzing. */
+export interface SemanticModuleFlags {
+	usesRequire: boolean;
+	usesModule: boolean;
+	usesExports: boolean;
+	usesImportMeta: boolean;
+}
+
+/**
+ * Semantic tables for one analyzed source. Every table is a column store read
+ * through accessors by row id; nothing is materialized until it is asked for.
+ */
+export interface SemanticView {
+	scope: SemanticScopeTable;
+	symbol: SemanticSymbolTable;
+	reference: SemanticReferenceTable;
+	import: SemanticImportTable;
+	export: SemanticExportTable;
+	moduleFlags: SemanticModuleFlags;
+	/** Innermost scope enclosing the node at a given node index. */
+	nodeScope(nodeIndex: NodeIndex): ScopeId;
+}
+
+/**
+ * Node-table navigation shared by every analyzer result. These bridge the
+ * semantic tables, which speak in node indexes, to materialized AST nodes.
+ */
+export interface AnalyzerNodeAccess {
+	/** Materializes the node at a node-table index, memoized per result. */
+	nodeOf(index: NodeIndex): BaseNode;
+	/**
+	 * Index of an already-materialized node, or `undefined` when the node did
+	 * not come from this result.
+	 */
+	indexOf(node: BaseNode): NodeIndex | undefined;
+	/** Parent node index, or `-1` for the root program. */
+	parentIndex(index: NodeIndex): NodeIndex;
+	/** Source offset where the node at `index` starts. */
+	startOf(index: NodeIndex): number;
+	/** Source offset where the node at `index` ends. */
+	endOf(index: NodeIndex): number;
+	/** Decodes a source slice from an offset and byte length. */
+	str(offset: number, length: number): string;
+}
+
+export interface AnalyzeResult extends ParseResult, AnalyzerNodeAccess {
 	readonly semantic: SemanticView;
+}
+
+/**
+ * Result of decoding an analyzer buffer directly. `semantic` is `null` when the
+ * buffer was produced without semantic data; buffers from `analyze` always
+ * carry it.
+ */
+export interface DecodeAnalyzerResult extends ParseResult, AnalyzerNodeAccess {
+	readonly semantic: SemanticView | null;
 }
 
 export interface GenerateOptions {
@@ -265,5 +451,5 @@ export function isEventAttribute(attribute: string): boolean;
 export function normalizeEventName(attribute: string): string;
 export function walk<T extends BaseNode>(root: T, visitors: Visitors, state?: unknown): T;
 export function decode(buffer: ArrayBuffer, source: string): ParseResult;
-export function decodeAnalyzer(buffer: ArrayBuffer, source: string): unknown;
+export function decodeAnalyzer(buffer: ArrayBuffer, source: string): DecodeAnalyzerResult;
 export function encode(program: Program): ArrayBuffer;
