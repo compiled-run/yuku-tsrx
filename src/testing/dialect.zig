@@ -767,6 +767,90 @@ test "reflected transfer rejects overlay kind order and internal host mismatch" 
     try std.testing.expectError(error.InvalidBuffer, transfer.deserializeFromBuf(std.testing.allocator, duplicate, tree.source));
 }
 
+test "semantic transfer survives a scratch buffer the allocator leaves off a 4-byte boundary" {
+    // `appendInto` serializes the base tree into a scratch buffer it allocates
+    // from the tree's allocator, and the base serializer writes every section
+    // through 4-byte-aligned pointers. Asking for `[]u8` only guarantees
+    // 1-byte alignment, so before the fix this path worked or panicked
+    // depending on which size class the allocator happened to pick -- which is
+    // to say, on the shape of the source. `Exactly` honours each request and
+    // grants nothing beyond it, so a buffer that must be 4-aligned to work is
+    // reliably handed an address that is not.
+    var exact: Exactly = .{ .backing = std.testing.allocator };
+    const allocator = exact.allocator();
+
+    for ([_][]const u8{ "a", "const a = 1;\n", "let x=1", "export const y = 2;" }) |source| {
+        dialect.resetHooks();
+        var tree = try parser.parse(allocator, source, .{ .lang = .ts });
+        defer tree.deinit();
+        try std.testing.expect(!tree.hasErrors());
+
+        const semantic = try parser.semantic.analyze(&tree);
+        const records = try parser.semantic.module_record.collect(&tree, &semantic);
+        const core_size = transfer.bufferSize(&tree);
+        const size = transfer.semantic.bufferSize(&tree, &semantic, records, core_size);
+
+        // The output buffer stands in for the N-API ArrayBuffer the addon
+        // writes into, which is aligned; the defect was never here.
+        const bytes = try std.testing.allocator.alignedAlloc(u8, .@"4", size);
+        defer std.testing.allocator.free(bytes);
+        const core_written = transfer.serializeInto(&tree, bytes);
+        const written = try transfer.semantic.appendInto(&tree, &semantic, records, bytes, core_written);
+        try std.testing.expect(written <= size);
+
+        // The semantic sections really landed: the core header advertises them
+        // and the sub-header describes this module rather than an empty one.
+        const flags = std.mem.readInt(u32, bytes[transfer.HDR_FLAGS_U32 * 4 ..][0..4], .little);
+        try std.testing.expect(flags & transfer.FLAG_SEMANTIC != 0);
+
+        const sub = std.mem.alignForward(usize, core_written, 4);
+        try std.testing.expectEqual(@as(usize, 0), sub % 4);
+        const scope_count = std.mem.readInt(u32, bytes[sub..][0..4], .little);
+        const symbol_count = std.mem.readInt(u32, bytes[sub + 4 ..][0..4], .little);
+        try std.testing.expect(scope_count > 0);
+        try std.testing.expectEqual(@as(u32, @intCast(semantic.symbols.len)), symbol_count);
+    }
+}
+
+/// An allocator that satisfies the alignment asked of it and no more, so code
+/// that silently depends on getting a stronger alignment than it requested
+/// fails here every time instead of only for some inputs.
+const Exactly = struct {
+    backing: std.mem.Allocator,
+
+    fn allocator(self: *Exactly) std.mem.Allocator {
+        return .{
+            .ptr = self,
+            .vtable = &.{
+                .alloc = alloc,
+                .resize = std.mem.Allocator.noResize,
+                .remap = std.mem.Allocator.noRemap,
+                .free = free,
+            },
+        };
+    }
+
+    /// Over-allocates at twice the requested alignment and hands back a
+    /// pointer one requested-alignment further in: exactly aligned, never more.
+    fn alloc(ctx: *anyopaque, len: usize, alignment: std.mem.Alignment, ret_addr: usize) ?[*]u8 {
+        const self: *Exactly = @ptrCast(@alignCast(ctx));
+        const pad = alignment.toByteUnits();
+        const base = self.backing.rawAlloc(len + pad, wider(alignment), ret_addr) orelse return null;
+        return base + pad;
+    }
+
+    fn free(ctx: *anyopaque, memory: []u8, alignment: std.mem.Alignment, ret_addr: usize) void {
+        const self: *Exactly = @ptrCast(@alignCast(ctx));
+        const pad = alignment.toByteUnits();
+        const base = memory.ptr - pad;
+        self.backing.rawFree(base[0 .. memory.len + pad], wider(alignment), ret_addr);
+    }
+
+    fn wider(alignment: std.mem.Alignment) std.mem.Alignment {
+        return @enumFromInt(@intFromEnum(alignment) + 1);
+    }
+};
+
 fn reflectedSectionOffset(bytes: []const u8) usize {
     const node_count = std.mem.readInt(u32, bytes[0..4], .little);
     const extra_count = std.mem.readInt(u32, bytes[4..8], .little);

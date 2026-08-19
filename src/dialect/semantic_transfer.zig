@@ -42,7 +42,12 @@ pub fn appendInto(
 ) !usize {
     const allocator = tree.tree.allocator();
     const base_total = base.bufferSize(&tree.tree, semantic, records);
-    const temporary = try allocator.alloc(u8, base_total);
+    // `base.serializeInto` writes every section through 4-byte-aligned pointers
+    // and asserts its buffer starts 4-aligned. A plain `alloc(u8, ...)` is only
+    // 1-aligned, so whether this scratch buffer happened to land on a 4-byte
+    // boundary depended on the size class the allocator picked and on whatever
+    // was allocated before it -- i.e. on the shape of the source being analyzed.
+    const temporary = try allocator.alignedAlloc(u8, .@"4", base_total);
     defer allocator.free(temporary);
     const base_written = base.serializeInto(&tree.tree, semantic, records, temporary);
     const base_core = base_transfer.bufferSize(&tree.tree);
