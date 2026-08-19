@@ -458,7 +458,7 @@ fn writeDecodeOpen(w: *Writer) !void {
         \\  const _flags = _u32[{[u_fl]d}];
         \\  const _isTs = !!(_flags & {[ts]d});
         \\  const _attached = !!(_flags & {[ac]d});
-        \\  const _firstNa = _u32[{[u_fna]d}];
+        \\  const _firstNa = _srcLen === 0 ? _src.length : _u32[{[u_fna]d}];
         \\  const _nodesOff = {[hdr]d};
         \\  const eOff = _nodesOff + nodeCount * {[size]d};
         \\  const _extraBase = eOff >> 2;
@@ -1446,11 +1446,11 @@ fn writeSpecialCase(w: *Writer, comptime name: []const u8) !void {
         const sta = comptime slotOf(ast.ArrayPattern, "type_annotation");
         try emit(w,
             \\
-            \\      const el = nodeArrHoles(f{d}, f0);
+            \\      const el = nodeArrHoles(f{d}, f0b);
             \\      if (f{d} !== NULL) el.push(node(f{d}));
             \\      const r = {{ type: "ArrayPattern", start, end, elements: el }};
             \\      if (_isTs) {{
-            \\        r.decorators = nodeArr(f{d}, f0b);
+            \\        r.decorators = nodeArr(f{d}, f0);
             \\        r.optional = !!(flags & {d});
             \\        r.typeAnnotation = f{d} !== NULL ? node(f{d}) : null;
             \\      }}
@@ -1468,11 +1468,11 @@ fn writeSpecialCase(w: *Writer, comptime name: []const u8) !void {
         const sta = comptime slotOf(ast.ObjectPattern, "type_annotation");
         try emit(w,
             \\
-            \\      const pr = nodeArr(f{d}, f0);
+            \\      const pr = nodeArr(f{d}, f0b);
             \\      if (f{d} !== NULL) pr.push(node(f{d}));
             \\      const r = {{ type: "ObjectPattern", start, end, properties: pr }};
             \\      if (_isTs) {{
-            \\        r.decorators = nodeArr(f{d}, f0b);
+            \\        r.decorators = nodeArr(f{d}, f0);
             \\        r.optional = !!(flags & {d});
             \\        r.typeAnnotation = f{d} !== NULL ? node(f{d}) : null;
             \\      }}

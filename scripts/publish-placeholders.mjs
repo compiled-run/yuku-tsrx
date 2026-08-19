@@ -42,7 +42,7 @@ import { join } from "node:path";
 const REPOSITORY = "compiled-run/yuku-tsrx";
 const SCOPE = "yuku-tsrx";
 const WORKFLOW_FILE = "publish.yml";
-const TARGET_VERSION = "0.1.0";
+const TARGET_VERSION = "0.1.1";
 const BOOTSTRAP_TAG = "bootstrap";
 
 // Same order the real publish uses, for no reason other than habit: nothing

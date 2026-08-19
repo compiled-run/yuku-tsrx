@@ -67,7 +67,10 @@ export function parseModule(source, filename, options = {}) {
     semanticErrors: parseOptions.semanticErrors ?? true,
     attachComments: parseOptions.attachComments ?? comments !== undefined,
   });
-  if ((collect || loose) && comments) comments.push(...result.comments);
+  // Fill on the same condition that enabled attachment above. Gating the fill
+  // on `collect || loose` meant a caller who passed only a `comments` array
+  // paid for comment attachment and got an empty array back.
+  if (comments) comments.push(...result.comments);
   // Only `error` severity makes a module unusable. The native boundary lowers
   // the early errors a mid-edit file still recovers from -- redeclarations --
   // to `warning`, so they stay visible on `parse()` without failing the module
@@ -99,6 +102,259 @@ export function normalizeEventName(attribute) {
     name = name.slice(0, -7);
   }
   return name.toLowerCase();
+}
+
+// ---------------------------------------------------------------------------
+// Source positions
+//
+// Diagnostics and comments carry byte-free UTF-16 offsets into the source text.
+// Editor hosts and error reporters want line/column instead, and every consumer
+// had been writing the same conversion. `line` is 1-based, `column` is 0-based,
+// which is what the ESTree `loc` convention and most editors expect.
+// ---------------------------------------------------------------------------
+
+/**
+ * Convert an offset into the `{ line, column }` position it falls on.
+ * Offsets outside `source` are clamped to its bounds rather than throwing, so a
+ * diagnostic whose span ran past the end of a truncated file still reports a
+ * usable position.
+ *
+ * @param {string} source Source text the offset indexes into.
+ * @param {number} offset UTF-16 offset into `source`.
+ * @returns {{ line: number, column: number }} 1-based line, 0-based column.
+ */
+export function sourcePosition(source, offset) {
+  const bounded = Math.max(0, Math.min(source.length, offset));
+  let line = 1;
+  let lineStart = -1;
+  for (let index = source.indexOf("\n"); index !== -1 && index < bounded; ) {
+    line += 1;
+    lineStart = index;
+    index = source.indexOf("\n", index + 1);
+  }
+  return { line, column: bounded - lineStart - 1 };
+}
+
+/**
+ * Convert a `[start, end)` offset span into an ESTree-shaped `loc`.
+ *
+ * @param {string} source Source text the offsets index into.
+ * @param {number} start Offset the span opens at.
+ * @param {number} end Offset the span closes at.
+ * @returns {{ start: { line: number, column: number }, end: { line: number, column: number } }}
+ */
+export function sourceLocation(source, start, end) {
+  return { start: sourcePosition(source, start), end: sourcePosition(source, end) };
+}
+
+// ---------------------------------------------------------------------------
+// Program normalization
+//
+// The TSRX dialect wraps three control-flow forms around an ordinary statement
+// node: `JSXForExpression` holds a `ForOfStatement`/`ForStatement`,
+// `JSXSwitchExpression` a `SwitchStatement`, `JSXTryExpression` a
+// `TryStatement`. Generic ESTree tooling reaches for `node.left` or
+// `node.cases` directly and finds nothing, because those live one level down on
+// `node.statement`. `normalizeProgram` adds the missing names as
+// non-enumerable aliases, so the tooling resolves them while serializers and
+// tree walkers still see one canonical child.
+// ---------------------------------------------------------------------------
+
+const WRAPPER_ALIASES = {
+  JSXForExpression: ["left", "right", "body", "index", "key", "await"],
+  JSXSwitchExpression: ["discriminant", "cases"],
+  JSXTryExpression: ["block", "handler", "finalizer"],
+};
+
+/**
+ * Walk a program and alias each dialect wrapper's inner-statement fields onto
+ * the wrapper itself. Mutates and returns `program`; it is idempotent, and it
+ * never overwrites a field the node already owns.
+ *
+ * @template {object} T
+ * @param {T} program Program (or any subtree) to normalize.
+ * @param {{ onNode?: (node: Record<string, unknown>) => void }} [options]
+ *   `onNode` runs once per visited object node before aliasing, which lets a
+ *   consumer fold its own per-node pass into this single traversal instead of
+ *   walking the tree a second time.
+ * @returns {T} The same `program`, normalized in place.
+ */
+export function normalizeProgram(program, options = {}) {
+  const { onNode } = options;
+  const visited = new Set();
+  const visit = (value) => {
+    if (!value || typeof value !== "object" || visited.has(value)) return;
+    visited.add(value);
+    if (Array.isArray(value)) {
+      for (const item of value) visit(item);
+      return;
+    }
+
+    if (onNode) onNode(value);
+    const aliases = typeof value.type === "string" ? WRAPPER_ALIASES[value.type] : undefined;
+    const statement = value.statement;
+    if (aliases && statement && typeof statement === "object") {
+      for (const name of aliases) {
+        if (Object.hasOwn(value, name)) continue;
+        Object.defineProperty(value, name, {
+          configurable: true,
+          // Non-enumerable so the alias stays invisible to `Object.values`
+          // walks, to serializers, and to this traversal's own recursion.
+          enumerable: false,
+          value: statement[name],
+          writable: true,
+        });
+      }
+    }
+
+    for (const child of Object.values(value)) visit(child);
+  };
+  visit(program);
+  return program;
+}
+
+// ---------------------------------------------------------------------------
+// Duplicate lexical declarations
+//
+// `analyze()` does not report redeclaration today, so consumers that want it
+// have been re-deriving it from the AST. This is that derivation, done once
+// here.
+//
+// TODO(zig): move this into the Zig analyzer and report it through
+// `analyze().semantic`, which already builds the scope and binding tables this
+// re-walks. Until then this JS pass is the supported surface, and it covers
+// only statement-list `VariableDeclaration`s -- not function, class, import,
+// parameter, or catch-clause bindings, and not the cross-scope cases (a `let`
+// shadowed by a nested `var`) that need real scope analysis.
+// ---------------------------------------------------------------------------
+
+const STATEMENT_LIST_TYPES = new Set([
+  "Program",
+  "BlockStatement",
+  "JSXCodeBlock",
+  "StaticBlock",
+  "TSModuleBlock",
+]);
+
+/**
+ * @typedef {object} DuplicateBinding
+ * @property {string} name Identifier declared more than once.
+ * @property {{ start: number, end: number }} declaration Span of the first declaration.
+ * @property {{ start: number, end: number }} redeclaration Span of the later one.
+ */
+
+/**
+ * Find names a statement list declares more than once.
+ *
+ * Two `var`s of the same name are legal and are not reported. Every other
+ * repeat within one statement list is, including `let`/`const` repeats and a
+ * `var` that collides with a lexical declaration beside it. Destructuring
+ * patterns are walked, so `const { a } = x; const [a] = y;` is caught.
+ *
+ * Results are in source order per statement list, and one entry is produced per
+ * repeat: a name declared three times yields two entries, each pairing the
+ * repeat against the first declaration.
+ *
+ * @param {object} program Program (or any subtree) to scan.
+ * @param {string} source Source text the program was parsed from; identifier
+ *   names are read back out of it by span.
+ * @returns {DuplicateBinding[]}
+ */
+export function duplicateBindings(program, source) {
+  const duplicates = [];
+  const visited = new Set();
+  const visit = (value) => {
+    if (!value || typeof value !== "object" || visited.has(value)) return;
+    visited.add(value);
+    if (Array.isArray(value)) {
+      for (const item of value) visit(item);
+      return;
+    }
+    if (typeof value.type === "string" && STATEMENT_LIST_TYPES.has(value.type)) {
+      collectStatementListDuplicates(value.body, duplicates, source);
+    }
+    for (const child of Object.values(value)) visit(child);
+  };
+  visit(program);
+  return duplicates;
+}
+
+function collectStatementListDuplicates(body, duplicates, source) {
+  if (!Array.isArray(body)) return;
+  const declared = new Map();
+  for (const statement of body) {
+    if (!statement || typeof statement !== "object") continue;
+    if (statement.type !== "VariableDeclaration" || !Array.isArray(statement.declarations)) {
+      continue;
+    }
+    const kind = typeof statement.kind === "string" ? statement.kind : "";
+    for (const declarator of statement.declarations) {
+      if (!declarator || typeof declarator !== "object") continue;
+      for (const binding of bindingIdentifiers(declarator.id, source)) {
+        const existing = declared.get(binding.name);
+        if (!existing) {
+          declared.set(binding.name, { ...binding, kind });
+          continue;
+        }
+        // `var x; var x;` is a legal redeclaration. Anything reaching a
+        // lexical binding is not.
+        if (kind === "var" && existing.kind === "var") continue;
+        duplicates.push({
+          name: binding.name,
+          declaration: { start: existing.start, end: existing.end },
+          redeclaration: { start: binding.start, end: binding.end },
+        });
+      }
+    }
+  }
+}
+
+function bindingIdentifiers(value, source) {
+  if (!value || typeof value !== "object") return [];
+  if (
+    value.type === "Identifier" &&
+    typeof value.start === "number" &&
+    typeof value.end === "number"
+  ) {
+    return [{ name: source.slice(value.start, value.end), start: value.start, end: value.end }];
+  }
+  if (value.type === "RestElement") return bindingIdentifiers(value.argument, source);
+  if (value.type === "AssignmentPattern") return bindingIdentifiers(value.left, source);
+  if (value.type === "TSParameterProperty") return bindingIdentifiers(value.parameter, source);
+  if (value.type === "ArrayPattern" && Array.isArray(value.elements)) {
+    return value.elements.flatMap((element) => bindingIdentifiers(element, source));
+  }
+  if (value.type === "ObjectPattern" && Array.isArray(value.properties)) {
+    return value.properties.flatMap((property) => {
+      if (!property || typeof property !== "object") return [];
+      return bindingIdentifiers(property.type === "Property" ? property.value : property, source);
+    });
+  }
+  return [];
+}
+
+/**
+ * `duplicateBindings` rendered as `Diagnostic`s, so a consumer that already has
+ * a diagnostic pipeline can concatenate them onto a parse's own diagnostics
+ * instead of formatting the spans itself. Each carries both spans as labels:
+ * the original declaration first, the repeat second.
+ *
+ * @param {object} program Program (or any subtree) to scan.
+ * @param {string} source Source text the program was parsed from.
+ * @returns {import("./index.d.ts").Diagnostic[]}
+ */
+export function duplicateBindingDiagnostics(program, source) {
+  return duplicateBindings(program, source).map((duplicate) => ({
+    severity: "error",
+    message: `Identifier '${duplicate.name}' has already been declared`,
+    start: duplicate.redeclaration.start,
+    end: duplicate.redeclaration.end,
+    help: `Consider removing or renaming this declaration of '${duplicate.name}'`,
+    labels: [
+      { start: duplicate.declaration.start, end: duplicate.declaration.end },
+      { start: duplicate.redeclaration.start, end: duplicate.redeclaration.end },
+    ],
+  }));
 }
 
 export { decode, decodeAnalyzer, encode, walk };

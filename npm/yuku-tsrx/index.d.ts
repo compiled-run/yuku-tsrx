@@ -453,3 +453,74 @@ export function walk<T extends BaseNode>(root: T, visitors: Visitors, state?: un
 export function decode(buffer: ArrayBuffer, source: string): ParseResult;
 export function decodeAnalyzer(buffer: ArrayBuffer, source: string): DecodeAnalyzerResult;
 export function encode(program: Program): ArrayBuffer;
+
+/** A `{ line, column }` point: `line` is 1-based, `column` is 0-based. */
+export interface SourcePosition {
+	line: number;
+	column: number;
+}
+
+/** An ESTree-shaped `loc`: the positions a `[start, end)` offset span covers. */
+export interface SourceLocation {
+	start: SourcePosition;
+	end: SourcePosition;
+}
+
+/**
+ * Convert an offset into the position it falls on. Offsets outside `source`
+ * are clamped to its bounds rather than throwing.
+ */
+export function sourcePosition(source: string, offset: number): SourcePosition;
+
+/** Convert a `[start, end)` offset span into an ESTree-shaped `loc`. */
+export function sourceLocation(source: string, start: number, end: number): SourceLocation;
+
+export interface NormalizeProgramOptions {
+	/**
+	 * Runs once per visited object node, before that node is aliased. Lets a
+	 * consumer fold its own per-node pass into this traversal rather than
+	 * walking the tree again.
+	 */
+	onNode?: (node: BaseNode) => void;
+}
+
+/**
+ * Alias each TSRX wrapper expression's inner-statement fields onto the wrapper
+ * itself, so generic ESTree tooling that reads `node.left` or `node.cases`
+ * resolves them instead of finding them only under `node.statement`. The
+ * aliases are non-enumerable, so serializers and tree walkers still see one
+ * canonical child. Mutates and returns `program`, and is idempotent.
+ */
+export function normalizeProgram<T extends object>(
+	program: T,
+	options?: NormalizeProgramOptions,
+): T;
+
+/** One name declared twice in the same statement list. */
+export interface DuplicateBinding {
+	/** The identifier declared more than once. */
+	name: string;
+	/** Span of the first declaration. */
+	declaration: { start: number; end: number };
+	/** Span of the later declaration. */
+	redeclaration: { start: number; end: number };
+}
+
+/**
+ * Find names a statement list declares more than once. Repeated `var`s are
+ * legal and are not reported; every other repeat is, destructuring patterns
+ * included. One entry is produced per repeat, each pairing that repeat against
+ * the first declaration.
+ *
+ * This is an AST pass, not scope analysis: it covers statement-list
+ * `VariableDeclaration`s only, not function, class, import, parameter, or
+ * catch-clause bindings, and not cross-scope collisions.
+ */
+export function duplicateBindings(program: object, source: string): DuplicateBinding[];
+
+/**
+ * `duplicateBindings` rendered as `Diagnostic`s, for consumers that already
+ * have a diagnostic pipeline. Each carries both spans as labels: the original
+ * declaration first, the repeat second.
+ */
+export function duplicateBindingDiagnostics(program: object, source: string): Diagnostic[];

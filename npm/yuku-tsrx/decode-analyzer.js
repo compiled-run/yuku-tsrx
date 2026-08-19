@@ -462,7 +462,7 @@ function decode(buffer, source) {
   const _flags = _u32[8];
   const _isTs = !!(_flags & 1);
   const _attached = !!(_flags & 2);
-  const _firstNa = _u32[9];
+  const _firstNa = _srcLen === 0 ? _src.length : _u32[9];
   const _nodesOff = 40;
   const eOff = _nodesOff + nodeCount * 44;
   const _extraBase = eOff >> 2;
@@ -792,22 +792,22 @@ function decode(buffer, source) {
     case 69: { const f0 = _u32[b + 1] & 65535; const f1 = _u32[b + 2], f2 = _u32[b + 3], f3 = _u32[b + 4], f4 = _u32[b + 5]; const r = { type: "AssignmentPattern", start, end, left: f2 !== NULL ? node(f2) : null, right: f4 !== NULL ? node(f4) : null }; if (_isTs) { r.decorators = nodeArr(f1, f0); r.typeAnnotation = f3 !== NULL ? node(f3) : null; r.optional = !!(flags & 1); } return r; }
     case 70: { const f0 = _u32[b + 1] & 65535; const f1 = _u32[b + 2], f2 = _u32[b + 3], f3 = _u32[b + 4]; const r = { type: "RestElement", start, end, argument: f2 !== NULL ? node(f2) : null }; if (_isTs) { r.decorators = nodeArr(f1, f0); r.typeAnnotation = f3 !== NULL ? node(f3) : null; r.optional = !!(flags & 1); r.value = null; } return r; }
     case 71: { const f0 = _u32[b + 1] & 65535; const f0b = _u32[b + 1] >>> 16; const f1 = _u32[b + 2], f2 = _u32[b + 3], f3 = _u32[b + 4], f4 = _u32[b + 5];
-      const el = nodeArrHoles(f2, f0);
+      const el = nodeArrHoles(f2, f0b);
       if (f3 !== NULL) el.push(node(f3));
       const r = { type: "ArrayPattern", start, end, elements: el };
       if (_isTs) {
-        r.decorators = nodeArr(f1, f0b);
+        r.decorators = nodeArr(f1, f0);
         r.optional = !!(flags & 1);
         r.typeAnnotation = f4 !== NULL ? node(f4) : null;
       }
       return r;
  }
     case 72: { const f0 = _u32[b + 1] & 65535; const f0b = _u32[b + 1] >>> 16; const f1 = _u32[b + 2], f2 = _u32[b + 3], f3 = _u32[b + 4], f4 = _u32[b + 5];
-      const pr = nodeArr(f2, f0);
+      const pr = nodeArr(f2, f0b);
       if (f3 !== NULL) pr.push(node(f3));
       const r = { type: "ObjectPattern", start, end, properties: pr };
       if (_isTs) {
-        r.decorators = nodeArr(f1, f0b);
+        r.decorators = nodeArr(f1, f0);
         r.optional = !!(flags & 1);
         r.typeAnnotation = f4 !== NULL ? node(f4) : null;
       }
