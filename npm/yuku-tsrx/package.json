@@ -15,7 +15,7 @@
 	"bugs": {
 		"url": "https://github.com/compiled-run/yuku-tsrx/issues"
 	},
-	"license": "UNLICENSED",
+	"license": "MIT",
 	"repository": {
 		"type": "git",
 		"url": "git+https://github.com/compiled-run/yuku-tsrx.git"
