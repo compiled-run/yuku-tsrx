@@ -202,8 +202,11 @@ jobs:
           set -euo pipefail
           addon=zig-out/npm/yuku-tsrx/@yuku-tsrx/binding-linux-x64-gnu/yuku-tsrx.node
           before=$(stat -c %s "$addon")
-          llvm-objcopy --strip-debug "$addon"
-          echo "stripped: $before -> $(stat -c %s "$addon") bytes"
+          # ubuntu runners ship GNU binutils, not LLVM; either objcopy strips
+          # ELF debug sections identically for our purpose.
+          strip_tool=$(command -v llvm-objcopy || command -v objcopy)
+          "$strip_tool" --strip-debug "$addon"
+          echo "stripped with $strip_tool: $before -> $(stat -c %s "$addon") bytes"
 
       # A staged tree that does not contain the addon it advertises is the
       # failure that produces a package which installs and then throws on first
