@@ -24,7 +24,7 @@ type CommandResult = {
 };
 
 const expectedRef = "eb2adcb4c17da16e7ade1a0517192d81d469e67f";
-const expectedSeamHead = "872758e8ea30ecd3e423ae266cf5c7cf586c8820";
+const expectedSeamHead = "8a95bfbfc132e3df77bd142943fede6a36f90a7b";
 const expectedPriorArt = "bf03e146d97ae2f0c2d4c4ec90456e1e544d2760";
 const excludedNames = new Set([".git", ".zig-cache", "node_modules", "zig-cache", "zig-out"]);
 
@@ -141,8 +141,8 @@ const gitOutput = (repo: string, args: string[]): string =>
 	execute("git", ["-C", repo, ...args], { environment: gitChildEnvironment() }).output.trim();
 
 const verifyWorktrees = (args: Arguments): void => {
-	if (gitOutput(args.seamYuku, ["symbolic-ref", "--short", "HEAD"]) !== "seam/dialect") {
-		fail("seam worktree must remain on seam/dialect");
+	if (gitOutput(args.seamYuku, ["symbolic-ref", "--short", "HEAD"]) !== "verify/pr164") {
+		fail("seam worktree must remain on verify/pr164");
 	}
 	if (gitOutput(args.seamYuku, ["rev-parse", "HEAD"]) !== expectedSeamHead) {
 		fail("seam worktree HEAD changed");
@@ -158,10 +158,10 @@ const verifyWorktrees = (args: Arguments): void => {
 	}
 	const tracking = execute(
 		"git",
-		["-C", args.controlYuku, "config", "--get", "branch.seam/dialect.remote"],
+		["-C", args.controlYuku, "config", "--get", "branch.verify/pr164.remote"],
 		{ allowFailure: true, environment: gitChildEnvironment() },
 	);
-	if (tracking.status === 0) fail("seam/dialect must not have a tracking remote");
+	if (tracking.status === 0) fail("verify/pr164 must not have a tracking remote");
 	if (args.compareRef !== expectedRef) fail(`compare ref must be exact ${expectedRef}`);
 };
 
@@ -982,7 +982,9 @@ const verifyHookContract = async (args: Arguments): Promise<void> => {
 				`parser-import negative did not fail for the module-boundary violation\n${parserImport.output}`,
 			);
 		}
-		await writeFile(dialectPath, `${validDialect}\npub fn parse() void {}\n`);
+		// Matches the build's "pub fn parse" scan without colliding with the
+		// dialect's legitimate `pub const parse` re-export.
+		await writeFile(dialectPath, `${validDialect}\npub fn parseSecond() void {}\n`);
 		const secondParser = execute("zig", ["build", "test-m1-module-cycle"], {
 			cwd: project,
 			allowFailure: true,

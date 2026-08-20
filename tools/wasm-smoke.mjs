@@ -14,7 +14,8 @@ import path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
-const wasmPath = process.env.YUKU_TSRX_WASM ?? path.join(repoRoot, "zig-out", "wasm", "yuku-tsrx.wasm");
+const wasmPath =
+  process.env.YUKU_TSRX_WASM ?? path.join(repoRoot, "zig-out", "wasm", "yuku-tsrx.wasm");
 const fixtureDir = path.join(repoRoot, "test", "parser", "misc", "tsrx");
 const docsDir = path.join(repoRoot, "docs");
 // docs/goals is planning material and docs/dist is generated output; neither is
@@ -78,7 +79,9 @@ let wasm = null;
 
 async function instantiate() {
   const bytes = await readFile(wasmPath).catch(() => {
-    throw new Error(`missing ${path.relative(repoRoot, wasmPath)} - run \`zig build wasm -Doptimize=ReleaseSmall\` first`);
+    throw new Error(
+      `missing ${path.relative(repoRoot, wasmPath)} - run \`zig build wasm -Doptimize=ReleaseSmall\` first`,
+    );
   });
   const module = new WebAssembly.Module(bytes);
   const imports = WebAssembly.Module.imports(module);
@@ -107,9 +110,10 @@ function takePrefixed(ptr) {
 function call(name, source, flags, opts) {
   const input = writeSource(source);
   try {
-    const ptr = opts === undefined
-      ? wasm.exports[name](input.ptr, input.byteLength, flags)
-      : wasm.exports[name](input.ptr, input.byteLength, flags, opts);
+    const ptr =
+      opts === undefined
+        ? wasm.exports[name](input.ptr, input.byteLength, flags)
+        : wasm.exports[name](input.ptr, input.byteLength, flags, opts);
     if (ptr === 0) throw new Error(`yuku-tsrx wasm: ${name} returned a null pointer`);
     return takePrefixed(ptr);
   } finally {
@@ -263,7 +267,9 @@ async function runFences() {
       }
     }
   }
-  console.log(`fences: ${checked} checked, ${skipped} marked no-playground, ${files.length} markdown files`);
+  console.log(
+    `fences: ${checked} checked, ${skipped} marked no-playground, ${files.length} markdown files`,
+  );
 }
 
 async function runSmoke() {

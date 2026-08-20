@@ -29,10 +29,37 @@ export function parse(source, options = {}) {
   return decode(parseWire(source, options), sourceText(source));
 }
 
-export function analyze(source, options = {}) {
+/**
+ * Analyze a source text, inferring the dialect from `filename` when one is
+ * given.
+ *
+ * The second argument is either a filename or the options object, so the
+ * `analyze(source, options)` shape that shipped in 0.1.1 keeps working
+ * unchanged. `lang` resolves in this order: an explicit `options.lang` wins,
+ * then inference from `filename` (the same `inferLang` `parseModule` uses),
+ * then the analyzer's own default.
+ *
+ * @param {string | Uint8Array} source Source text or its UTF-8 bytes.
+ * @param {string | import("./index.d.ts").ParseOptions} [filename]
+ *   Filename to infer the dialect from, or the options object.
+ * @param {import("./index.d.ts").ParseOptions} [options] Options, when the
+ *   second argument is a filename.
+ * @returns {import("./index.d.ts").AnalyzeResult}
+ */
+export function analyze(source, filename, options) {
+  let analyzeOptions;
+  if (typeof filename === "string") {
+    analyzeOptions = { ...options };
+    // `??=` and not a truthiness check: an explicitly-undefined `lang` means
+    // "not specified", which is exactly what the filename is here to answer.
+    analyzeOptions.lang ??= inferLang(filename);
+  } else {
+    // 0.1.1 shape: the second argument was the options object.
+    analyzeOptions = filename ?? options ?? {};
+  }
   const text = sourceText(source);
   const bytes = typeof source === "string" ? encoder.encode(source) : source;
-  return decodeAnalyzer(binding.analyze(bytes, options), text);
+  return decodeAnalyzer(binding.analyze(bytes, analyzeOptions), text);
 }
 
 function normalizeGenerateOptions(options) {

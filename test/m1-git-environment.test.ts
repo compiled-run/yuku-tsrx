@@ -10,7 +10,7 @@ import {
 
 const project = resolve(import.meta.dirname, "..");
 const controlYuku = resolve(project, "../yuku");
-const seamYuku = resolve(project, "../yuku-dialect");
+const seamYuku = resolve(project, "../yuku-minimal-seam");
 const foreignIndex = resolve(project, ".git/index");
 const compareRef = "eb2adcb4c17da16e7ade1a0517192d81d469e67f";
 const foreignEnvironment = { ...process.env, GIT_INDEX_FILE: foreignIndex };

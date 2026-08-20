@@ -439,6 +439,29 @@ export type Visitors = Record<
 };
 
 export function parse(source: string | Uint8Array, options?: ParseOptions): ParseResult;
+/**
+ * Analyze a source text with the dialect inferred from `filename`.
+ *
+ * `lang` resolves in this order:
+ *
+ * 1. an explicit `options.lang`, which always wins;
+ * 2. otherwise the dialect inferred from `filename` -- `.tsrx` and `.tsx` give
+ *    `tsx`, `.jsx` gives `jsx`, `.d.ts` gives `dts`, `.ts` gives `ts`, and
+ *    anything else gives `js`. Any `?query` or `#hash` suffix is ignored, so a
+ *    build-tool id like `view.tsrx?raw` still resolves `tsx`. This is the same
+ *    inference `parseModule` applies;
+ * 3. otherwise the analyzer's own default.
+ */
+export function analyze(
+	source: string | Uint8Array,
+	filename: string,
+	options?: ParseOptions,
+): AnalyzeResult;
+/**
+ * Analyze a source text with the dialect taken from `options.lang`, or the
+ * analyzer's default when it is absent. This is the call shape from 0.1.1; pass
+ * a filename as the second argument to have the dialect inferred instead.
+ */
 export function analyze(source: string | Uint8Array, options?: ParseOptions): AnalyzeResult;
 export function generate(program: Program, options?: GenerateOptions): GenerateResult;
 export function parseWire(source: string | Uint8Array, options?: ParseOptions): ArrayBuffer;

@@ -13,7 +13,7 @@ const validArgs = [
 	"--control-yuku",
 	resolve(project, "../yuku"),
 	"--seam-yuku",
-	resolve(project, "../yuku-dialect"),
+	resolve(project, "../yuku-minimal-seam"),
 	"--compare-ref",
 	"eb2adcb4c17da16e7ade1a0517192d81d469e67f",
 ];

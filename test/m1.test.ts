@@ -304,7 +304,7 @@ describe("M1 seam controls", () => {
 				"--control-yuku",
 				"../yuku",
 				"--seam-yuku",
-				"../yuku-dialect",
+				"../yuku-minimal-seam",
 				"--compare-ref",
 				"eb2adcb4c17da16e7ade1a0517192d81d469e67f",
 			],

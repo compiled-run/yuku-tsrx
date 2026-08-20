@@ -194,4 +194,6 @@ for (const demo of DEMOS) {
   );
 }
 
-process.stderr.write(`captured ${wrote} transcript file(s) into ${path.relative(repoRoot, outDir)}\n`);
+process.stderr.write(
+  `captured ${wrote} transcript file(s) into ${path.relative(repoRoot, outDir)}\n`,
+);
