@@ -547,3 +547,22 @@ export function duplicateBindings(program: object, source: string): DuplicateBin
  * declaration first, the repeat second.
  */
 export function duplicateBindingDiagnostics(program: object, source: string): Diagnostic[];
+
+/**
+ * Re-derive the span a reader would point at for the two malformed-markup
+ * shapes whose diagnostics land on the wrong offset: a mismatched or stray
+ * closing tag, whose span is widened back over its `</`, and a doubled closing
+ * angle (`</tag>>`), whose span is moved back onto the extra `>`. Only `start`
+ * moves; `end` is left where it was. Every other diagnostic is returned
+ * unchanged apart from clamping.
+ *
+ * `parseModule` already applies this to the errors it collects and to the
+ * message it throws, so a consumer only needs it when placing diagnostics that
+ * came from `parse` or `analyze` directly.
+ *
+ * Both endpoints are clamped into `source`, and `end` is never below `start`.
+ */
+export function authoredDiagnosticSpan(
+	diagnostic: Pick<Diagnostic, "start" | "end">,
+	source: string,
+): { start: number; end: number };

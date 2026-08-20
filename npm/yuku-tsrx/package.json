@@ -1,6 +1,6 @@
 {
 	"name": "yuku-tsrx",
-	"version": "0.1.1",
+	"version": "0.1.2",
 	"description": "TSRX parser, analyzer, and code generator: a compile-time dialect on Yuku, with a JavaScript API on a native addon",
 	"keywords": [
 		"analyzer",
@@ -26,6 +26,7 @@
 		"binding.js",
 		"decode.js",
 		"decode-analyzer.js",
+		"diagnostic-spans.js",
 		"encode.js",
 		"walk.js"
 	],
@@ -43,8 +44,8 @@
 		"provenance": true
 	},
 	"optionalDependencies": {
-		"@yuku-tsrx/binding-darwin-arm64": "0.1.1",
-		"@yuku-tsrx/binding-linux-x64-gnu": "0.1.1"
+		"@yuku-tsrx/binding-darwin-arm64": "0.1.2",
+		"@yuku-tsrx/binding-linux-x64-gnu": "0.1.2"
 	},
 	"engines": {
 		"node": ">=22"

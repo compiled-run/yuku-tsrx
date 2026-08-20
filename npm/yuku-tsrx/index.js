@@ -1,4 +1,5 @@
 import binding from "./binding.js";
+import { authoredDiagnosticSpan } from "./diagnostic-spans.js";
 import { decode } from "./decode.js";
 import { decode as decodeAnalyzer } from "./decode-analyzer.js";
 import { encode } from "./encode.js";
@@ -82,6 +83,7 @@ export function generate(program, options) {
 
 export function parseModule(source, filename, options = {}) {
   const { collect = false, loose = false, errors, comments, ...parseOptions } = options;
+  const text = sourceText(source);
   const result = parse(source, {
     ...parseOptions,
     lang: parseOptions.lang ?? inferLang(filename),
@@ -102,7 +104,14 @@ export function parseModule(source, filename, options = {}) {
   // the early errors a mid-edit file still recovers from -- redeclarations --
   // to `warning`, so they stay visible on `parse()` without failing the module
   // here. See src/dialect/diagnostics.zig for how that set was derived.
-  const fatal = result.diagnostics.filter((diagnostic) => diagnostic.severity === "error");
+  // Place the malformed-markup diagnostics on the markup the author wrote
+  // before anyone reads them, so the collected `errors` and the thrown message
+  // agree with each other and with what a reader would underline. See
+  // ./diagnostic-spans.js for which shapes this covers and why it is here
+  // rather than at the seam that assigns the spans.
+  const fatal = result.diagnostics
+    .filter((diagnostic) => diagnostic.severity === "error")
+    .map((diagnostic) => ({ ...diagnostic, ...authoredDiagnosticSpan(diagnostic, text) }));
   if (fatal.length > 0) {
     if (collect || loose) {
       if (errors) errors.push(...fatal);
@@ -384,4 +393,4 @@ export function duplicateBindingDiagnostics(program, source) {
   }));
 }
 
-export { decode, decodeAnalyzer, encode, walk };
+export { authoredDiagnosticSpan, decode, decodeAnalyzer, encode, walk };
