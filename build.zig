@@ -563,6 +563,7 @@ fn installNpmHostWrapper(b: *std.Build) void {
         "package.json",
         "decode.js",
         "decode-analyzer.js",
+        "diagnostic-spans.js",
         "encode.js",
         "walk.js",
     }) |name| {
