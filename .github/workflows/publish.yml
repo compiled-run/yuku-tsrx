@@ -141,13 +141,21 @@ jobs:
           # than two possibly-different ones merged over each other. It
           # excludes the darwin binding directory, which `zig build` stages a
           # manifest into on every platform but can only fill in on macOS.
+          # cpu pins a portable baseline. Without one, `zig build` compiles for
+          # the build runner's native CPU, and 0.1.2's linux binding - built on
+          # a newer microarchitecture than the fleet average - died with SIGILL
+          # ("Illegal instruction") on every consumer runner. x86_64_v2 (SSE4.2,
+          # no AVX requirement) runs on anything GitHub hosts; Apple Silicon is
+          # pinned to its own floor for the same hygiene.
           - runner: ubuntu-24.04
             binding: linux-x64-gnu
+            cpu: x86_64_v2
             upload: |
               yuku-tsrx/zig-out/npm/yuku-tsrx
               !yuku-tsrx/zig-out/npm/yuku-tsrx/@yuku-tsrx/binding-darwin-arm64
           - runner: macos-14
             binding: darwin-arm64
+            cpu: apple_m1
             upload: yuku-tsrx/zig-out/npm/yuku-tsrx/@yuku-tsrx/binding-darwin-arm64
     steps:
       - name: Check out the exact source revision
@@ -187,7 +195,7 @@ jobs:
       - name: Build the addon
         working-directory: yuku-tsrx
         shell: bash
-        run: zig build
+        run: zig build -Dcpu=${{ matrix.cpu }}
 
       # Only the ELF. A Debug ELF carries about 58MB of DWARF that no consumer
       # can use, and npm would ship every byte of it. --strip-debug only, never
