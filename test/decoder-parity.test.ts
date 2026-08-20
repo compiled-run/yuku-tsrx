@@ -2,20 +2,24 @@ import { readFileSync } from "node:fs";
 import { expect, test } from "vitest";
 import { analyze, parse } from "yuku-tsrx";
 
-// `decode.js` and `decode-analyzer.js` are emitted by two generators --
-// `tools/gen_parser_decoder.zig` and `tools/gen_analyzer_decoder.zig` -- that
-// are near-identical copies of one another differing only in the mode they pass
-// to `generate`. Nothing in the build makes them agree, and they silently drifted
-// once already: 0.1.0 shipped an analyzer decoder whose ArrayPattern and
-// ObjectPattern cases read the element/property count out of `f0` when the
-// encoder writes it to `f0b`, so every destructuring pattern decoded with an
-// empty `elements`/`properties` list. These tests exist so the next drift fails
-// here rather than in a consumer's AST.
+// `decode.js` and `decode-analyzer.js` are both emitted by `generate()` in
+// `tools/decoder_generator.zig`; `tools/gen_parser_decoder.zig` and
+// `tools/gen_analyzer_decoder.zig` are entry points that only pick a `Mode`.
 //
-// If one of these fails after a deliberate change to a generator, apply the same
-// change to the other and re-run `pnpm gen:npm`.
+// That single source is a recent repair. The two generators used to be
+// 2,280-line copies of one another, and the copies drifted: 0.1.0 shipped an
+// analyzer decoder whose ArrayPattern and ObjectPattern cases read the
+// element/property count out of `f0` when the encoder writes it to `f0b`, so
+// every destructuring pattern decoded with an empty `elements`/`properties`
+// list. These tests are the runtime half of the guard -- they check the shipped
+// artifacts, not the generator source, so they still fail if the two decoders
+// diverge for any reason: a mode-conditional creeping into per-node emission, a
+// hand-edit of a generated file, or one artifact regenerated without the other.
+//
+// If one of these fails, re-run `pnpm gen:npm` to regenerate both from the
+// shared generator, and treat a remaining difference as a real defect.
 
-const REGENERATE = "apply the same change to both tools/gen_*_decoder.zig, then run `pnpm gen:npm`";
+const REGENERATE = "regenerate both decoders from tools/decoder_generator.zig with `pnpm gen:npm`";
 
 const readDecoder = (name: string): string[] =>
 	readFileSync(`npm/yuku-tsrx/${name}`, "utf8").split("\n");
