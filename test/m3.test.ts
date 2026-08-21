@@ -66,7 +66,11 @@ test("walks every runtime TSRX record name in the accepted corpus", () => {
 			},
 		});
 	}
-	expect([...names].filter((name) => name.startsWith("JSX") || name === "StyleSheet")).toEqual(
+	expect(
+		[...names].filter(
+			(name) => name.startsWith("JSX") || name.startsWith("Css") || name === "StyleSheet",
+		),
+	).toEqual(
 		expect.arrayContaining([
 			"JSXCodeBlock",
 			"JSXIfExpression",
@@ -75,6 +79,9 @@ test("walks every runtime TSRX record name in the accepted corpus", () => {
 			"JSXTryExpression",
 			"JSXStyleElement",
 			"StyleSheet",
+			"CssRule",
+			"CssAtrule",
+			"CssSelector",
 		]),
 	);
 });
@@ -128,6 +135,9 @@ test("publishes the complete TSRX type-name surface without retagging", () => {
 		"JSXCodeBlock",
 		"JSXStyleElement",
 		"StyleSheet",
+		"CssRule",
+		"CssAtrule",
+		"CssSelector",
 		"TSRXExpression",
 		"JSXIfExpression",
 		"JSXForExpression",

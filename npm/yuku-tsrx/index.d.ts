@@ -161,9 +161,39 @@ export interface TSRXJSXFragment extends Expression {
 	closingFragment: TSRXJSXClosingFragment;
 }
 
+export interface CssSelector extends BaseNode {
+	type: "CssSelector";
+	/**
+	 * Offset into the enclosing `StyleSheet.source` at which a scope class must be
+	 * spliced, so `source.slice(0, scopeInsert) + "." + id + source.slice(scopeInsert)`
+	 * scopes the selector. Unlike `start`/`end`, which are absolute module positions,
+	 * this is sheet-relative and therefore stable across a generate/reparse round trip.
+	 * It counts UTF-8 bytes, which matches UTF-16 indices for the ASCII CSS that
+	 * selectors are written in.
+	 */
+	scopeInsert: number;
+}
+
+export interface CssRule extends BaseNode {
+	type: "CssRule";
+	prelude: CssSelector[];
+	block: Array<CssRule | CssAtrule>;
+}
+
+export interface CssAtrule extends BaseNode {
+	type: "CssAtrule";
+	name: string;
+	block: Array<CssRule | CssAtrule>;
+	/** True when `name` ends with "keyframes"; the block holds no scopable selectors. */
+	keyframes: boolean;
+}
+
 export interface StyleSheet extends BaseNode {
 	type: "StyleSheet";
 	source: string;
+	children: Array<CssRule | CssAtrule>;
+	/** False when the structure scanner bailed; `children` is then empty. */
+	scanned: boolean;
 }
 
 export interface JSXStyleElement extends Expression {

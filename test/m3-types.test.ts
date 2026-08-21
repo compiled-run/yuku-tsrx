@@ -2,6 +2,9 @@ import { expectTypeOf, test } from "vitest";
 import type {
 	BlockStatement,
 	Comment,
+	CssAtrule,
+	CssRule,
+	CssSelector,
 	Diagnostic,
 	Expression,
 	ForOfStatement,
@@ -94,7 +97,24 @@ const tryExpression: JSXTryExpression = {
 	},
 	pending: null,
 };
-const sheet: StyleSheet = { type: "StyleSheet", start: 1, end: 2, source: "a{}" };
+const selector: CssSelector = { type: "CssSelector", start: 1, end: 2, scopeInsert: 1 };
+const rule: CssRule = { type: "CssRule", start: 1, end: 2, prelude: [selector], block: [] };
+const atrule: CssAtrule = {
+	type: "CssAtrule",
+	start: 1,
+	end: 2,
+	name: "media",
+	block: [rule],
+	keyframes: false,
+};
+const sheet: StyleSheet = {
+	type: "StyleSheet",
+	start: 1,
+	end: 2,
+	source: "a{}",
+	children: [rule, atrule],
+	scanned: true,
+};
 const style: JSXStyleElement = {
 	type: "JSXStyleElement",
 	start: 0,

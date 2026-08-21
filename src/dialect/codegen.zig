@@ -3777,6 +3777,8 @@ fn dialectPrintRecord(comptime Host: type, host: *Host, record_index: u32) !void
             try host.dialectEmit(expression.expression.raw);
             try host.dialectWrite("}");
         },
+        // CSS structure records are offsets into the sheet text `style_sheet` already wrote.
+        .css_rule, .css_atrule, .css_selector => {},
         .for_of, .catch_clause, .array_pattern, .object_pattern => unreachable,
     }
 }
@@ -3838,6 +3840,9 @@ fn dialectPrintOverlay(
         .style_sheet,
         .jsx_style_element,
         .tsrx_expression,
+        .css_rule,
+        .css_atrule,
+        .css_selector,
         => false,
     };
 }

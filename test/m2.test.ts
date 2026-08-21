@@ -62,6 +62,17 @@ const expectedSubmoduleDifference = {
 		"Dialect-free Yuku must require string-literal module specifiers and contain no TSRX-specific submodule policy.",
 } as const;
 
+const expectedStyleSheetDifference = {
+	kind: "intentional-difference",
+	fixture: "tsrx/style-element.module.tsrx",
+	scannedSnapshot: "style-element.scanned.snapshot.json",
+	styleSheetCount: 5,
+	addedFields: ["children", "scanned"],
+	upstreamBase: "bf03e146d97ae2f0c2d4c4ec90456e1e544d2760",
+	justification:
+		"Prior-art Yuku carries no CSS structure scanner, so its StyleSheet nodes hold only the raw stylesheet text.",
+} as const;
+
 test("matches every immutable M2 tree and diagnostic oracle", () => {
 	const build = spawnSync("zig", ["build", "test-m2-fixtures"], { encoding: "utf8" });
 	expect(build.status, build.stderr).toBe(0);
@@ -81,10 +92,11 @@ test("matches every immutable M2 tree and diagnostic oracle", () => {
 	expect(result.status, result.stderr).toBe(0);
 	const reports = result.stdout.trim().split("\n");
 	expect(reports).toEqual([
+		JSON.stringify(expectedStyleSheetDifference),
 		JSON.stringify(expectedDifference),
 		JSON.stringify(expectedLazyDifference),
 		JSON.stringify(expectedSubmoduleDifference),
-		JSON.stringify({ kind: "intentional-difference-summary", count: 3 }),
+		JSON.stringify({ kind: "intentional-difference-summary", count: 4 }),
 		"M2 exact fixture oracle passed: 12 valid, 3 invalid, 3 dialect-off",
 	]);
 }, 30_000);

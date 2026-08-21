@@ -78,7 +78,47 @@
                         "type": "StyleSheet",
                         "start": 44,
                         "end": 278,
-                        "source": "\n            .card {\n                color: red;\n            }\n\n            /* stays in css */\n            @media (min-width: 40rem) {\n                .card {\n                    display: grid;\n                }\n            }\n        "
+                        "source": "\n            .card {\n                color: red;\n            }\n\n            /* stays in css */\n            @media (min-width: 40rem) {\n                .card {\n                    display: grid;\n                }\n            }\n        ",
+                        "children": [
+                          {
+                            "type": "CssRule",
+                            "start": 57,
+                            "end": 106,
+                            "prelude": [
+                              {
+                                "type": "CssSelector",
+                                "start": 57,
+                                "end": 62,
+                                "scopeInsert": 18
+                              }
+                            ],
+                            "block": []
+                          },
+                          {
+                            "type": "CssAtrule",
+                            "start": 151,
+                            "end": 269,
+                            "name": "media",
+                            "block": [
+                              {
+                                "type": "CssRule",
+                                "start": 195,
+                                "end": 255,
+                                "prelude": [
+                                  {
+                                    "type": "CssSelector",
+                                    "start": 195,
+                                    "end": 200,
+                                    "scopeInsert": 156
+                                  }
+                                ],
+                                "block": []
+                              }
+                            ],
+                            "keyframes": false
+                          }
+                        ],
+                        "scanned": true
                       }
                     ],
                     "closingElement": {
@@ -227,7 +267,24 @@
                   "type": "StyleSheet",
                   "start": 384,
                   "end": 408,
-                  "source": ".inline { color: blue; }"
+                  "source": ".inline { color: blue; }",
+                  "children": [
+                    {
+                      "type": "CssRule",
+                      "start": 384,
+                      "end": 408,
+                      "prelude": [
+                        {
+                          "type": "CssSelector",
+                          "start": 384,
+                          "end": 391,
+                          "scopeInsert": 7
+                        }
+                      ],
+                      "block": []
+                    }
+                  ],
+                  "scanned": true
                 }
               ],
               "closingElement": {
@@ -327,7 +384,24 @@
                     "type": "StyleSheet",
                     "start": 483,
                     "end": 517,
-                    "source": ".from-code-block { color: green; }"
+                    "source": ".from-code-block { color: green; }",
+                    "children": [
+                      {
+                        "type": "CssRule",
+                        "start": 483,
+                        "end": 517,
+                        "prelude": [
+                          {
+                            "type": "CssSelector",
+                            "start": 483,
+                            "end": 499,
+                            "scopeInsert": 16
+                          }
+                        ],
+                        "block": []
+                      }
+                    ],
+                    "scanned": true
                   }
                 ],
                 "closingElement": {
@@ -478,7 +552,44 @@
                     "type": "StyleSheet",
                     "start": 605,
                     "end": 770,
-                    "source": "\n        .card:hover::before {\n            content: 'hover';\n        }\n\n        .card > h2:first-child,\n        .title {\n            font-weight: 700;\n        }\n    "
+                    "source": "\n        .card:hover::before {\n            content: 'hover';\n        }\n\n        .card > h2:first-child,\n        .title {\n            font-weight: 700;\n        }\n    ",
+                    "children": [
+                      {
+                        "type": "CssRule",
+                        "start": 614,
+                        "end": 675,
+                        "prelude": [
+                          {
+                            "type": "CssSelector",
+                            "start": 614,
+                            "end": 633,
+                            "scopeInsert": 14
+                          }
+                        ],
+                        "block": []
+                      },
+                      {
+                        "type": "CssRule",
+                        "start": 685,
+                        "end": 765,
+                        "prelude": [
+                          {
+                            "type": "CssSelector",
+                            "start": 685,
+                            "end": 707,
+                            "scopeInsert": 90
+                          },
+                          {
+                            "type": "CssSelector",
+                            "start": 717,
+                            "end": 723,
+                            "scopeInsert": 118
+                          }
+                        ],
+                        "block": []
+                      }
+                    ],
+                    "scanned": true
                   }
                 ],
                 "closingElement": {
@@ -542,7 +653,18 @@
                   "type": "StyleSheet",
                   "start": 805,
                   "end": 865,
-                  "source": "@KEYFRAMES pulse { from { opacity: 0; } to { opacity: 1; } }"
+                  "source": "@KEYFRAMES pulse { from { opacity: 0; } to { opacity: 1; } }",
+                  "children": [
+                    {
+                      "type": "CssAtrule",
+                      "start": 805,
+                      "end": 865,
+                      "name": "KEYFRAMES",
+                      "block": [],
+                      "keyframes": true
+                    }
+                  ],
+                  "scanned": true
                 }
               ],
               "closingElement": {

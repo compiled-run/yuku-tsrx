@@ -62,6 +62,9 @@ pub const JSXTryExpression = struct {
 pub const StyleSheet = struct {
     pub const estree_type = "StyleSheet";
     source: abi.StringSlice,
+    children: abi.NodeList,
+    /// false means the structure scanner bailed; `children` is then empty.
+    scanned: bool,
 };
 
 pub const JSXStyleElement = struct {
@@ -75,6 +78,24 @@ pub const JSXStyleElement = struct {
 pub const TSRXExpression = struct {
     pub const estree_type = "TSRXExpression";
     expression: abi.NodeRef,
+};
+
+pub const CssRule = struct {
+    pub const estree_type = "CssRule";
+    prelude: abi.NodeList,
+    block: abi.NodeList,
+};
+
+pub const CssAtrule = struct {
+    pub const estree_type = "CssAtrule";
+    name: abi.StringSlice,
+    block: abi.NodeList,
+    keyframes: bool,
+};
+
+pub const CssSelector = struct {
+    pub const estree_type = "CssSelector";
+    scope_insert: abi.ScalarU32,
 };
 
 pub const Record = union(enum) {
@@ -91,12 +112,16 @@ pub const Record = union(enum) {
     style_sheet: StyleSheet,
     jsx_style_element: JSXStyleElement,
     tsrx_expression: TSRXExpression,
+    // Appended only: the Record union is positional ABI (tags 185/186/187).
+    css_rule: CssRule,
+    css_atrule: CssAtrule,
+    css_selector: CssSelector,
 };
 
 pub const record_count: u8 = @typeInfo(Record).@"union".fields.len;
 
 comptime {
-    std.debug.assert(record_count == 13);
+    std.debug.assert(record_count == 16);
     std.debug.assert(@sizeOf(NodeRecord) <= 28);
     std.debug.assert(@sizeOf(ForOfOverlay) <= 28);
     std.debug.assert(@sizeOf(CatchClauseOverlay) <= 28);
@@ -110,4 +135,7 @@ comptime {
     std.debug.assert(@sizeOf(StyleSheet) <= 28);
     std.debug.assert(@sizeOf(JSXStyleElement) <= 28);
     std.debug.assert(@sizeOf(TSRXExpression) <= 28);
+    std.debug.assert(@sizeOf(CssRule) <= 28);
+    std.debug.assert(@sizeOf(CssAtrule) <= 28);
+    std.debug.assert(@sizeOf(CssSelector) <= 28);
 }

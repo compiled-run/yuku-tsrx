@@ -24,3 +24,20 @@ const from_code_block = @{
 };
 
 export { view, standalone, from_code_block };
+
+const pseudo = (
+    <style>
+        .card:hover::before {
+            content: 'hover';
+        }
+
+        .card > h2:first-child,
+        .title {
+            font-weight: 700;
+        }
+    </style>
+);
+
+const motion = <style>@KEYFRAMES pulse { from { opacity: 0; } to { opacity: 1; } }</style>;
+
+export { motion, pseudo };

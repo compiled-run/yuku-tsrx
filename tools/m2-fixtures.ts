@@ -73,6 +73,34 @@ export const submoduleImportDifference = Object.freeze({
 		"Dialect-free Yuku must require string-literal module specifiers and contain no TSRX-specific submodule policy.",
 } as const);
 
+export const styleSheetScannerDifference = Object.freeze({
+	kind: "intentional-difference",
+	fixture: "tsrx/style-element.module.tsrx",
+	scannedSnapshot: "style-element.scanned.snapshot.json",
+	styleSheetCount: 5,
+	addedFields: Object.freeze(["children", "scanned"]),
+	upstreamBase: "bf03e146d97ae2f0c2d4c4ec90456e1e544d2760",
+	justification:
+		"Prior-art Yuku carries no CSS structure scanner, so its StyleSheet nodes hold only the raw stylesheet text.",
+} as const);
+
+const scannedStyleSheetKeys = ["type", "start", "end", "source", "children", "scanned"];
+
+const priorArtProjection = (value: unknown, visits: { styleSheets: number }): unknown => {
+	if (Array.isArray(value)) return value.map((entry) => priorArtProjection(entry, visits));
+	if (value === null || typeof value !== "object") return value;
+	const node = value as Record<string, unknown>;
+	if (node.type === "StyleSheet") {
+		visits.styleSheets += 1;
+		assert.deepEqual(Object.keys(node), scannedStyleSheetKeys, "scanned StyleSheet key set drift");
+		assert.equal(node.scanned, true, "scanned StyleSheet is not marked scanned");
+		return { type: node.type, start: node.start, end: node.end, source: node.source };
+	}
+	const rebuilt: Record<string, unknown> = {};
+	for (const [key, entry] of Object.entries(node)) rebuilt[key] = priorArtProjection(entry, visits);
+	return rebuilt;
+};
+
 type IntentionalDifference =
 	| typeof intentionalDifference
 	| typeof lazyDestructuringDifference
@@ -253,6 +281,30 @@ const main = async (): Promise<void> => {
 			sourceType: "module",
 		});
 		assert.deepEqual(reference, expected, `immutable oracle drift for ${name}`);
+		if (`tsrx/${name}` === styleSheetScannerDifference.fixture) {
+			const scanned = JSON.parse(
+				await readFile(
+					join(tsrxRoot, "snapshots", styleSheetScannerDifference.scannedSnapshot),
+					"utf8",
+				),
+			);
+			assert.deepEqual(
+				current.get(`tsrx/${name}`),
+				scanned,
+				`production tree mismatch for ${name}`,
+			);
+			const visits = { styleSheets: 0 };
+			const projected = priorArtProjection(scanned, visits);
+			assert.equal(
+				visits.styleSheets,
+				styleSheetScannerDifference.styleSheetCount,
+				`scanned StyleSheet count mismatch for ${name}`,
+			);
+			assert.deepEqual(projected, expected, `prior-art projection mismatch for ${name}`);
+			intentionalDifferenceCount += 1;
+			console.log(JSON.stringify(styleSheetScannerDifference));
+			continue;
+		}
 		assert.deepEqual(current.get(`tsrx/${name}`), expected, `production tree mismatch for ${name}`);
 	}
 
@@ -291,8 +343,8 @@ const main = async (): Promise<void> => {
 			console.log(JSON.stringify(difference));
 		}
 	}
-	assert.equal(intentionalDifferenceCount, 3);
-	console.log(JSON.stringify({ kind: "intentional-difference-summary", count: 3 }));
+	assert.equal(intentionalDifferenceCount, 4);
+	console.log(JSON.stringify({ kind: "intentional-difference-summary", count: 4 }));
 	console.log("M2 exact fixture oracle passed: 12 valid, 3 invalid, 3 dialect-off");
 };
 
